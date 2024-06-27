@@ -5,7 +5,7 @@ import bagpy
 import rosbag
 from bagpy import bagreader
 import genpy
-
+import os
 
 
 # Sample time of approximately 10 milliseconds for wheelspeed
@@ -46,10 +46,10 @@ def read_File(fName):
                     if isinstance(attr, bytes):
                         try:
                             attr = attr.decode('utf-8')
-                        except UnicodeDecodeError:
+                        except (SyntaxError, UnicodeError):
                             try:
                                 attr = attr.decode('latin1')  # or another encoding
-                            except UnicodeDecodeError as e:
+                            except (SyntaxError, UnicodeError) as e:
                                 print(f"Failed to decode attribute {slot_name}: {e}")
                                 continue
                     msg_data[slot_name] = attr
@@ -63,7 +63,7 @@ def read_File(fName):
 
             #i += 1
 
-    except (UnicodeDecodeError, genpy.message.MessageException) as e:
+    except ((SyntaxError, UnicodeError), genpy.message.MessageException) as e:
             print(f"An error occurred: {e}")
 
     #print(msg_data.get("header").stamp.secs)
@@ -118,36 +118,50 @@ def read_bag_to_csv(bag_file, csv_file):
 
         # Write the header
         header_written = False
+        try:
+            # Iterate over all topics and messages
+            for topic, msg, t in bag.read_messages():
+                    if not header_written:
+                        # Write header based on message fields
+                        header = ['topic', 'timestamp'] + msg.__slots__
+                        writer.writerow(header)
+                        header_written = True
 
-        # Iterate over all topics and messages
-        for topic, msg, t in bag.read_messages():
-            try:
-                if not header_written:
-                    # Write header based on message fields
-                    header = ['topic', 'timestamp'] + msg.__slots__
-                    writer.writerow(header)
-                    header_written = True
+                    # Extract message data
+                    row = [topic, t.to_sec()]
+                    for slot in msg.__slots__:
+                        attr = getattr(msg, slot)
+                        if isinstance(attr, (int, float, str, bool)):
+                            row.append(attr)
+                        elif hasattr(attr, '__slots__'):
+                            for sub_slot in attr.__slots__:
+                                sub_attr = getattr(attr, sub_slot)
+                                if isinstance(sub_attr, (int, float, str, bool)):
+                                    row.append(sub_attr)
+                                else:
+                                    row.append(str(sub_attr))
+                        else:
+                            row.append(str(attr))
 
-                # Extract message data
-                row = [topic, t.to_sec()]
-                for slot in msg.__slots__:
-                    attr = getattr(msg, slot)
-                    if isinstance(attr, (int, float, str, bool)):
-                        row.append(attr)
-                    elif hasattr(attr, '__slots__'):
-                        for sub_slot in attr.__slots__:
-                            sub_attr = getattr(attr, sub_slot)
-                            if isinstance(sub_attr, (int, float, str, bool)):
-                                row.append(sub_attr)
-                            else:
-                                row.append(str(sub_attr))
-                    else:
-                        row.append(str(attr))
+                    # Write message data to CSV
+                    writer.writerow(row)
 
-                # Write message data to CSV
-                writer.writerow(row)
-            except Exception as e:
-                print(f"An error occurred while processing topic {topic}: {e}")
-                traceback.print_exc()
+        except (SyntaxError, UnicodeError) as e:
+            print(f"An error occurred while processing topic {topic}: {e}")
+            print("FUCK V2: NEW AND IMPROVED")
+            print(traceback.format_exc())
 
-    bag.close()
+    bag.close() #redundant i think
+
+def stupid_encoding_error(bag_file):
+    # b = bagreader('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
+    # csvfiles = []
+    # for t in b.topics:
+    #     data = b.message_by_topic(t)
+    #     csvfiles.append(data)
+
+    # with open(bag_file, 'r', encoding='utf-16') as f:    #errors='ignore'
+    #     print(f.read())
+    bag = rosbag.Bag(bag_file)
+    for topic, msg, t in bag.read_messages():
+        print(msg)
