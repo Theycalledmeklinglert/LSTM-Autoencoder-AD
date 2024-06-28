@@ -1,15 +1,37 @@
 import csv
 import traceback
-
-import bagpy
 import rosbag
-from bagpy import bagreader
 import genpy
-import os
+import pandas as pd
+from bagpy import bagreader
+
+
+def read_file_to_csv_bagpy(fName):
+    b = bagreader(fName)
+
+    csvfiles = []
+    for topic in b.topics:
+        if (topic =="/sbg/imu_data"):   #causes UTF-8 encoding error
+            continue
+        print(topic)
+        data = b.message_by_topic(topic)
+        print(data)
+        csvfiles.append(data)
+
+    print(csvfiles[0])
+    print(csvfiles[0])
+    data = pd.read_csv(csvfiles[0])
+
+    print(csvfiles[1])
+    data = pd.read_csv(csvfiles[1])
+
+    print(csvfiles[2])
+    data = pd.read_csv(csvfiles[2])
+
 
 
 # Sample time of approximately 10 milliseconds for wheelspeed
-def read_File(fName):
+def read_file_rosbag(fName):
     # rosbag = bagreader(fName)
     # print(rosbag.topic_table)
     # rosbag.get
@@ -28,7 +50,7 @@ def read_File(fName):
 
     #for topic, msg, t in bag.read_messages(topics=['/can_interface/wheelspeed']):
     try:
-        for topic, msg, t in bag.read_messages(topics=topics):
+        for topic, msg, t in bag.read_messages():
 
             #print(msg)
 

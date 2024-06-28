@@ -1,6 +1,6 @@
 # This is a sample Python script.
 from raw_data_processing import rosbag_file_conversion
-from raw_data_processing.rosbag_file_conversion import stupid_encoding_error
+from raw_data_processing.rosbag_file_conversion import stupid_encoding_error, read_file_to_csv_bagpy
 
 
 # Press Shift+F10 to execute it or replace it with your code.
@@ -13,8 +13,9 @@ def print_hi(name):
 if __name__ == '__main__':
     #rosbag_file_conversion.read_bag_to_csv('./aufnahmen/tmp/autocross_valid_16_05_23.bag', 'rosbagFileCSV.csv')
     #rosbag_file_conversion.read_File('./aufnahmen/tmp/skidpad_geschoben.bag')
-    rosbag_file_conversion.read_File('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
+    #rosbag_file_conversion.read_File('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
     # stupid_encoding_error('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
+    read_file_to_csv_bagpy('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
     print_hi('PyCharm')
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/

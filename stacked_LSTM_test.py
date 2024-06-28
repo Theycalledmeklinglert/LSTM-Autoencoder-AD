@@ -4,7 +4,7 @@ from numpy import array
 
 # Define the stacked LSTM model
 model = Sequential()
-model.add(LSTM(50, return_sequences=True, input_shape=(100, 1)))  #todo: try ", activation='sigmoid'"
+model.add(LSTM(50, return_sequences=True, input_shape=(100, 1)))  #todo: try ", activation='sigmoid'" -->should be sigmoid by default i believe
 model.add(LSTM(50, return_sequences=True))  # Second LSTM layer
 model.add(LSTM(50))  # Third LSTM layer, does not return sequences
 model.add(Dense(1, activation='sigmoid'))  # Output layer for regression (use appropriate activation for classification tasks)
