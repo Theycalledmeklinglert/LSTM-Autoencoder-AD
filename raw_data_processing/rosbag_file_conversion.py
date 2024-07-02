@@ -1,13 +1,26 @@
-import csv
 import traceback
 import rosbag
 import genpy
 import pandas as pd
 from bagpy import bagreader
+import numpy as np
 
+def csv_file_to_dataframe(path):
+    df = pd.read_csv(path)
+    samples = np.zeros((df.shape[0], df.shape[1]))
+    #print(df.index)
+    for row_index, row in df.iterrows():
+        for col_index, column in enumerate(df.columns):
+            samples[row_index, col_index] = row[column]
+            # print("row_index: " + str(row_index))
+            # print("column: " + str(column) + " + col_index: " + str(col_index))
+            # print("grabbed: " + str(row[column]))
 
-def read_file_to_csv_bagpy(fName):
-    b = bagreader(fName)
+    print(samples)
+    return samples
+
+def read_file_to_csv_bagpy(path):
+    b = bagreader(path)
 
     csvfiles = []
     for topic in b.topics:
@@ -18,7 +31,6 @@ def read_file_to_csv_bagpy(fName):
         print(data)
         csvfiles.append(data)
 
-    print(csvfiles[0])
     print(csvfiles[0])
     data = pd.read_csv(csvfiles[0])
 

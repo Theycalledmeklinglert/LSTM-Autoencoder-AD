@@ -1,10 +1,9 @@
 import random
 
 import numpy as np
-import tensorflow as tf
 from keras import Sequential
+from keras.src.callbacks import Callback
 from keras.src.layers import LSTM, Dense
-from sklearn.preprocessing import MinMaxScaler
 
 def generate_test_array(start=0, end=1000, sequence_length=5):
     sequences = []
@@ -51,8 +50,10 @@ def test_stacked_LSTM():
     model.add(Dense(future_steps * X.shape[2]))  # Output layer for regression (use appropriate activation for classification tasks)
     model.compile(optimizer='adam', loss='mse')  # Use 'binary_crossentropy' for binary classification #standard: mse
 
+    loss_threshold = 0.01
+    loss_threshold_callback = LossThresholdCallback(threshold=loss_threshold)
     # todo: check what the 2nd reshape here does?
-    model.fit(X, Y.reshape((Y.shape[0], future_steps * X.shape[2])), epochs=4000, verbose=1)
+    model.fit(X, Y.reshape((Y.shape[0], future_steps * X.shape[2])), epochs=6000, verbose=1, callbacks=[loss_threshold_callback])
 
     # TODO: m (=input data dimensions) input units; dxl (d = features to be predicted, number of time steps to be predicted into future) output units
 
@@ -73,6 +74,7 @@ def test_stacked_LSTM():
 
     print(f"Predicted sequences: \n{predicted_sequences}")
 
+    model.save('./models/stacked_LSTM.keras')
 
 def create_sequences(data, time_steps, future_steps):
     X, Y = [], []
@@ -84,3 +86,15 @@ def create_sequences(data, time_steps, future_steps):
     print("\n")
     print(np.array(Y))
     return np.array(X), np.array(Y)
+
+class LossThresholdCallback(Callback):
+    def __init__(self, threshold):
+        super(LossThresholdCallback, self).__init__()
+        self.threshold = threshold
+
+    def on_epoch_end(self, epoch, logs=None):
+        logs = logs or {}
+        loss = logs.get('loss')
+        if loss is not None and loss > self.threshold:
+            print(f"\nEpoch {epoch + 1}: loss {loss} exceeded threshold {self.threshold}, stopping training.")
+            self.model.stop_training = True

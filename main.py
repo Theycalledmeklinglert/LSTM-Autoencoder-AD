@@ -1,6 +1,6 @@
 # This is a sample Python script.
 from raw_data_processing import rosbag_file_conversion
-from raw_data_processing.rosbag_file_conversion import stupid_encoding_error, read_file_to_csv_bagpy
+from raw_data_processing.rosbag_file_conversion import stupid_encoding_error, read_file_to_csv_bagpy, csv_file_to_dataframe
 from stacked_lstm import test_stacked_LSTM
 
 
@@ -17,7 +17,8 @@ if __name__ == '__main__':
     #rosbag_file_conversion.read_File('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
     # stupid_encoding_error('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
     #read_file_to_csv_bagpy('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
-    test_stacked_LSTM()
+    #test_stacked_LSTM()
+    csv_file_to_dataframe("./aufnahmen/tmp/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
     print_hi('PyCharm')
 
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
