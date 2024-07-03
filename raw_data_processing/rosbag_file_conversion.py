@@ -5,7 +5,7 @@ import pandas as pd
 from bagpy import bagreader
 import numpy as np
 
-def csv_file_to_dataframe(path):
+def csv_file_to_dataframe_to_numpyArray(path):
     df = pd.read_csv(path)
     samples = np.zeros((df.shape[0], df.shape[1]))
     #print(df.index)

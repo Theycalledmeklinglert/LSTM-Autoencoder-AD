@@ -1,7 +1,7 @@
 # This is a sample Python script.
 from raw_data_processing import rosbag_file_conversion
-from raw_data_processing.rosbag_file_conversion import stupid_encoding_error, read_file_to_csv_bagpy, csv_file_to_dataframe
-from stacked_lstm import test_stacked_LSTM
+from raw_data_processing.rosbag_file_conversion import stupid_encoding_error, read_file_to_csv_bagpy, csv_file_to_dataframe_to_numpyArray
+from stacked_lstm import test_stacked_LSTM, create_XY_data_sequences, generate_test_array
 
 
 # Press Shift+F10 to execute it or replace it with your code.
@@ -18,7 +18,13 @@ if __name__ == '__main__':
     # stupid_encoding_error('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
     #read_file_to_csv_bagpy('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
     #test_stacked_LSTM()
-    csv_file_to_dataframe("./aufnahmen/tmp/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
+    #samples_arr = csv_file_to_dataframe_to_numpyArray("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
+    #X, Y = create_XY_data_sequences(samples_arr, 3, 3)
+    #X, Y = create_XY_data_sequences(generate_test_array(), 3, 3)
+    #print("X: " + str(X[:3:]))
+    #print("Y: " + str(Y[:3:]))
+
+    test_stacked_LSTM("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
+
     print_hi('PyCharm')
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
