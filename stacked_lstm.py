@@ -182,30 +182,33 @@ def test_stacked_LSTM(csv_path):
 
     check_shapes_after_reshape(X_sN, X_vN2, X_tN, Y_sN, Y_vN2, Y_tN)
 
+
     model = Sequential()
     # todo: Experiment with different number of units in hidden layers
     #model.add(BatchNormalization())
-
     model.add(LSTM(X_sN.shape[2], return_sequences=True, input_shape=(time_steps, X_sN.shape[2]), activation='tanh', recurrent_activation='sigmoid'))
     model.add(Dropout(0.2))
     #model.add(LSTM(50, return_sequences=True, activation='tanh', recurrent_activation='sigmoid'))
     #model.add(Dropout(0.2))
-
     model.add(LSTM(units=X_sN.shape[2]*time_steps, activation='tanh', recurrent_activation='sigmoid'))  # Third LSTM layer, does not return sequences
     model.add(Dropout(0.2))
     #todo: not sure if sigmoid is useful here #activation='sigmoid'
     model.add(Dense(future_steps * X_sN.shape[2], activation='sigmoid'))  # Output layer for regression (use appropriate activation for classification tasks)
-
     model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])  # Use 'binary_crossentropy' for binary classification #standard: mse
     model.summary()
-
     #early_stopping_callback = EarlyStopping(monitor='val_loss', patience=40, restore_best_weights=True, mode='min', min_delta=0.001)
     #lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=5, min_lr=1e-6)
-
     # todo: check what the 2nd reshape here does? -->The target data Y needs to be reshaped to match the expected output shape of the model, which is (samples, future_steps * features).
-    model.fit(X_sN, Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])), epochs=2000, batch_size=32, validation_data=(X_vN2, Y_vN2.reshape(Y_vN2.shape[0], future_steps*Y_vN2.shape[2])), verbose=1, callbacks=[accuracy_threshold_callback])
 
+    print(str(Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])).shape))
+    print(str(Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2]))))
+
+    return
+
+    model.fit(X_sN, Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])), epochs=2000, batch_size=32, validation_data=(X_vN2, Y_vN2.reshape(Y_vN2.shape[0], future_steps*Y_vN2.shape[2])), verbose=1, callbacks=[accuracy_threshold_callback])
     model.save('./models/stacked_LSTM.keras')
+
+
     #m (=input data dimensions) input units; dxl (d = features to be predicted, number of time steps to be predicted into future) output units
     rand_int = random.randint(0, X_tN.shape[0]-3)
     recent_sequence = np.array(X_tN[rand_int])  # insert sequence to be predicted here #np.array([[31, 32, 33, 34, 35]])

@@ -1,4 +1,5 @@
 # This is a sample Python script.
+from aufnahmen.enc_dec_lstm import test_LSTM_autoencoder
 from raw_data_processing import rosbag_file_conversion
 from raw_data_processing.rosbag_file_conversion import stupid_encoding_error, read_file_to_csv_bagpy, csv_file_to_dataframe_to_numpyArray
 from stacked_lstm import test_stacked_LSTM, create_XY_data_sequences, generate_test_array
@@ -24,7 +25,7 @@ if __name__ == '__main__':
     #print("X: " + str(X[:3:]))
     #print("Y: " + str(Y[:3:]))
 
-    test_stacked_LSTM("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
-
+    #test_stacked_LSTM("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
+    test_LSTM_autoencoder("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
     print_hi('PyCharm')
 

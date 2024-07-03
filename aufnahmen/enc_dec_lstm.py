@@ -2,7 +2,7 @@ from random import random
 
 import numpy as np
 from keras import Sequential
-from keras.src.layers import LSTM, Dense
+from keras.src.layers import LSTM, Dense, Reshape
 from sklearn.preprocessing import StandardScaler
 
 from raw_data_processing.rosbag_file_conversion import csv_file_to_dataframe_to_numpyArray
@@ -10,10 +10,17 @@ from stacked_lstm import AccuracyThresholdCallback, create_XY_data_sequences, sp
     reshape_data_for_LSTM, check_shapes_after_reshape
 
 
-def test_stacked_LSTM(csv_path):
+def reshape_data_for_autencoder_LSTM(data, time_steps):
+    # Reshape X to fit LSTM input shape (samples, time steps, features)
+    print(data.shape)
+    data = data.reshape((data.shape[0], time_steps, data.shape[1]))
+    print("Reshaped data for LSTM into: " + str(data))
+    return data
+
+def test_LSTM_autoencoder(csv_path):
     #data = generate_test_array()
     time_steps = 1  # Use the 3 most recent value
-    future_steps = 3  # Predict the next 3 values
+    future_steps = 1  # Predict the next 3 values
     accuracy_threshold = 0.90
     accuracy_threshold_callback = AccuracyThresholdCallback(threshold=accuracy_threshold)
 
@@ -33,55 +40,49 @@ def test_stacked_LSTM(csv_path):
     data = np.hstack((normalized_feature_1, normalized_feature_2))
     print("HERE FUCK: " + str(data))
 
-    X, Y = create_XY_data_sequences(data, time_steps, future_steps)
+    #X, Y = create_XY_data_sequences(data, time_steps, future_steps)
+    #print("X: " + str(X))
+    #print("Y: " + str(Y))
+    X_sN, X_vN2, X_tN = split_data_sequence_into_datasets(data)
+    #Y_sN, Y_vN2, Y_tN = split_data_sequence_into_datasets(Y)
 
-    print("X: " + str(X))
-    print("Y: " + str(Y))
-    X_sN, X_vN2, X_tN = split_data_sequence_into_datasets(X)
-    Y_sN, Y_vN2, Y_tN = split_data_sequence_into_datasets(Y)
+    X_sN = reshape_data_for_autencoder_LSTM(X_sN, time_steps)
+    X_vN2 = reshape_data_for_autencoder_LSTM(X_vN2, time_steps)
+    X_tN = reshape_data_for_autencoder_LSTM(X_tN, time_steps)
 
-    X_sN = reshape_data_for_LSTM(X_sN, time_steps)
-    X_vN2 = reshape_data_for_LSTM(X_vN2, time_steps)
-    X_tN = reshape_data_for_LSTM(X_tN, time_steps)
+    #Y_sN = reshape_data_for_autencoder_LSTM(Y_sN, future_steps)  #used to be time_steps
+    #Y_vN2 = reshape_data_for_autencoder_LSTM(Y_vN2, future_steps)
+    #Y_tN = reshape_data_for_autencoder_LSTM(Y_tN, future_steps)
 
-    Y_sN = reshape_data_for_LSTM(Y_sN, future_steps)  #used to be time_steps
-    Y_vN2 = reshape_data_for_LSTM(Y_vN2, future_steps)
-    Y_tN = reshape_data_for_LSTM(Y_tN, future_steps)
+    #check_shapes_after_reshape(X_sN, X_vN2, X_tN, Y_sN, Y_vN2, Y_tN)
 
-    check_shapes_after_reshape(X_sN, X_vN2, X_tN, Y_sN, Y_vN2, Y_tN)
-
-    # model = Sequential()
-    # # todo: Experiment with different number of units in hidden layers
-    # #model.add(BatchNormalization())
-    #
-    # model.add(LSTM(X_sN.shape[2], return_sequences=True, input_shape=(time_steps, X_sN.shape[2]), activation='tanh', recurrent_activation='sigmoid'))
-    # model.add(Dropout(0.2))
-    # #model.add(LSTM(50, return_sequences=True, activation='tanh', recurrent_activation='sigmoid'))
-    # #model.add(Dropout(0.2))
-    #
-    # model.add(LSTM(units=X_sN.shape[2]*time_steps, activation='tanh', recurrent_activation='sigmoid'))  # Third LSTM layer, does not return sequences
-    # model.add(Dropout(0.2))
-    # #todo: not sure if sigmoid is useful here #activation='sigmoid'
-    # model.add(Dense(future_steps * X_sN.shape[2], activation='sigmoid'))  # Output layer for regression (use appropriate activation for classification tasks)
-    #
-    # model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])  # Use 'binary_crossentropy' for binary classification #standard: mse
-    #model.summary()
-
-
+    #todo: Macht es Sinn das Zeitfeld mitzuverarbeiten?
+    #todo:
     #1.determine number of units in each layer
     #2.make .fit() work
     #3.test while changing parameters
+    #4. Think about changing time_steps and test
 
     # Encoder
     encoder = Sequential()
-    encoder.add(LSTM(X_sN.shape[2], activation='sigmoid', input_shape=(time_steps, X_sN.shape[2]), return_sequences=True)) #todo: maybe change number of units
-    encoder.add(LSTM(X_sN.shape[2], activation='sigmoid', input_shape=(time_steps, X_sN.shape[2]), return_sequences=False, recurrent_dropout=0.2)) #todo: try with return_sequneces=false
+    encoder.add(LSTM(64, activation='sigmoid', input_shape=(time_steps, X_sN.shape[2]), return_sequences=True)) #maybe change number of units
+    print("1: " + str(encoder.output_shape))  # Print output shape after first LSTM layer
+    #encoder.add(Reshape((1, 32)))  # Reshape output to match expected input of next layer
+
+    #32*time_steps?
+    encoder.add(LSTM(32, activation='sigmoid', return_sequences=True, recurrent_dropout=0.2)) #try with return_sequneces=false
+    print("2: " + str(encoder.output_shape))  # Print output shape after first LSTM layer
 
     # Decoder
     decoder = Sequential()
-    decoder.add(LSTM(X_sN.shape[2], activation='sigmoid', input_shape=(time_steps, X_sN.shape[2]), return_sequences=True, recurrent_dropout=0.2)) #todo: try with return_sequneces=false
-    decoder.add(LSTM(X_sN.shape[2], activation='sigmoid', input_shape=(time_steps, X_sN.shape[2]), recurrent_dropout=0.2)) #todo: try with return_sequneces=false
-    decoder.add(Dense(future_steps * X_sN.shape[2]))
+    #                               input_shape=(time_steps, 32),
+    decoder.add(LSTM(32, activation='sigmoid', input_shape=(time_steps, 32), return_sequences=True, recurrent_dropout=0.2)) #try with return_sequneces=false
+    print("3: " + str(decoder.output_shape))  # Print output shape after first LSTM layer
+
+    decoder.add(LSTM(64, activation='sigmoid', input_shape=(time_steps, 32), return_sequences=False, recurrent_dropout=0.2)) #try with return_sequneces=false
+    print("4: " + str(decoder.output_shape))  # Print output shape after first LSTM layer
+    decoder.add(Dense(X_sN.shape[2]))
+    print("5: " + str(decoder.output_shape))  # Print output shape after first LSTM layer
 
     # Autoencoder
     autoencoder = Sequential([encoder, decoder])
@@ -91,9 +92,12 @@ def test_stacked_LSTM(csv_path):
     #early_stopping_callback = EarlyStopping(monitor='val_loss', patience=40, restore_best_weights=True, mode='min', min_delta=0.001)
     #lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=5, min_lr=1e-6)
 
-    # todo: check what the 2nd reshape here does? -->The target data Y needs to be reshaped to match the expected output shape of the model, which is (samples, future_steps * features).
-    #model.fit(X_sN, Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])), epochs=2000, batch_size=32, validation_data=(X_vN2, Y_vN2.reshape(Y_vN2.shape[0], future_steps*Y_vN2.shape[2])), verbose=1, callbacks=[accuracy_threshold_callback])
-    autoencoder.fit(X_sN, Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])), epochs=2000, batch_size=32, validation_data=(X_vN2, Y_vN2.reshape(Y_vN2.shape[0], future_steps*Y_vN2.shape[2])), verbose=1, callbacks=[accuracy_threshold_callback])
+    print(str(X_sN.shape))
+    print(str(X_vN2.shape))
+    #print(str(X_sN.reshape((X_sN.shape[0], X_sN.shape[2])).shape))
+    autoencoder.fit(X_sN, X_sN, epochs=2000, batch_size=32, validation_data=(X_vN2, X_vN2), verbose=1, callbacks=[accuracy_threshold_callback])
+
+    #autoencoder_train = autoencoder.fit(train_X, train_ground, batch_size=batch_size, epochs=epochs, verbose=1, validation_data=(valid_X, valid_ground))
 
     #model.save('./models/stacked_LSTM.keras')
     autoencoder.save('./models/LSTM_autoencoder_decoder.keras')
