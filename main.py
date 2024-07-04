@@ -1,7 +1,7 @@
 # This is a sample Python script.
 from aufnahmen.enc_dec_lstm import test_LSTM_autoencoder
-from raw_data_processing import rosbag_file_conversion
-from raw_data_processing.rosbag_file_conversion import stupid_encoding_error, read_file_to_csv_bagpy, csv_file_to_dataframe_to_numpyArray
+from raw_data_processing import data_processing
+from raw_data_processing.data_processing import read_file_to_csv_bagpy, csv_file_to_dataframe_to_numpyArray
 from stacked_lstm import test_stacked_LSTM, create_XY_data_sequences, generate_test_array
 
 

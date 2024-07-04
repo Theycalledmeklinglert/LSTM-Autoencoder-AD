@@ -1,9 +1,15 @@
+import csv
 import traceback
 import rosbag
 import genpy
 import pandas as pd
 from bagpy import bagreader
 import numpy as np
+
+
+def convert_timestamp_to_time_diff(data):
+    time_diffs = np.diff(data[:, 0], prepend=data[0, 0])
+    return np.column_stack((time_diffs, data[:, 1]))
 
 def csv_file_to_dataframe_to_numpyArray(path):
     df = pd.read_csv(path)
@@ -16,7 +22,7 @@ def csv_file_to_dataframe_to_numpyArray(path):
             # print("column: " + str(column) + " + col_index: " + str(col_index))
             # print("grabbed: " + str(row[column]))
 
-    print(samples)
+    print("converted csv to numpy array: " + str(samples))
     return samples
 
 def read_file_to_csv_bagpy(path):
@@ -186,16 +192,3 @@ def read_bag_to_csv(bag_file, csv_file):
             print(traceback.format_exc())
 
     bag.close() #redundant i think
-
-def stupid_encoding_error(bag_file):
-    # b = bagreader('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
-    # csvfiles = []
-    # for t in b.topics:
-    #     data = b.message_by_topic(t)
-    #     csvfiles.append(data)
-
-    # with open(bag_file, 'r', encoding='utf-16') as f:    #errors='ignore'
-    #     print(f.read())
-    bag = rosbag.Bag(bag_file)
-    for topic, msg, t in bag.read_messages():
-        print(msg)

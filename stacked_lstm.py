@@ -7,7 +7,7 @@ from keras.src.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
 from keras.src.layers import LSTM, Dense, Dropout, BatchNormalization
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-from raw_data_processing.rosbag_file_conversion import csv_file_to_dataframe_to_numpyArray
+from raw_data_processing.data_processing import csv_file_to_dataframe_to_numpyArray, convert_timestamp_to_time_diff
 
 
 def generate_test_array(start=0, end=1000, sequence_length=5):
@@ -156,14 +156,21 @@ def test_stacked_LSTM(csv_path):
     # todo:experimental
     # todo:experimental
 
-    feature_1 = data[:, 0].reshape(-1, 1)  # The large-scale feature
-    feature_2 = data[:, 1].reshape(-1, 1)  # The smaller-scale feature
-    scaler = StandardScaler()
-    normalized_feature_1 = scaler.fit_transform(feature_1)
-    normalized_feature_2 = scaler.fit_transform(feature_2)
+    # feature_1 = data[:, 0].reshape(-1, 1)  # The large-scale feature
+    # feature_2 = data[:, 1].reshape(-1, 1)  # The smaller-scale feature
+    # scaler = StandardScaler()
+    # normalized_feature_1 = scaler.fit_transform(feature_1)
+    # normalized_feature_2 = scaler.fit_transform(feature_2)
+    #
+    # data = np.hstack((normalized_feature_1, normalized_feature_2))
 
-    data = np.hstack((normalized_feature_1, normalized_feature_2))
+    #Todo: Test with this
+    data_with_time_diffs = convert_timestamp_to_time_diff(data)
+    print(str(data_with_time_diffs))
+
     print("HERE FUCK: " + str(data))
+
+    return
 
     X, Y = create_XY_data_sequences(data, time_steps, future_steps)
 
@@ -203,14 +210,14 @@ def test_stacked_LSTM(csv_path):
     print(str(Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])).shape))
     print(str(Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2]))))
 
-    return
+    early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
 
-    model.fit(X_sN, Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])), epochs=2000, batch_size=32, validation_data=(X_vN2, Y_vN2.reshape(Y_vN2.shape[0], future_steps*Y_vN2.shape[2])), verbose=1, callbacks=[accuracy_threshold_callback])
+    model.fit(X_sN, Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])), epochs=2000, batch_size=32, validation_data=(X_vN2, Y_vN2.reshape(Y_vN2.shape[0], future_steps*Y_vN2.shape[2])), verbose=1, callbacks=[early_stopping])
     model.save('./models/stacked_LSTM.keras')
 
 
     #m (=input data dimensions) input units; dxl (d = features to be predicted, number of time steps to be predicted into future) output units
-    rand_int = random.randint(0, X_tN.shape[0]-3)
+    rand_int = random.randint(0, X_tN.shape[0])
     recent_sequence = np.array(X_tN[rand_int])  # insert sequence to be predicted here #np.array([[31, 32, 33, 34, 35]])
     print("Sequence chosen for prediction: " + str(recent_sequence))
     print(recent_sequence.shape)
