@@ -121,10 +121,10 @@ def split_data_sequence_into_datasets(arr):
     return sN, vN2, tN
 
 
-def reshape_data_for_LSTM(data, time_steps):
+def reshape_data_for_LSTM(data, steps):
     # Reshape X to fit LSTM input shape (samples, time steps, features)
-    print(data.shape)
-    data = data.reshape((data.shape[0], time_steps, data.shape[2]))
+    #print(data.shape)
+    data = data.reshape((data.shape[0], steps, data.shape[2]))
     print("Reshaped data for LSTM into: " + str(data))
     return data
 
@@ -178,7 +178,6 @@ def test_stacked_LSTM(csv_path):
     print("Y: " + str(Y))
     X_sN, X_vN2, X_tN = split_data_sequence_into_datasets(X)
     Y_sN, Y_vN2, Y_tN = split_data_sequence_into_datasets(Y)
-
     X_sN = reshape_data_for_LSTM(X_sN, time_steps)
     X_vN2 = reshape_data_for_LSTM(X_vN2, time_steps)
     X_tN = reshape_data_for_LSTM(X_tN, time_steps)
@@ -186,9 +185,7 @@ def test_stacked_LSTM(csv_path):
     Y_sN = reshape_data_for_LSTM(Y_sN, future_steps)  #used to be time_steps
     Y_vN2 = reshape_data_for_LSTM(Y_vN2, future_steps)
     Y_tN = reshape_data_for_LSTM(Y_tN, future_steps)
-
     check_shapes_after_reshape(X_sN, X_vN2, X_tN, Y_sN, Y_vN2, Y_tN)
-
 
     model = Sequential()
     # todo: Experiment with different number of units in hidden layers
@@ -210,26 +207,11 @@ def test_stacked_LSTM(csv_path):
     print(str(Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])).shape))
     print(str(Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2]))))
 
-    early_stopping = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
-
+    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10, restore_best_weights=True)
     model.fit(X_sN, Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])), epochs=2000, batch_size=32, validation_data=(X_vN2, Y_vN2.reshape(Y_vN2.shape[0], future_steps*Y_vN2.shape[2])), verbose=1, callbacks=[early_stopping])
     model.save('./models/stacked_LSTM.keras')
 
-
     #m (=input data dimensions) input units; dxl (d = features to be predicted, number of time steps to be predicted into future) output units
-    rand_int = random.randint(0, X_tN.shape[0])
-    recent_sequence = np.array(X_tN[rand_int])  # insert sequence to be predicted here #np.array([[31, 32, 33, 34, 35]])
-    print("Sequence chosen for prediction: " + str(recent_sequence))
-    print(recent_sequence.shape)
-    # Reshape recent_sequence to fit LSTM input shape (samples, time steps, features)
-    recent_sequence = recent_sequence.reshape((1, recent_sequence.shape[0], recent_sequence.shape[1]))
-
-    # Predict future_steps sequences
-    predicted_sequences = model.predict(recent_sequence)
-
-    # Reshape predicted sequences to match the original y shape
-    predicted_sequences = predicted_sequences.reshape((future_steps, X_tN.shape[2])) #data.shape[1])
-
-    print(f"Predicted sequences: \n{predicted_sequences}")
+    stacked_LSTM_predict_and_calculate_error(model, X_tN, Y_tN, future_steps, 10)
 
 

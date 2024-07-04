@@ -1,5 +1,5 @@
 # This is a sample Python script.
-from aufnahmen.enc_dec_lstm import test_LSTM_autoencoder
+from aufnahmen.enc_dec_lstm import test_LSTM_autoencoder, grid_search_LSTM_autoencoder
 from raw_data_processing import data_processing
 from raw_data_processing.data_processing import read_file_to_csv_bagpy, csv_file_to_dataframe_to_numpyArray
 from stacked_lstm import test_stacked_LSTM, create_XY_data_sequences, generate_test_array
@@ -13,7 +13,6 @@ def print_hi(name):
     print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
 
 if __name__ == '__main__':
-    #rosbag_file_conversion.read_bag_to_csv('./aufnahmen/tmp/autocross_valid_16_05_23.bag', 'rosbagFileCSV.csv')
     #rosbag_file_conversion.read_File('./aufnahmen/tmp/skidpad_geschoben.bag')
     #rosbag_file_conversion.read_File('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
     # stupid_encoding_error('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
@@ -26,6 +25,7 @@ if __name__ == '__main__':
     #print("Y: " + str(Y[:3:]))
 
     #test_stacked_LSTM("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
-    test_LSTM_autoencoder("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
+    #test_LSTM_autoencoder("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv")
+    grid_search_LSTM_autoencoder("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv")
     print_hi('PyCharm')
 

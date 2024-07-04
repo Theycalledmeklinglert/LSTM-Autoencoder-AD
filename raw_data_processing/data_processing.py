@@ -6,13 +6,13 @@ import pandas as pd
 from bagpy import bagreader
 import numpy as np
 
-
 def convert_timestamp_to_time_diff(data):
     time_diffs = np.diff(data[:, 0], prepend=data[0, 0])
-    return np.column_stack((time_diffs, data[:, 1]))
+    return np.column_stack((time_diffs, data[:, 1:]))
 
-def csv_file_to_dataframe_to_numpyArray(path):
-    df = pd.read_csv(path)
+
+def csv_file_to_dataframe_to_numpyArray(file_path):
+    df = clean_csv(file_path)
     samples = np.zeros((df.shape[0], df.shape[1]))
     #print(df.index)
     for row_index, row in df.iterrows():
@@ -24,6 +24,20 @@ def csv_file_to_dataframe_to_numpyArray(path):
 
     print("converted csv to numpy array: " + str(samples))
     return samples
+
+
+def clean_csv(file_path):
+    df = pd.read_csv(file_path)
+    columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'header.seq']
+
+    for col in columns_to_remove:
+        if col in df.columns:
+            df.drop(columns=[col], inplace=True)
+
+    # Remove columns that contain only the column name
+    df.dropna(axis=1, how='all', inplace=True)
+    return df
+
 
 def read_file_to_csv_bagpy(path):
     b = bagreader(path)
