@@ -5,11 +5,24 @@ import genpy
 import pandas as pd
 from bagpy import bagreader
 import numpy as np
+from sklearn.preprocessing import MaxAbsScaler
 
-def convert_timestamp_to_time_diff(data):
+
+def normalize_data(data, scaler):
+    return scaler.fit_transform(data)
+
+def reverse_normalize_data(scaled_data, scaler):
+    return scaler.inverse_transform(scaled_data)
+
+def convert_timestamp_to_absolute_time_diff(data):
     time_diffs = np.diff(data[:, 0], prepend=data[0, 0])
     return np.column_stack((time_diffs, data[:, 1:]))
 
+def convert_timestamp_to_relative_time_diff(data):
+    start_timestamp = data[0, 0]
+    for i in range(0, len(data)):
+        data[i][0] = data[i][0] - start_timestamp
+    return data
 
 def csv_file_to_dataframe_to_numpyArray(file_path):
     df = clean_csv(file_path)
@@ -36,6 +49,12 @@ def clean_csv(file_path):
 
     # Remove columns that contain only the column name
     df.dropna(axis=1, how='all', inplace=True)
+
+    # Remove columns that only contain one and the same value
+    for col in df.columns:
+        if df[col].nunique() == 1:
+            df.drop(columns=[col], inplace=True)
+
     return df
 
 

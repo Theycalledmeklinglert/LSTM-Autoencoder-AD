@@ -7,7 +7,8 @@ from keras.src.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
 from keras.src.layers import LSTM, Dense, Dropout, BatchNormalization
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-from raw_data_processing.data_processing import csv_file_to_dataframe_to_numpyArray, convert_timestamp_to_time_diff
+from raw_data_processing.data_processing import csv_file_to_dataframe_to_numpyArray, \
+    convert_timestamp_to_absolute_time_diff, convert_timestamp_to_relative_time_diff
 
 
 def generate_test_array(start=0, end=1000, sequence_length=5):
@@ -165,7 +166,9 @@ def test_stacked_LSTM(csv_path):
     # data = np.hstack((normalized_feature_1, normalized_feature_2))
 
     #Todo: Test with this
-    data_with_time_diffs = convert_timestamp_to_time_diff(data)
+    #data_with_time_diffs = convert_timestamp_to_absolute_time_diff(data)
+    data_with_time_diffs = convert_timestamp_to_relative_time_diff(data)
+
     print(str(data_with_time_diffs))
 
     print("HERE FUCK: " + str(data))
