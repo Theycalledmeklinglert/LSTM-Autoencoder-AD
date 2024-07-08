@@ -2,18 +2,17 @@ import random
 from functools import partial
 
 import numpy as np
-from keras import Sequential
+from keras import Sequential, Loss, Input, Model
 from keras.src.callbacks import EarlyStopping
-from keras.src.layers import LSTM, Dense, Reshape, RepeatVector
+from keras.src.layers import LSTM, Dense, Reshape, RepeatVector, TimeDistributed, Lambda
 from keras.src.optimizers import Adam
 from scikeras.wrappers import KerasClassifier
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler, MinMaxScaler
-from tensorflow.python.keras.losses import Loss
 
 from raw_data_processing.data_processing import csv_file_to_dataframe_to_numpyArray, \
-    convert_timestamp_to_absolute_time_diff, convert_timestamp_to_relative_time_diff, normalize_data
-from stacked_lstm import create_XY_data_sequences, split_data_sequence_into_datasets, \
-    reshape_data_for_LSTM, check_shapes_after_reshape
+    convert_timestamp_to_absolute_time_diff, convert_timestamp_to_relative_time_diff, normalize_data, \
+    reshape_data_for_autoencoder_lstm
+from stacked_lstm import create_XY_data_sequences, split_data_sequence_into_datasets, check_shapes_after_reshape
 from utils import autoencoder_predict_and_calculate_error
 from sklearn.model_selection import GridSearchCV
 import tensorflow as tf
@@ -22,22 +21,13 @@ global time_steps  # Use the time_steps most recent value
 global future_steps  # Predict the next future_steps values
 global scaler
 
-
-def reshape_data_for_autencoder_LSTM(data, time_steps):
-    # Reshape X to fit LSTM input shape (samples, time steps, features)
-    print(data.shape)
-    data = data.reshape((data.shape[0], time_steps, data.shape[1]))
-    print("Reshaped data for LSTM into: " + str(data))
-    return data
-
-
 class CustomL2Loss(Loss):
     def call(self, y_true, y_pred):
         return tf.reduce_mean(tf.square(y_true - y_pred))
 
 
 
-def test_LSTM_autoencoder(csv_path):
+def old_LSTM_autoencoder(csv_path):
     global time_steps
     global future_steps
     global scaler
@@ -59,9 +49,9 @@ def test_LSTM_autoencoder(csv_path):
 
     X_sN, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs)
 
-    X_sN = reshape_data_for_autencoder_LSTM(X_sN, time_steps)
-    X_vN2 = reshape_data_for_autencoder_LSTM(X_vN2, time_steps)
-    X_tN = reshape_data_for_autencoder_LSTM(X_tN, time_steps)
+    X_sN = reshape_data_for_autoencoder_lstm(X_sN, time_steps)
+    X_vN2 = reshape_data_for_autoencoder_lstm(X_vN2, time_steps)
+    X_tN = reshape_data_for_autoencoder_lstm(X_tN, time_steps)
 
     #todo:
     #1. Test while changing parameters
@@ -76,7 +66,7 @@ def test_LSTM_autoencoder(csv_path):
     #8. TODO: follow the process dscribed here!!!::file:///C:/Users/Luca/Downloads/1607.00148v2.pdf;file:///C:/Users/Luca/Downloads/1607.00148v2.pdf;file:///C:/Users/Luca/Downloads/1607.00148v2.pdf;file:///C:/Users/Luca/Downloads/1607.00148v2.pdf
             #todo: -----> Do I have to let the encoder process the entire sequence and then shove that into the decoder but in reverse order and the decoder is trained on the reconstruction error?
             #todo: -----> then how do I train the encoder on it
-            #todo: -----> it uses windows too
+            #todo: -----> it uses windows too lmao??
 
     # # Run grid search
     # param_grid = {'classifier__input_shape': [X.shape[1]],
@@ -132,6 +122,66 @@ def test_LSTM_autoencoder(csv_path):
     autoencoder_predict_and_calculate_error(autoencoder, X_tN, future_steps, 10, scaler)
 
 
+def test_lstm_autoencoder(input_dim, timesteps, latent_dim, num_layers, dropout=0.0):
+    model = create_lstm_autoencoder(input_dim, timesteps, latent_dim, num_layers, dropout)
+    model.compile(optimizer='adam', loss=CustomL2Loss(), metrics=['accuracy'])
+    model.summary()
+
+    return model
+
+
+def create_lstm_autoencoder(input_dim, timesteps, latent_dim, num_layers, dropout=0.0):
+    # Encoder
+    encoder_inputs = Input(shape=(timesteps, input_dim))
+    encoded = encoder_inputs
+
+    for _ in range(num_layers - 1):
+        encoded = LSTM(latent_dim, activation='relu', return_sequences=True, dropout=dropout)(encoded)
+
+    encoder_outputs, state_h, state_c = LSTM(latent_dim, activation='relu', return_sequences=False, return_state=True, dropout=dropout)(encoded)
+    encoder_states = [state_h, state_c]
+
+    #todo: Test reverse encoder output
+    #todo: Different procedure for training and inference apperently?: During training, the decoder uses x (i) as input to obtain the state h(i−1)D --> x(i) or x(i)' ?
+
+
+    #decoder_inputs = RepeatVector(timesteps)(encoder_outputs)  # Initialize decoder with the encoded vector
+    # Reverse the input sequence
+    reversed_inputs = Lambda(lambda x: tf.reverse(x, axis=[1]))(encoder_inputs)
+
+    # Use the first value of the reversed sequence as initial input for the decoder
+    initial_decoder_input = Lambda(lambda x: x[:, 0, :])(reversed_inputs)
+    initial_decoder_input = tf.expand_dims(initial_decoder_input, 1)
+
+
+    # debug
+    print("encoder inputs: " + str(encoder_inputs))
+    print("reversed encoder inputs: " + str(reversed_inputs))
+    print("1st element of reversed encoder inputs: " + str(initial_decoder_input))
+
+
+    decoder_lstm = LSTM(latent_dim, activation='relu', return_sequences=True, return_state=True, dropout=dropout)
+    decoder_dense = Dense(input_dim)
+
+    all_outputs = []
+    inputs = initial_decoder_input
+    for t in range(timesteps):
+        decoder_outputs, state_h, state_c = decoder_lstm(inputs, initial_state=encoder_states)
+        outputs = decoder_dense(decoder_outputs)
+        all_outputs.append(outputs)
+        inputs = outputs  # Use the last output as the input for the next time step
+        encoder_states = [state_h, state_c]
+
+    decoder_outputs = tf.concat(all_outputs, axis=1)
+
+    # Define the model that will turn encoder_inputs into decoder_outputs
+    model = Model(encoder_inputs, decoder_outputs)
+
+    #model = Model([encoder_inputs, decoder_inputs], decoder_outputs) todo: ???
+
+    return model
+
+
 def grid_search_LSTM_autoencoder(csv_path):
     time_steps = 1
     future_steps = 1  # Predict the next 3 values
@@ -141,9 +191,9 @@ def grid_search_LSTM_autoencoder(csv_path):
     data_with_time_diffs = convert_timestamp_to_absolute_time_diff(data)
     print(str(data_with_time_diffs))
     X_sN, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs)
-    X_sN = reshape_data_for_autencoder_LSTM(X_sN, time_steps)
-    X_vN2 = reshape_data_for_autencoder_LSTM(X_vN2, time_steps)
-    X_tN = reshape_data_for_autencoder_LSTM(X_tN, time_steps)
+    X_sN = reshape_data_for_autoencoder_lstm(X_sN, time_steps)
+    X_vN2 = reshape_data_for_autoencoder_lstm(X_vN2, time_steps)
+    X_tN = reshape_data_for_autoencoder_lstm(X_tN, time_steps)
 
     input_dim = X_sN.shape[2]  # Number of features
 
