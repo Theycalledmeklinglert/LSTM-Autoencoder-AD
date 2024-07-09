@@ -82,67 +82,6 @@ class AccuracyThresholdCallback(Callback):
             self.model.stop_training = True
 
 
-    #TODO: split vN1 and vN2 into X_vN1 and Y_vN1 / X_vN2 and Y_vN2 (-->i guess Y should just be X data with all indexes shifted by future_steps to the left?
-def split_data_sequence_into_datasets(arr):
-    train_ratio = 0.7
-    val1_ratio = 0.0  #TODO: should be 0.2; haven't implemented early_stopping using val1 yet
-    val2_ratio = 0.2  #TODO: temp bandaid while early_stopping is not implemented
-    test_ratio = 0.1
-
-    assert (train_ratio*10 + val1_ratio*10 + val2_ratio*10 + test_ratio*10) == 10   #due to stupid floating point assertionError
-
-    n_total = len(arr)
-    n_train = int(train_ratio * n_total)
-    n_val1 = int(val1_ratio * n_total)
-    n_val2 = int(val2_ratio * n_total)
-    n_test = n_total - n_train - n_val1 - n_val2  # To ensure all samples are used
-
-    print(f"Total samples: {n_total}")
-    print(f"Training samples: {n_train}")
-    #print(f"Validation 1 samples: {n_val1}")
-    print(f"Validation 2 samples: {n_val2}")
-    print(f"Test samples: {n_test}")
-
-    # Split data sequentially
-    sN = arr[:n_train]
-    #vN1 = arr[n_train:n_train + n_val1]
-    vN2 = arr[n_train + n_val1:n_train + n_val1 + n_val2]
-    tN = arr[n_train + n_val1 + n_val2:n_train + n_val1 + n_val2 + n_test]
-    print(f"Training set size: {len(sN)}")
-    #print(f"Validation set 1 size: {len(vN1)}")
-    print(f"Validation set 2 size: {len(vN2)}")
-    print(f"Test set size: {len(tN)}")
-
-    print("sN df: " + str(sN))
-    #print("vN1 df: " + str(vN1))
-    print("vN2 df: " + str(vN2))
-    print("tN df: " + str(tN))
-
-    #return sN, vN1, vN2, tN
-    return sN, vN2, tN
-
-
-def reshape_data_for_LSTM(data, steps):
-    # Reshape X to fit LSTM input shape (samples, time steps, features)
-    #print(data.shape)
-    data = data.reshape((data.shape[0], steps, data.shape[2]))
-    print("Reshaped data for LSTM into: " + str(data))
-    return data
-
-def check_shapes_after_reshape(X_sN, X_vN2, X_tN, Y_sN, Y_vN2, Y_tN):
-    shapes = [X_sN.shape, X_vN2.shape, X_tN.shape, Y_sN.shape, Y_vN2.shape, Y_tN.shape]
-    print("Shapes of arrays after reshaping:")
-    for i, shape in enumerate(shapes):
-        print(f"Array {i+1}: {shape}")
-
-    # Check if all arrays have the same shape in terms of time_steps and features
-    try:
-        shape_to_compare = (shapes[0][1], shapes[0][2])
-        if not all((shape[1], shape[2]) == shape_to_compare for shape in shapes):
-            raise ValueError("Shapes of reshaped arrays are not consistent in terms of time_steps and features!")
-    except ValueError as e:
-        print(f"Error: {str(e)}")
-
 def test_stacked_LSTM(csv_path):
     #data = generate_test_array()
     time_steps = 1  # Use the 3 most recent value
