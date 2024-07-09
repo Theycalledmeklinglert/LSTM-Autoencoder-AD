@@ -6,7 +6,7 @@ from keras import Loss
 
 from raw_data_processing.data_processing import reverse_normalize_data
 
-
+# test
 def autoencoder_predict_and_calculate_error(model, X_tN, future_steps, iterations, scaler):
     all_err_vecs = []
     for i in range(0, iterations):
