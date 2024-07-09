@@ -11,7 +11,11 @@ from sklearn.preprocessing import MaxAbsScaler
 def reshape_data_for_autoencoder_lstm(data, time_steps):
     # Reshape X to fit LSTM input shape (samples, time steps, features)
     print(data.shape)
-    data = data.reshape((data.shape[0], time_steps, data.shape[1]))
+    if(time_steps > 1):
+        data = data[:(data.shape[0]//time_steps) * time_steps]
+        data = data.reshape((data.shape[0]//time_steps, time_steps, data.shape[1]))
+    else:
+        data = data.reshape((data.shape[0], time_steps, data.shape[1]))
     print("Reshaped data for LSTM into: " + str(data))
     return data
 
@@ -20,6 +24,8 @@ def normalize_data(data, scaler):
     return scaler.fit_transform(data)
 
 def reverse_normalize_data(scaled_data, scaler):
+    if scaler is None:
+        return scaled_data
     return scaler.inverse_transform(scaled_data)
 
 def convert_timestamp_to_absolute_time_diff(data):

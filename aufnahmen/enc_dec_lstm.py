@@ -26,7 +26,6 @@ class CustomL2Loss(Loss):
         return tf.reduce_mean(tf.square(y_true - y_pred))
 
 
-
 def old_LSTM_autoencoder(csv_path):
     global time_steps
     global future_steps
@@ -61,8 +60,6 @@ def old_LSTM_autoencoder(csv_path):
     #5. Find a way to define a threshold for detecting anomaly out of prediction error
     #  ----> Doesnt this just work for point anomalies?
     #6. Fuse multiple datasets somehow and test performance
-    #7. ANSTATT NUR DIFFERENZEN DER TIMESTAMPS ZU VERWENDEN (temporale Abhängigkeit geht verloren) einfach Differenz zwischen allen TIMESTAMPS und dem TIMESTAMP der ersten Messung in
-    #   CSV bilden!!!!!! (und dann evtl normalisieren)
     #8. TODO: follow the process dscribed here!!!::file:///C:/Users/Luca/Downloads/1607.00148v2.pdf;file:///C:/Users/Luca/Downloads/1607.00148v2.pdf;file:///C:/Users/Luca/Downloads/1607.00148v2.pdf;file:///C:/Users/Luca/Downloads/1607.00148v2.pdf
             #todo: -----> Do I have to let the encoder process the entire sequence and then shove that into the decoder but in reverse order and the decoder is trained on the reconstruction error?
             #todo: -----> then how do I train the encoder on it
@@ -121,65 +118,95 @@ def old_LSTM_autoencoder(csv_path):
     autoencoder.save('./models/LSTM_autoencoder_decoder.keras')
     autoencoder_predict_and_calculate_error(autoencoder, X_tN, future_steps, 10, scaler)
 
+class LSTMAutoEncoder(tf.keras.Model):
+    def __init__(self, input_dim, time_steps, latent_dim, num_layers, dropout):
+        super(LSTMAutoEncoder, self).__init__()
+        self.latent_dim = latent_dim
+        self.input_dim = input_dim
+        self.time_steps = time_steps
+        self.num_layers = num_layers
+        self.dropout = dropout
 
-def test_lstm_autoencoder(input_dim, timesteps, latent_dim, num_layers, dropout=0.0):
-    model = create_lstm_autoencoder(input_dim, timesteps, latent_dim, num_layers, dropout)
-    model.compile(optimizer='adam', loss=CustomL2Loss(), metrics=['accuracy'])
-    model.summary()
+        # Encoder
+        self.encoder_lstm = [LSTM(latent_dim, activation='relu', return_sequences=False, return_state=True, dropout=dropout) for _ in range(num_layers - 1)]
+        self.encoder_lstm.append(LSTM(latent_dim, activation='relu', return_sequences=False, return_state=True, dropout=dropout))
+        #self.encoder_lstm = LSTM(latent_dim, activation='relu', return_sequences=False, return_state=True, dropout=dropout)
 
-    return model
+        # Decoder
+        #self.decoder_lstm = [LSTM(latent_dim, activation='relu', return_sequences=True, return_state=True, dropout=dropout) for _ in range(num_layers - 1)]
+        #self.decoder_lstm.append(LSTM(latent_dim, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
+        self.decoder_lstm = LSTM(latent_dim, activation='relu', return_sequences=True, return_state=True, dropout=dropout)
 
+        self.dense = Dense(input_dim)
 
-def create_lstm_autoencoder(input_dim, timesteps, latent_dim, num_layers, dropout=0.0):
-    # Encoder
-    encoder_inputs = Input(shape=(timesteps, input_dim))
-    encoded = encoder_inputs
+    def call(self, encoder_inputs, decoder_inputs):
+        x = encoder_inputs
+        training = tf.keras.backend.learning_phase()
+        for lstm_layer in self.encoder_lstm[:-1]:   #all but last layer
+            x = lstm_layer(x)
 
-    for _ in range(num_layers - 1):
-        encoded = LSTM(latent_dim, activation='relu', return_sequences=True, dropout=dropout)(encoded)
-
-    encoder_outputs, state_h, state_c = LSTM(latent_dim, activation='relu', return_sequences=False, return_state=True, dropout=dropout)(encoded)
-    encoder_states = [state_h, state_c]
-
-    #todo: Test reverse encoder output
-    #todo: Different procedure for training and inference apperently?: During training, the decoder uses x (i) as input to obtain the state h(i−1)D --> x(i) or x(i)' ?
-
-
-    #decoder_inputs = RepeatVector(timesteps)(encoder_outputs)  # Initialize decoder with the encoded vector
-    # Reverse the input sequence
-    reversed_inputs = Lambda(lambda x: tf.reverse(x, axis=[1]))(encoder_inputs)
-
-    # Use the first value of the reversed sequence as initial input for the decoder
-    initial_decoder_input = Lambda(lambda x: x[:, 0, :])(reversed_inputs)
-    initial_decoder_input = tf.expand_dims(initial_decoder_input, 1)
-
-
-    # debug
-    print("encoder inputs: " + str(encoder_inputs))
-    print("reversed encoder inputs: " + str(reversed_inputs))
-    print("1st element of reversed encoder inputs: " + str(initial_decoder_input))
-
-
-    decoder_lstm = LSTM(latent_dim, activation='relu', return_sequences=True, return_state=True, dropout=dropout)
-    decoder_dense = Dense(input_dim)
-
-    all_outputs = []
-    inputs = initial_decoder_input
-    for t in range(timesteps):
-        decoder_outputs, state_h, state_c = decoder_lstm(inputs, initial_state=encoder_states)
-        outputs = decoder_dense(decoder_outputs)
-        all_outputs.append(outputs)
-        inputs = outputs  # Use the last output as the input for the next time step
+        encoder_outputs, state_h, state_c = self.encoder_lstm[-1](x)    #output of last layer
         encoder_states = [state_h, state_c]
 
-    decoder_outputs = tf.concat(all_outputs, axis=1)
+        # Use the first value of the reversed sequence as initial input for the decoder
+        #todo: unsure if this is correct
+        #todo: what the fuck am i using for as first input to the decoder????????
+        #todo: ---> I'm either using the encoder_output, an empty vector or the last time_step entry in encoder_inputs
+        #todo: ---> during training I (((probably use the the last time_step entry in encoder_inputs))) --> more likely it's an empty vector as well
+        # todo: ---> during inference I use an empty vector according to the paper x'(3) = wTh'(3)^D + b
+        # todo: ---> in github repo by other guy he just uses the last time_step entry in encoder_inputs
+        #reversed_encoder_inputs = np.flip(encoder_inputs, axis=1)
 
-    # Define the model that will turn encoder_inputs into decoder_outputs
-    model = Model(encoder_inputs, decoder_outputs)
+        all_outputs = []
+        #decoder_inputs[:, 0:0 + 1, :]
+        inputs = decoder_inputs[:, 0, :] #todo: was decoder_inputs before; last entry in time-series
+        for t in range(self.time_steps):
+            decoder_outputs, state_h, state_c = self.decoder_lstm(inputs, initial_state=encoder_states)
+            outputs = self.decoder_dense(decoder_outputs)
+            all_outputs.append(outputs)
+            if training:
+                inputs = decoder_inputs[:, t:t + 1, :]  # Use the ground truth as the next input
+            else:
+                inputs = outputs  # Use the output as the next input
+            encoder_states = [state_h, state_c]
 
-    #model = Model([encoder_inputs, decoder_inputs], decoder_outputs) todo: ???
+        decoder_outputs = tf.concat(all_outputs, axis=1)
+        return decoder_outputs
 
+
+def create_autoencoder(input_dim, time_steps, latent_dim, num_layers, dropout):
+    encoder_inputs = Input(shape=(time_steps, input_dim))
+    decoder_inputs = Input(shape=(time_steps, input_dim))
+    autoencoder = LSTMAutoEncoder(input_dim, time_steps, latent_dim, num_layers, dropout)
+    outputs = autoencoder(encoder_inputs, np.flip(encoder_inputs, axis=1))
+    model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
     return model
+
+
+def test_lstm_autoencoder(time_steps, latent_dim, num_layers, dropout, csv_path):
+    #todo: Test reverse encoder output
+    #todo: Different procedure for training and inference apperently?: During training, the decoder uses x (i) as input to obtain the state h(i−1)D --> x(i) or x(i)' ?
+    #todo: implement window separation of data
+
+    data = csv_file_to_dataframe_to_numpyArray(csv_path)
+    print(data.shape)
+    # data_with_time_diffs = convert_timestamp_to_absolute_time_diff(data)
+    data_with_time_diffs = convert_timestamp_to_relative_time_diff(data)
+    print("data_with_time_diffs: \n" + str(data_with_time_diffs))
+    data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps)
+    X_sN, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs)
+    input_dim = X_sN.shape[2]
+
+    model = create_autoencoder(input_dim, 40, latent_dim, num_layers, dropout)
+    model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['accuracy'])
+    model.summary()
+
+    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.01, patience=10, restore_best_weights=True)
+
+    #todo:if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
+    model.fit([X_sN, X_sN], X_sN, epochs=30, batch_size=32, validation_data=(X_vN2, X_vN2), verbose=1, callbacks=[early_stopping])
+
+    autoencoder_predict_and_calculate_error(model, X_tN, future_steps, 10, None)
 
 
 def grid_search_LSTM_autoencoder(csv_path):

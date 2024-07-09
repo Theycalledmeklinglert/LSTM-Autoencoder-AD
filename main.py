@@ -1,5 +1,5 @@
 # This is a sample Python script.
-from aufnahmen.enc_dec_lstm import old_LSTM_autoencoder, grid_search_LSTM_autoencoder
+from aufnahmen.enc_dec_lstm import old_LSTM_autoencoder, grid_search_LSTM_autoencoder, test_lstm_autoencoder
 from raw_data_processing import data_processing
 from raw_data_processing.data_processing import read_file_to_csv_bagpy, csv_file_to_dataframe_to_numpyArray
 from stacked_lstm import test_stacked_LSTM, create_XY_data_sequences, generate_test_array
@@ -7,6 +7,9 @@ from stacked_lstm import test_stacked_LSTM, create_XY_data_sequences, generate_t
 
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+import tensorflow as tf
+from tensorflow import keras
+
 
 def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
@@ -25,7 +28,16 @@ if __name__ == '__main__':
     #print("Y: " + str(Y[:3:]))
 
     #test_stacked_LSTM("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
-    old_LSTM_autoencoder("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv")
+    #old_LSTM_autoencoder("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv")
     #grid_search_LSTM_autoencoder("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv")
+
+
+    print(tf.__version__)
+    print(keras.__version__)
+
+
+    #test_lstm_autoencoder(10, 2, 1, 0.0, "./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv")
     print_hi('PyCharm')
+
+
 
