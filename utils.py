@@ -60,35 +60,6 @@ class CustomL2Loss(Loss):
 
 
 
-def call(self, inputs, training=None):
-    encoder_inputs, decoder_inputs = inputs
-
-    states = []
-    x = encoder_inputs
-    for lstm_layer in self.encoder_lstms:
-        x, state_h, state_c = lstm_layer(x)
-        states.append([state_h, state_c])
-
-    # Start with the last state from encoder
-    encoder_states = states[-1]
-
-    all_outputs = []
-    inputs = decoder_inputs[:, 0:1, :]  # Initial input for the decoder (first time step)
-    for t in range(self.time_steps):
-        decoder_outputs, state_h, state_c = self.decoder_lstm(inputs, initial_state=encoder_states)
-        outputs = self.decoder_dense(decoder_outputs)
-        all_outputs.append(outputs)
-        if training:
-            inputs = decoder_inputs[:, t:t + 1, :]  # Use the ground truth as the next input
-        else:
-            inputs = outputs  # Use the output as the next input
-        encoder_states = [state_h, state_c]
-
-    decoder_outputs = tf.concat(all_outputs, axis=1)
-    return decoder_outputs
-
-
-
 
 
 
