@@ -4,6 +4,7 @@
 import tensorflow as tf
 from tensorflow import keras
 
+from raw_data_processing.data_processing import read_file_to_csv_bagpy
 from tf_lstm_autoencoder import test_lstm_autoencoder
 
 
@@ -31,8 +32,7 @@ if __name__ == '__main__':
     print(tf.__version__)
     print(keras.__version__)
 
-
-    test_lstm_autoencoder(10, 3, 1, 0.0, 32, 120, "./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv")
+    test_lstm_autoencoder(10, 3, 1, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv", "./aufnahmen/csv/autocross_valid2_17_23_44/can_interface-wheelspeed.csv"])
     print_hi('PyCharm')
 
 

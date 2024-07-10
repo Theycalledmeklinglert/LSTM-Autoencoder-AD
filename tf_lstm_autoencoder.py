@@ -126,24 +126,27 @@ def create_autoencoder(input_dim, time_steps, latent_dim, num_layers, dropout):
 
 
 def test_lstm_autoencoder(time_steps, latent_dim, num_layers, dropout, batch_size, epochs, csv_path):
-    #todo: Different procedure for training and inference apperently?: During training, the decoder uses x (i) as input to obtain the state h(i−1)D --> x(i) or x(i)' ?
     #todo: implement overlapping window separation of data
-    #todo: maybe data shuffling maybe advisable (think i saw it in the other guys code) --> i dont think so but worth a try
+    # ((((todo: maybe data shuffling maybe advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
     #scaler = MinMaxScaler()            #Scales the data to a fixed range, typically [0, 1].
     #scaler = StandardScaler()           #Scales the data to have a mean of 0 and a standard deviation of 1.
     scaler = MaxAbsScaler()            #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
 
     data = csv_file_to_dataframe_to_numpyArray(csv_path)
-    print(data.shape)
-    data_with_time_diffs = convert_timestamp_to_relative_time_diff(data)
-    print("data_with_time_diffs: \n" + str(data_with_time_diffs))
-
-    data_with_time_diffs = normalize_data(data_with_time_diffs, scaler)
-    print("Normalized data: \n" + str(data_with_time_diffs))
+    data_with_time_diffs = []
+    for sample in data:
+        print("Sample shape: " + str(sample.shape))
+        unscaled_data_with_time_diffs = convert_timestamp_to_relative_time_diff(sample)
+        print("unscaled_data_with_time_diffs: \n" + str(unscaled_data_with_time_diffs))
+        normalized_data_with_time_diffs = normalize_data(unscaled_data_with_time_diffs, scaler)
+        print("normalized_data_with_time_diffs: \n" + str(normalized_data_with_time_diffs))
+        data_with_time_diffs.append(normalized_data_with_time_diffs)
 
     data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps)
-    X_sN, X_vN1, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs)  #todo: ideally/eventually I would use completely seperate datasets/csv for all of them
+    X_sN = data_with_time_diffs[0]  #todo: ideally/eventually I would use completely seperate datasets/csv for all of them
+    _, X_vN1, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.4, 0.3, 0.3)  #todo: ideally/eventually I would use completely seperate datasets/csv for all of them
+
     input_dim = X_sN.shape[2]
 
     model = create_autoencoder(input_dim, time_steps, latent_dim, num_layers, dropout)

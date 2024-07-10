@@ -8,23 +8,26 @@ import numpy as np
 from sklearn.preprocessing import MaxAbsScaler
 
 
-def reshape_data_for_autoencoder_lstm(data, time_steps):
+def reshape_data_for_autoencoder_lstm(data_list, time_steps):
     # Reshape X to fit LSTM input shape (samples, time steps, features)
-    print(data.shape)
-    if(time_steps > 1):
-        data = data[:(data.shape[0]//time_steps) * time_steps]
-        data = data.reshape((data.shape[0]//time_steps, time_steps, data.shape[1]))
-    else:
-        data = data.reshape((data.shape[0], time_steps, data.shape[1]))
-    print("Reshaped data for LSTM into: " + str(data))
-    return data
+    for i in range(len(data_list)):
+        data = data_list[i]
+        print(data.shape)
+        if(time_steps > 1):
+            data = data[:(data.shape[0]//time_steps) * time_steps]
+            data = data.reshape((data.shape[0]//time_steps, time_steps, data.shape[1]))
+        else:
+            data = data.reshape((data.shape[0], time_steps, data.shape[1]))
+        data_list[i] = data
+        print("Reshaped data for LSTM into: " + str(data))
+    return data_list
 
 
-def split_data_sequence_into_datasets(arr):
-    train_ratio = 0.7
-    val1_ratio = 0.1  #TODO: should be 0.2; haven't implemented early_stopping using val1 yet
-    val2_ratio = 0.1  #TODO: temp bandaid while early_stopping is not implemented
-    test_ratio = 0.1
+def split_data_sequence_into_datasets(arr, train_ratio, val1_ratio, val2_ratio, test_ratio):
+    # train_ratio = 0.7
+    # val1_ratio = 0.1  #TODO: should be 0.2; haven't implemented early_stopping using val1 yet
+    # val2_ratio = 0.1  #TODO: temp bandaid while early_stopping is not implemented
+    # test_ratio = 0.1
 
     assert (train_ratio*10 + val1_ratio*10 + val2_ratio*10 + test_ratio*10) == 10   #due to stupid floating point assertionError
 
@@ -100,17 +103,19 @@ def convert_timestamp_to_relative_time_diff(data):
     return data
 
 def csv_file_to_dataframe_to_numpyArray(file_path):
-    df = clean_csv(file_path)
-    samples = np.zeros((df.shape[0], df.shape[1]))
-    #print(df.index)
-    for row_index, row in df.iterrows():
-        for col_index, column in enumerate(df.columns):
-            samples[row_index, col_index] = row[column]
-            # print("row_index: " + str(row_index))
-            # print("column: " + str(column) + " + col_index: " + str(col_index))
-            # print("grabbed: " + str(row[column]))
+    samples = []
+    for file_name in file_path:
+        df = clean_csv(file_name)
+        curr_sample = np.zeros((df.shape[0], df.shape[1]))
+        for row_index, row in df.iterrows():
+            for col_index, column in enumerate(df.columns):
+                curr_sample[row_index, col_index] = row[column]
+                # print("row_index: " + str(row_index))
+                # print("column: " + str(column) + " + col_index: " + str(col_index))
+                # print("grabbed: " + str(row[column]))
 
-    print("converted csv to numpy array: " + str(samples))
+        samples.append(curr_sample)
+        print("converted csv to numpy array: " + str(curr_sample))
     return samples
 
 

@@ -1,3 +1,5 @@
+All with MaxAbsScaler():
+
 encoder_inputs being processed sequential without explicitly putting state_h, state_c as initial state for encode_lstm:
 
 Avg. error: [[-1.56730854e+01 -3.34680617e-02  5.89696586e-02  2.89061762e-01
