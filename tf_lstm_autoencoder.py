@@ -42,12 +42,31 @@ class LSTMAutoEncoder(tf.keras.Model):
 
         encoder_inputs, decoder_inputs = inputs
         x = encoder_inputs
-        for lstm_layer in self.encoder_lstm[:-1]:   #all but last layer
-            x, _, _ = lstm_layer(x)
+        print("This may be huge: " + str(decoder_inputs.shape))
+        print("This may be huge2: " + str(encoder_inputs))
 
-        encoder_outputs, state_h, state_c = self.encoder_lstm[-1](x)    #output of last layer
+        encoder_states = [tf.zeros((tf.shape(encoder_inputs)[0], self.latent_dim)),
+                          tf.zeros((tf.shape(encoder_inputs)[0], self.latent_dim))]
+
+        #encoder_states = [None, None]
+
+
+    #I'm still not sure if this is correct. The previous function looked like this:
+    #    # for lstm_layer in self.encoder_lstm[:-1]:   #all but last layer
+    #         #     x, _, _ = lstm_layer(x)
+    #         # encoder_outputs, state_h, state_c = self.encoder_lstm[-1](x)  # output of last layer
+
+        for t in range(self.time_steps):
+            x = encoder_inputs[:, t:t + 1, :]  # Select one time step
+            for lstm_layer in self.encoder_lstm:
+                #if encoder_states[0] is not None:
+                x, state_h, state_c = lstm_layer(x, initial_state=encoder_states)
+                #else:
+                #    x, state_h, state_c = lstm_layer(x)
+                encoder_states = [state_h, state_c]
+
+
         encoder_states = [state_h, state_c]
-
         # Use the first value of the reversed sequence as initial input for the decoder
         #todo: unsure if this is correct
         #todo: what the fuck am i using for as first input to the decoder????????
@@ -128,12 +147,11 @@ def test_lstm_autoencoder(time_steps, latent_dim, num_layers, dropout, batch_siz
     input_dim = X_sN.shape[2]
 
     model = create_autoencoder(input_dim, time_steps, latent_dim, num_layers, dropout)
-    #model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['accuracy'])
     model.summary()
 
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=20, restore_best_weights=True)
+    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0001, patience=30, restore_best_weights=True)
 
-    #todo:if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
+    #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
     model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size, validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1), verbose=1, callbacks=[early_stopping])
 
     autoencoder_predict_and_calculate_error(model, X_tN, 1, 10, scaler)

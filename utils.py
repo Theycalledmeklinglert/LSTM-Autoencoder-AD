@@ -29,7 +29,10 @@ def autoencoder_predict_and_calculate_error(model, X_tN, future_steps, iteration
         error_vec = np.subtract(chosen_sequence, predicted_sequence)
         all_err_vecs.append(error_vec)
         print("Error vec: " + str(error_vec) + "\n")
-    print("Avg. error: " + str(np.mean(all_err_vecs, axis=0)))
+    avg_error_matrix = np.mean(all_err_vecs, axis=0)
+    print("Avg. error: " + str(avg_error_matrix))
+    print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
+
 
 class CustomL2Loss(Loss):
     def call(self, y_true, y_pred):
@@ -54,7 +57,10 @@ class CustomL2Loss(Loss):
             error_vec = np.subtract(true_sequence, predicted_sequence)
             all_err_vecs.append(error_vec)
             print("Error vec: " + str(error_vec) + "\n")
-        print("Avg. error: " + str(np.mean(all_err_vecs, axis=0)))
+
+        avg_error_matrix = np.mean(all_err_vecs, axis=0)
+        print("Avg. error: " + str(avg_error_matrix))
+        print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
 
 
 

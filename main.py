@@ -32,7 +32,7 @@ if __name__ == '__main__':
     print(keras.__version__)
 
 
-    test_lstm_autoencoder(10, 3, 2, 0.0, 32, 120, "./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv")
+    test_lstm_autoencoder(10, 3, 1, 0.0, 32, 120, "./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv")
     print_hi('PyCharm')
 
 
