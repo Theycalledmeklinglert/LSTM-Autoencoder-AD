@@ -13,8 +13,6 @@ def print_hi(name):
     print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
 
 if __name__ == '__main__':
-    #rosbag_file_conversion.read_File('./aufnahmen/tmp/skidpad_geschoben.bag')
-    #rosbag_file_conversion.read_File('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
     # stupid_encoding_error('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
     #read_file_to_csv_bagpy('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
     #test_stacked_LSTM()
@@ -32,7 +30,7 @@ if __name__ == '__main__':
     print(tf.__version__)
     print(keras.__version__)
 
-    test_lstm_autoencoder(10, 3, 1, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv", "./aufnahmen/csv/autocross_valid2_17_23_44/can_interface-wheelspeed.csv"])
+    test_lstm_autoencoder(10, [30, 30], 2, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv", "./aufnahmen/csv/autocross_valid2_17_23_44/can_interface-wheelspeed.csv"])
     print_hi('PyCharm')
 
 

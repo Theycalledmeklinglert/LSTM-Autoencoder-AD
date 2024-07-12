@@ -15,23 +15,31 @@ from utils import CustomL2Loss, autoencoder_predict_and_calculate_error
 
 
 class LSTMAutoEncoder(tf.keras.Model):
-    def __init__(self, input_dim, time_steps, latent_dim, num_layers, dropout):
+    def __init__(self, input_dim, time_steps, layer_dims, num_layers, dropout):
         super(LSTMAutoEncoder, self).__init__()
-        self.latent_dim = latent_dim
+        self.layer_dims = layer_dims
         self.input_dim = input_dim
         self.time_steps = time_steps
         self.num_layers = num_layers
         self.dropout = dropout
 
         # Encoder
-        self.encoder_lstm = [LSTM(latent_dim, activation='relu', return_sequences=True, return_state=True, dropout=dropout) for _ in range(num_layers - 1)]
-        self.encoder_lstm.append(LSTM(latent_dim, activation='relu', return_sequences=False, return_state=True, dropout=dropout))
-        #self.encoder_lstm = LSTM(latent_dim, activation='relu', return_sequences=False, return_state=True, dropout=dropout)
+        self.encoder_lstm = []
+        for i in reversed(layer_dims):
+            if i == layer_dims[0]:
+                break
+            self.encoder_lstm.append(LSTM(i, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
+        self.encoder_lstm.append(LSTM(layer_dims[0], activation='relu', return_sequences=False, return_state=True, dropout=dropout))
+        #self.encoder_lstm = LSTM(layer_dims[0], activation='relu', return_sequences=False, return_state=True, dropout=dropout)
 
         # Decoder
-        #self.decoder_lstm = [LSTM(latent_dim, activation='relu', return_sequences=True, return_state=True, dropout=dropout) for _ in range(num_layers - 1)]
-        #self.decoder_lstm.append(LSTM(latent_dim, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
-        self.decoder_lstm = LSTM(latent_dim, activation='relu', return_sequences=True, return_state=True, dropout=dropout)
+        self.decoder_lstm = []
+        for i in reversed(layer_dims):
+            if i == layer_dims[0]:
+                break
+            self.decoder_lstm.append(LSTM(i, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
+        self.decoder_lstm.append(LSTM(layer_dims[0], activation='relu', return_sequences=True, return_state=True, dropout=dropout))
+        #self.decoder_lstm = LSTM(layer_dims[0], activation='relu', return_sequences=True, return_state=True, dropout=dropout)
 
         self.decoder_dense = Dense(input_dim)
 
@@ -45,9 +53,9 @@ class LSTMAutoEncoder(tf.keras.Model):
         print("This may be huge: " + str(decoder_inputs.shape))
         print("This may be huge2: " + str(encoder_inputs))
 
-        encoder_states = [tf.zeros((tf.shape(encoder_inputs)[0], self.latent_dim)),
-                          tf.zeros((tf.shape(encoder_inputs)[0], self.latent_dim))]
-
+        encoder_states = [tf.zeros((tf.shape(encoder_inputs)[0], self.layer_dims[0])),
+                          tf.zeros((tf.shape(encoder_inputs)[0], self.layer_dims[0]))]
+        empty_encoder_states_cond = True
         #encoder_states = [None, None]
 
 
@@ -56,13 +64,16 @@ class LSTMAutoEncoder(tf.keras.Model):
     #         #     x, _, _ = lstm_layer(x)
     #         # encoder_outputs, state_h, state_c = self.encoder_lstm[-1](x)  # output of last layer
 
+
+        #TODO: Should I pass the states inbetween layers or keep each layer's state in its corresponding layer and then only pass the states of the last layer to the decoder?
         for t in range(self.time_steps):
             x = encoder_inputs[:, t:t + 1, :]  # Select one time step
             for lstm_layer in self.encoder_lstm:
-                #if encoder_states[0] is not None:
-                x, state_h, state_c = lstm_layer(x, initial_state=encoder_states)
-                #else:
-                #    x, state_h, state_c = lstm_layer(x)
+                if empty_encoder_states_cond:
+                    x, state_h, state_c = lstm_layer(x)
+                    empty_encoder_states_cond = False
+                else:
+                    x, state_h, state_c = lstm_layer(x, initial_state=encoder_states)
                 encoder_states = [state_h, state_c]
 
 
@@ -76,10 +87,11 @@ class LSTMAutoEncoder(tf.keras.Model):
         # todo: ---> in github repo by other guy he just uses the last time_step entry in encoder_inputs
 
         all_outputs = []
-        #decoder_inputs[:, 0:0 + 1, :]
         inputs = decoder_inputs[:, 0:1, :] #last entry in time-series
         for t in range(self.time_steps):
-            decoder_outputs, state_h, state_c = self.decoder_lstm(inputs, initial_state=encoder_states)
+            for lstm_layer in self.decoder_lstm:
+                decoder_outputs, state_h, state_c = lstm_layer(inputs, initial_state=encoder_states)
+                inputs = decoder_outputs
             outputs = self.decoder_dense(decoder_outputs)
             all_outputs.append(outputs)
             if training:
@@ -115,17 +127,17 @@ class LSTMAutoEncoder(tf.keras.Model):
 
         return {m.name: m.result() for m in self.metrics}
 
-def create_autoencoder(input_dim, time_steps, latent_dim, num_layers, dropout):
+def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     encoder_inputs = Input(shape=(time_steps, input_dim))
     decoder_inputs = Input(shape=(time_steps, input_dim))
-    autoencoder = LSTMAutoEncoder(input_dim, time_steps, latent_dim, num_layers, dropout)
+    autoencoder = LSTMAutoEncoder(input_dim, time_steps, layer_dims, num_layers, dropout)
     outputs = autoencoder([encoder_inputs, decoder_inputs])    #np.flip(encoder_inputs, axis=1)
     model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
     model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['accuracy'])
     return model
 
 
-def test_lstm_autoencoder(time_steps, latent_dim, num_layers, dropout, batch_size, epochs, csv_path):
+def test_lstm_autoencoder(time_steps, layer_dims, num_layers, dropout, batch_size, epochs, csv_path):
     #todo: implement overlapping window separation of data
     # ((((todo: maybe data shuffling maybe advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
@@ -145,17 +157,18 @@ def test_lstm_autoencoder(time_steps, latent_dim, num_layers, dropout, batch_siz
 
     data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps)
     X_sN = data_with_time_diffs[0]  #todo: ideally/eventually I would use completely seperate datasets/csv for all of them
-    _, X_vN1, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.4, 0.3, 0.3)  #todo: ideally/eventually I would use completely seperate datasets/csv for all of them
+    _, X_vN1, X_vN2, _ = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 1.0, 0.0, 0.0)  #todo: ideally/eventually I would use completely seperate datasets/csv for all of them
+    _, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)  #todo: ideally/eventually I would use completely seperate datasets/csv for all of them
 
     input_dim = X_sN.shape[2]
 
-    model = create_autoencoder(input_dim, time_steps, latent_dim, num_layers, dropout)
+    model = create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout)
     model.summary()
 
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.0001, patience=30, restore_best_weights=True)
+    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
 
     #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
     model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size, validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1), verbose=1, callbacks=[early_stopping])
 
-    autoencoder_predict_and_calculate_error(model, X_tN, 1, 10, scaler)
+    autoencoder_predict_and_calculate_error(model, X_tN, 1, 100, scaler)
 

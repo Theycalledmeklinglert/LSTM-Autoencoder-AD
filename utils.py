@@ -10,7 +10,7 @@ from raw_data_processing.data_processing import reverse_normalize_data
 def autoencoder_predict_and_calculate_error(model, X_tN, future_steps, iterations, scaler):
     all_err_vecs = []
     for i in range(0, iterations):
-        rand_int = random.randint(0, X_tN.shape[0])
+        rand_int = random.randint(0, X_tN.shape[0]-1)
         chosen_sequence = np.array(X_tN[rand_int])  # sequence to be predicted
         # Reshape chosen_sequence to fit LSTM input shape (samples, time steps, features)
         chosen_sequence = chosen_sequence.reshape((1, chosen_sequence.shape[0], chosen_sequence.shape[1]))
@@ -61,10 +61,6 @@ class CustomL2Loss(Loss):
         avg_error_matrix = np.mean(all_err_vecs, axis=0)
         print("Avg. error: " + str(avg_error_matrix))
         print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
-
-
-
-
 
 
 
