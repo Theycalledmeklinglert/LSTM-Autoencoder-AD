@@ -24,11 +24,11 @@ def autoencoder_predict_and_calculate_error(model, X_tN, future_steps, iteration
                                                     scaler)  # Reverse reshaping and normalizing
 
         #predicted_sequence = predicted_sequence.reshape((future_steps, X_tN.shape[2]))
-        print("Input sequence: " + str(chosen_sequence))
-        print("Predicted sequences: " + str(predicted_sequence))
+        #print("Input sequence: " + str(chosen_sequence))
+        #print("Predicted sequences: " + str(predicted_sequence))
         error_vec = np.subtract(chosen_sequence, predicted_sequence)
         all_err_vecs.append(error_vec)
-        print("Error vec: " + str(error_vec) + "\n")
+        #print("Error vec: " + str(error_vec) + "\n")
     avg_error_matrix = np.mean(all_err_vecs, axis=0)
     print("Avg. error: " + str(avg_error_matrix))
     print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
