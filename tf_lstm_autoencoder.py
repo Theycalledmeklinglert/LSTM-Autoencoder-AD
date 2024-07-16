@@ -107,12 +107,6 @@ class LSTMAutoEncoder(tf.keras.Model):
 
         encoder_states = [state_h, state_c]
         # Use the first value of the reversed sequence as initial input for the decoder
-        #todo: unsure if this is correct
-        #todo: what the fuck am i using for as first input to the decoder????????
-        #todo: ---> I'm either using the encoder_output, an empty vector or the last time_step entry in encoder_inputs
-        #todo: ---> during training I (((probably use the the last time_step entry in encoder_inputs))) --> more likely it's an empty vector as well
-        # todo: ---> during inference I use an empty vector according to the paper x'(3) = wTh'(3)^D + b
-        # todo: ---> in github repo by other guy he just uses the last time_step entry in encoder_inputs
 
         all_outputs = []
         inputs = decoder_inputs[:, 0:1, :] #last entry in time-series
@@ -132,7 +126,7 @@ class LSTMAutoEncoder(tf.keras.Model):
         return decoder_outputs
 
     def train_step(self, data):
-        encoder_inputs, decoder_inputs = data[0]    #todo: wtf is happening here?
+        encoder_inputs, decoder_inputs = data[0]
         target = data[1]
 
         with tf.GradientTape() as tape:
@@ -158,12 +152,15 @@ class LSTMAutoEncoder(tf.keras.Model):
 def calculate_rec_error_vecs(model, X_vN1, scaler):
     error_vecs = []
     for i in range(len(X_vN1)):
-        predicted_sequence = model.predict([X_vN1[i], np.flip(X_vN1[i], axis=1)], verbose=0)
-        chosen_sequence = reverse_normalize_data(np.squeeze(chosen_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
+        current_sequence = X_vN1[i].reshape((1, X_vN1[i].shape[0], X_vN1[i].shape[1]))
+        predicted_sequence = model.predict([current_sequence, np.flip(current_sequence, axis=1)], verbose=0)
+        current_sequence = reverse_normalize_data(np.squeeze(current_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
         predicted_sequence = reverse_normalize_data(np.squeeze(predicted_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
-        print("Chosen sequence: " + str(chosen_sequence))
-        print("Predicted sequences: " + str(predicted_sequence))
-        error_vecs.append(np.subtract(chosen_sequence, predicted_sequence))
+        #print("Chosen sequence: " + str(current_sequence))
+        #print("Predicted sequences: " + str(predicted_sequence))
+        error_vecs.append(np.subtract(current_sequence, predicted_sequence))
+    print(error_vecs)
+    return error_vecs
 
 
 
@@ -172,7 +169,7 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     encoder_inputs = Input(shape=(time_steps, input_dim))
     decoder_inputs = Input(shape=(time_steps, input_dim))
     autoencoder = LSTMAutoEncoder(input_dim, time_steps, layer_dims, num_layers, dropout)
-    outputs = autoencoder([encoder_inputs, decoder_inputs])    #np.flip(encoder_inputs, axis=1)
+    outputs = autoencoder([encoder_inputs, decoder_inputs])
     model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
     model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['accuracy'])
     return model
@@ -212,9 +209,9 @@ def test_lstm_autoencoder(time_steps, layer_dims, num_layers, dropout, batch_siz
         #autoencoder_predict_and_calculate_error(model, X_tN, 1, 1, scaler)
         model.save('./models/LSTM_autoencoder_decoder_30_30.keras')
     else:
-        model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder" : LSTMAutoEncoder})
+        model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder" : LSTMAutoEncoder}, compile=True)
 
-    autoencoder_predict_and_calculate_error(model, X_tN, 1, 100, scaler)
-
+    #autoencoder_predict_and_calculate_error(model, X_tN, 1, 100, scaler)
+    calculate_rec_error_vecs(model, X_vN1, scaler)
 
 

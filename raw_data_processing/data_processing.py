@@ -12,7 +12,6 @@ def reshape_data_for_autoencoder_lstm(data_list, time_steps):
     # Reshape X to fit LSTM input shape (samples, time steps, features)
     for i in range(len(data_list)):
         data = data_list[i]
-        print(data.shape)
         if(time_steps > 1):
             data = data[:(data.shape[0]//time_steps) * time_steps]
             data = data.reshape((data.shape[0]//time_steps, time_steps, data.shape[1]))
