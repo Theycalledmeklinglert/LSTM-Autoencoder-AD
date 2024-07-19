@@ -1,4 +1,6 @@
 import csv
+import glob
+import os
 import traceback
 import rosbag
 import genpy
@@ -92,35 +94,74 @@ def reverse_normalize_data(scaled_data, scaler):
     return scaler.inverse_transform(scaled_data)
 
 def convert_timestamp_to_absolute_time_diff(data):
-    time_diffs = np.diff(data[:, 0], prepend=data[0, 0])
-    return np.column_stack((time_diffs, data[:, 1:]))
+    # time_diffs = np.diff(data[:, 0], prepend=data[0, 0])
+    # return np.column_stack((time_diffs, data[:, 1:]))
+    print("this is stupid")
+    return
 
-def convert_timestamp_to_relative_time_diff(data):
-    start_timestamp = data[0, 0]
-    for i in range(0, len(data)):
-        data[i][0] = data[i][0] - start_timestamp
-    return data
+def convert_timestamp_to_relative_time_diff(df):
+    time_columns = [col for col in df.columns if col == "Time"]
+    # Subtract each value in "Time" columns from the first row's value
 
-def csv_file_to_dataframe_to_numpyArray(file_path):
-    samples = []
-    for file_name in file_path:
-        df = clean_csv(file_name)
-        curr_sample = np.zeros((df.shape[0], df.shape[1]))
+    for time_col in time_columns:
+        start_timestamp = df[time_col].iloc[0]
+        df[time_col] = df[time_col] - start_timestamp
+
+    # start_timestamp = data[0, 0]
+    # for i in range(0, len(data)):
+    #     data[i][0] = data[i][0] - start_timestamp
+
+    return df
+
+def csv_files_to_dataframe_to_numpyArray(directory):
+    print("Reading files from directory: " + directory)
+    dims = [0, 0]
+    dfs = []
+    file_paths = get_csv_file_paths(directory)
+
+    for file in file_paths:
+        df = clean_csv(file)
+
+        if df is not None:
+            print("now processing: " + str(file))
+            print("cleaned df: \n" + str(df))
+            print("shape: " + str(df.shape))
+            dims[0] = dims[0] + df.shape[0]
+            dims[1] = dims[1] + df.shape[1]
+            df = convert_timestamp_to_relative_time_diff(df)
+            dfs.append(df)
+
+    samples = np.zeros((dims[0], dims[1]))
+
+    # todo: csv's have different number of rows --> need to fill the rest of them with 0s i guess?
+    # todo: OR: downsample my data to equal length but that's needlessly complicated too
+    # todo: might be the only viable option cause otherwise I will fuck up my training
+    col_offset = 0
+    for df in dfs:
         for row_index, row in df.iterrows():
             for col_index, column in enumerate(df.columns):
-                curr_sample[row_index, col_index] = row[column]
+                samples[row_index, col_offset + col_index] = row[column]
                 # print("row_index: " + str(row_index))
                 # print("column: " + str(column) + " + col_index: " + str(col_index))
                 # print("grabbed: " + str(row[column]))
+        col_offset = col_offset + df.shape[1]
 
-        samples.append(curr_sample)
-        print("converted csv to numpy array: " + str(curr_sample))
     return samples
 
 
+#removes empty columns, columns containing only one and the same value through and through and columns that do not offer useful information
 def clean_csv(file_path):
+    # list of known incompatible csv files due to incompatible/incorrect formatting or files that are simply are not sensor data
+    exceptions = [
+        "slam-car_state", "slam-landmark_info", "slam-map",
+        "slam-state", "stereo_cone_perception-cones", "tf", "estimation-velocity"
+    ]
+    if any(keyword in file_path for keyword in exceptions):
+        print("did not process: " + str(file_path))
+        return
+
     df = pd.read_csv(file_path)
-    columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'header.seq']
+    columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'child_frame_id', 'twist.covariance'] #todo: test if removing this was good or bad: ", 'header.seq'"
 
     for col in columns_to_remove:
         if col in df.columns:
@@ -135,6 +176,20 @@ def clean_csv(file_path):
             df.drop(columns=[col], inplace=True)
 
     return df
+
+def get_csv_file_paths(directory):
+    csv_files = glob.glob(os.path.join(directory, "*.csv"))
+    return csv_files
+
+def print_unique_values(df, column_name):
+    if column_name in df.columns:
+        unique_values = df[column_name].unique()
+        print(f"Unique values in column '{column_name}':")
+        for value in unique_values:
+            print(value)
+    else:
+        print(f"Column '{column_name}' does not exist in the dataframe.")
+
 
 
 def read_file_to_csv_bagpy(path):

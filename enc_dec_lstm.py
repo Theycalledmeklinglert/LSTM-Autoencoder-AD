@@ -9,7 +9,7 @@ from keras.src.optimizers import Adam
 from scikeras.wrappers import KerasClassifier
 from sklearn.preprocessing import StandardScaler, MaxAbsScaler, MinMaxScaler
 
-from raw_data_processing.data_processing import csv_file_to_dataframe_to_numpyArray, \
+from raw_data_processing.data_processing import csv_files_to_dataframe_to_numpyArray, \
     convert_timestamp_to_absolute_time_diff, convert_timestamp_to_relative_time_diff, normalize_data, \
     reshape_data_for_autoencoder_lstm
 from stacked_lstm import create_XY_data_sequences, split_data_sequence_into_datasets, check_shapes_after_reshape
@@ -34,7 +34,7 @@ def old_LSTM_autoencoder(csv_path):
     future_steps = 1
     scaler = MinMaxScaler()
 
-    data = csv_file_to_dataframe_to_numpyArray(csv_path)
+    data = csv_files_to_dataframe_to_numpyArray(csv_path)
     print(data.shape)
 
     #data_with_time_diffs = convert_timestamp_to_absolute_time_diff(data)
@@ -124,7 +124,7 @@ def old_LSTM_autoencoder(csv_path):
 def grid_search_LSTM_autoencoder(csv_path):
     time_steps = 1
     future_steps = 1  # Predict the next 3 values
-    data = csv_file_to_dataframe_to_numpyArray(csv_path)
+    data = csv_files_to_dataframe_to_numpyArray(csv_path)
     print(data.shape)
 
     data_with_time_diffs = convert_timestamp_to_absolute_time_diff(data)

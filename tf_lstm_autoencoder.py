@@ -9,7 +9,7 @@ from tensorflow.keras.layers import Input, LSTM, Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import Model
 
-from raw_data_processing.data_processing import csv_file_to_dataframe_to_numpyArray, \
+from raw_data_processing.data_processing import csv_files_to_dataframe_to_numpyArray, \
     convert_timestamp_to_relative_time_diff, reshape_data_for_autoencoder_lstm, normalize_data, \
     split_data_sequence_into_datasets, reverse_normalize_data
 from utils import CustomL2Loss, autoencoder_predict_and_calculate_error
@@ -163,6 +163,11 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     return error_vecs
 
 
+def estimate_error_distribution(error_vecs):
+    print("dipshit")
+    return
+
+
 
 def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     keras.saving.get_custom_objects().clear()
@@ -175,7 +180,7 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     return model
 
 
-def test_lstm_autoencoder(time_steps, layer_dims, num_layers, dropout, batch_size, epochs, csv_path, model_file_path=None):
+def test_lstm_autoencoder(time_steps, layer_dims, num_layers, dropout, batch_size, epochs, directories, model_file_path=None):
     #todo: implement overlapping window separation of data
     # ((((todo: maybe data shuffling maybe advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
@@ -183,23 +188,38 @@ def test_lstm_autoencoder(time_steps, layer_dims, num_layers, dropout, batch_siz
     #scaler = StandardScaler()           #Scales the data to have a mean of 0 and a standard deviation of 1.
     #scaler = MaxAbsScaler()            #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
 
-    data = csv_file_to_dataframe_to_numpyArray(csv_path)
+    data = []
+    #data is automatically scaled to relative timestamps
+    for directory in directories:
+        data.append(csv_files_to_dataframe_to_numpyArray(directory))
+
+    print("converted csv('s) to numpy array: " + str(data))
+
+    return
+
+
+    # todo: the data arrays will have null elements due to the sensors having different measuring intervalls!
+    # possible solutions:
+    #       1. delete every entry of the data array that contains an empty cell ---> THIS DOESNT FKING WORK BECAUSE I WILL LOSE LIKE 9/10th OF THE DATA THAT HAVE SHORTER MEASURING INTERVALLS AND THE VALUES WONT EVEN REALLY
+    #          BE CORRELATED
+    #       2. find sensor with least data entries; downsample all other sensor data accordingly before adding them together
+    #       ----> I think 1. and 2. are equivalent aaaaaaaaaaaaaaaaaaaahhhhhh
+    #       3. average empty cells out or sth, idk that sounds retarded AND complicated, my favorite
+    #       3. Kill myself
+
     data_with_time_diffs = []
-    for sample in data:
-        print("Sample shape: " + str(sample.shape))
-        unscaled_data_with_time_diffs = convert_timestamp_to_relative_time_diff(sample)
-        print("unscaled_data_with_time_diffs: \n" + str(unscaled_data_with_time_diffs))
-        normalized_data_with_time_diffs = normalize_data(unscaled_data_with_time_diffs, scaler)
+    for samples in data:
+        print("unscaled_data_with_time_diffs: \n" + str(samples))
+        normalized_data_with_time_diffs = normalize_data(samples, scaler)
         print("normalized_data_with_time_diffs: \n" + str(normalized_data_with_time_diffs))
         data_with_time_diffs.append(normalized_data_with_time_diffs)
 
     data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps)
-    X_sN = data_with_time_diffs[0]  #todo: ideally/eventually I would use completely seperate datasets/csv for all of them
-    _, X_vN1, X_vN2, _ = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 1.0, 0.0, 0.0)  #todo: ideally/eventually I would use completely seperate datasets/csv for all of them
-    _, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)  #todo: ideally/eventually I would use completely seperate datasets/csv for all of them
+    X_sN = data_with_time_diffs[0]  #ideally/eventually I would use completely seperate datasets/csv for all of them
+    _, X_vN1, X_vN2, _ = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 1.0, 0.0, 0.0)
+    _, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
 
     input_dim = X_sN.shape[2]
-
     if model_file_path is None:
         model = create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout)
         model.summary()

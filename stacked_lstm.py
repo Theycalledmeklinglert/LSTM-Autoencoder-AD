@@ -7,7 +7,7 @@ from keras.src.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
 from keras.src.layers import LSTM, Dense, Dropout, BatchNormalization
 from sklearn.preprocessing import MinMaxScaler, StandardScaler
 
-from raw_data_processing.data_processing import csv_file_to_dataframe_to_numpyArray, \
+from raw_data_processing.data_processing import csv_files_to_dataframe_to_numpyArray, \
     convert_timestamp_to_absolute_time_diff, convert_timestamp_to_relative_time_diff
 
 
@@ -89,7 +89,7 @@ def test_stacked_LSTM(csv_path):
     accuracy_threshold = 0.90
     accuracy_threshold_callback = AccuracyThresholdCallback(threshold=accuracy_threshold)
 
-    data = csv_file_to_dataframe_to_numpyArray(csv_path)
+    data = csv_files_to_dataframe_to_numpyArray(csv_path)
     print(data.shape)
 
     #TODO: I need to standardize scaling somehow. for steering angle i.e. data can approximately go from -100 to 100 while time is very large

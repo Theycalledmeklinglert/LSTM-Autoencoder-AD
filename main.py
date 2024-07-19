@@ -4,7 +4,7 @@
 import tensorflow as tf
 from tensorflow import keras
 
-from raw_data_processing.data_processing import read_file_to_csv_bagpy
+from raw_data_processing.data_processing import read_file_to_csv_bagpy, clean_csv, print_unique_values
 from tf_lstm_autoencoder import test_lstm_autoencoder
 
 
@@ -31,7 +31,11 @@ if __name__ == '__main__':
     print(keras.__version__)
 
     #test_lstm_autoencoder(10, [30, 30], 2, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv", "./aufnahmen/csv/autocross_valid2_17_23_44/can_interface-wheelspeed.csv"])
-    test_lstm_autoencoder(10, [30, 30], 2, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv", "./aufnahmen/csv/autocross_valid2_17_23_44/can_interface-wheelspeed.csv"], './models/pretty good autoencoder for wheel speed/LSTM_autoencoder_decoder_30_30.keras')
+    #test_lstm_autoencoder(10, [30, 30], 2, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid2_17_23_44"], './models/pretty good autoencoder for wheel speed/LSTM_autoencoder_decoder_30_30.keras')
+
+    df = clean_csv("C:\\Users\\Luca\\PycharmProjects\AnoamlydetectionInFormulaStudent\\aufnahmen\csv\\autocross_valid_16_05_23\\diagnostics.csv")
+    print_unique_values(df, "status")
+
     print_hi('PyCharm')
 
     #todo: Note if I want to change the amount of timesteps, a new model has to be trained on it
