@@ -14,9 +14,9 @@ def reshape_data_for_autoencoder_lstm(data_list, time_steps):
     # Reshape X to fit LSTM input shape (samples, time steps, features)
     for i in range(len(data_list)):
         data = data_list[i]
-        if(time_steps > 1):
-            data = data[:(data.shape[0]//time_steps) * time_steps]
-            data = data.reshape((data.shape[0]//time_steps, time_steps, data.shape[1]))
+        if (time_steps > 1):
+            data = data[:(data.shape[0] // time_steps) * time_steps]
+            data = data.reshape((data.shape[0] // time_steps, time_steps, data.shape[1]))
         else:
             data = data.reshape((data.shape[0], time_steps, data.shape[1]))
         data_list[i] = data
@@ -30,7 +30,8 @@ def split_data_sequence_into_datasets(arr, train_ratio, val1_ratio, val2_ratio, 
     # val2_ratio = 0.1  #TODO: temp bandaid while early_stopping is not implemented
     # test_ratio = 0.1
 
-    assert (train_ratio*10 + val1_ratio*10 + val2_ratio*10 + test_ratio*10) == 10   #due to stupid floating point assertionError
+    assert (
+                   train_ratio * 10 + val1_ratio * 10 + val2_ratio * 10 + test_ratio * 10) == 10  #due to stupid floating point assertionError
 
     n_total = len(arr)
     n_train = int(train_ratio * n_total)
@@ -70,11 +71,12 @@ def reshape_data_for_LSTM(data, steps):
     print("Reshaped data for LSTM into: " + str(data))
     return data
 
+
 def check_shapes_after_reshape(X_sN, X_vN2, X_tN, Y_sN, Y_vN2, Y_tN):
     shapes = [X_sN.shape, X_vN2.shape, X_tN.shape, Y_sN.shape, Y_vN2.shape, Y_tN.shape]
     print("Shapes of arrays after reshaping:")
     for i, shape in enumerate(shapes):
-        print(f"Array {i+1}: {shape}")
+        print(f"Array {i + 1}: {shape}")
 
     # Check if all arrays have the same shape in terms of time_steps and features
     try:
@@ -88,16 +90,19 @@ def check_shapes_after_reshape(X_sN, X_vN2, X_tN, Y_sN, Y_vN2, Y_tN):
 def normalize_data(data, scaler):
     return scaler.fit_transform(data)
 
+
 def reverse_normalize_data(scaled_data, scaler):
     if scaler is None:
         return scaled_data
     return scaler.inverse_transform(scaled_data)
+
 
 def convert_timestamp_to_absolute_time_diff(data):
     # time_diffs = np.diff(data[:, 0], prepend=data[0, 0])
     # return np.column_stack((time_diffs, data[:, 1:]))
     print("this is stupid")
     return
+
 
 def convert_timestamp_to_relative_time_diff(df):
     time_columns = [col for col in df.columns if col == "Time"]
@@ -113,13 +118,13 @@ def convert_timestamp_to_relative_time_diff(df):
 
     return df
 
+
 def csv_files_to_dataframe_to_numpyArray(directory):
     print("Reading files from directory: " + directory)
     dims = [0, 0]
     dfs = []
-    file_paths = get_csv_file_paths(directory)
 
-    for file in file_paths:
+    for file in get_csv_file_paths(directory):
         df = clean_csv(file)
 
         if df is not None:
@@ -154,14 +159,20 @@ def clean_csv(file_path):
     # list of known incompatible csv files due to incompatible/incorrect formatting or files that are simply are not sensor data
     exceptions = [
         "slam-car_state", "slam-landmark_info", "slam-map",
-        "slam-state", "stereo_cone_perception-cones", "tf", "estimation-velocity"
+        "slam-state", "stereo_cone_perception-cones", "tf", "estimation-velocity", "lidar-cone_position_cloud",
+        "map_matching-driving_path", "sbg-gps_raw",
+        "map_matching-reference_track", "diagnostics"
+        #todo: diagnostics is temporary here for now. might be useful to scan and process it separetly first and not include it in anomaly detection itself
+        #todo: also ask Sebastian if "map_matching-reference_track" is of any use for AD; for now it's out
+        #todo: "sbg-ekf_euler" also looks weird; not sure if useful
     ]
     if any(keyword in file_path for keyword in exceptions):
         print("did not process: " + str(file_path))
         return
 
     df = pd.read_csv(file_path)
-    columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'child_frame_id', 'twist.covariance'] #todo: test if removing this was good or bad: ", 'header.seq'"
+    columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'child_frame_id',
+                         'twist.covariance']  #todo: test if removing this was good or bad: ", 'header.seq'"
 
     for col in columns_to_remove:
         if col in df.columns:
@@ -177,9 +188,11 @@ def clean_csv(file_path):
 
     return df
 
+
 def get_csv_file_paths(directory):
     csv_files = glob.glob(os.path.join(directory, "*.csv"))
     return csv_files
+
 
 def print_unique_values(df, column_name):
     if column_name in df.columns:
@@ -191,52 +204,37 @@ def print_unique_values(df, column_name):
         print(f"Column '{column_name}' does not exist in the dataframe.")
 
 
-
-def read_file_to_csv_bagpy(path):
-    b = bagreader(path)
-
-    csvfiles = []
-    for topic in b.topics:
-        if (topic =="/sbg/imu_data"):   #causes UTF-8 encoding error
-            continue
-        print(topic)
-        f_name = b.message_by_topic(topic)
-        print(f_name)
-        csvfiles.append(f_name)
-
-    print(csvfiles[0])
-    f_name = pd.read_csv(csvfiles[0])
-
-    print(csvfiles[1])
-    f_name = pd.read_csv(csvfiles[1])
-
-    print(csvfiles[2])
-    f_name = pd.read_csv(csvfiles[2])
-
 # Sample time of approximately 10 milliseconds for wheelspeed
 
-def get_sample_time(bag, topicName):
-    i = 0
-    time_diffs = []
-    prev_timestamp = 0
+def get_sample_time(directory):
+    all_time_diffs = {}
+    for file in get_csv_file_paths(directory):
+        time_diffs = []
+        prev_timestamp = 0
+        df = clean_csv(file)
 
-    for topic, msg, t in bag.read_messages(topics=[topicName]):
-        # print(msg)
+        if df is None:
+            continue
 
-        if i > 9:
-            break
+        for i in df.index:
+            curr_timestamp = df.iloc[i]["Time"]
+            time_diffs.append(curr_timestamp - prev_timestamp)
+            prev_timestamp = curr_timestamp
+            #if i == 100:
+            #    break
 
-        #print(msg.__slots__)
+        time_diffs = [float(value) / 1e6 for value in time_diffs]   #convert to msecs
+        all_time_diffs[file] = time_diffs
 
-        # Sample time of approximately 10 milliseconds for wheelspeed
-        curr_timestamp = t.secs * 1e9 + t.nsecs
-        time_diffs.append(str(curr_timestamp - prev_timestamp))
-        prev_timestamp = (t.secs * 1e9 + t.nsecs)
-        i += 1
+    for entry in all_time_diffs.keys():
+        print("Sample time differences for " + entry[entry.rfind("/") + 1:] + ": " + str(
+        sum(all_time_diffs[entry]) / len(all_time_diffs[entry])) + " msecs")
+
+    for entry in all_time_diffs.keys():
+        print("length of " + entry[entry.rfind("/") + 1:] + " :" + str(len(all_time_diffs[entry])))
 
     # t is more accurate
     # print("t: " + str(t))
     # combined_nanoseconds = t.secs * 1e9 + t.nsecs
     # print("Combined secs and nsecs: " + str(combined_nanoseconds))
 
-    print("Sample time differences for " + str(topicName)[str(topicName).rfind("/") + 1:] + ": " + str(time_diffs))

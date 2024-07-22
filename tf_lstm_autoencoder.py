@@ -180,7 +180,7 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     return model
 
 
-def test_lstm_autoencoder(time_steps, layer_dims, num_layers, dropout, batch_size, epochs, directories, model_file_path=None):
+def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, directories, model_file_path=None):
     #todo: implement overlapping window separation of data
     # ((((todo: maybe data shuffling maybe advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
@@ -194,9 +194,6 @@ def test_lstm_autoencoder(time_steps, layer_dims, num_layers, dropout, batch_siz
         data.append(csv_files_to_dataframe_to_numpyArray(directory))
 
     print("converted csv('s) to numpy array: " + str(data))
-
-    return
-
 
     # todo: the data arrays will have null elements due to the sensors having different measuring intervalls!
     # possible solutions:
@@ -221,13 +218,13 @@ def test_lstm_autoencoder(time_steps, layer_dims, num_layers, dropout, batch_siz
 
     input_dim = X_sN.shape[2]
     if model_file_path is None:
-        model = create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout)
+        model = create_autoencoder(input_dim, time_steps, layer_dims, len(layer_dims), dropout)
         model.summary()
         early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
         #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
         model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size, validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1), verbose=1, callbacks=[early_stopping])
         #autoencoder_predict_and_calculate_error(model, X_tN, 1, 1, scaler)
-        model.save('./models/LSTM_autoencoder_decoder_30_30.keras')
+        model.save('./models/all_compatible_data_LSTM_autoencoder_decoder_30_30.keras')
     else:
         model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder" : LSTMAutoEncoder}, compile=True)
 

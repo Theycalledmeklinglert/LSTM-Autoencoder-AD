@@ -4,7 +4,7 @@
 import tensorflow as tf
 from tensorflow import keras
 
-from raw_data_processing.data_processing import read_file_to_csv_bagpy, clean_csv, print_unique_values
+from raw_data_processing.data_processing import clean_csv, print_unique_values, get_sample_time
 from tf_lstm_autoencoder import test_lstm_autoencoder
 
 
@@ -13,14 +13,6 @@ def print_hi(name):
     print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
 
 if __name__ == '__main__':
-    # stupid_encoding_error('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
-    #read_file_to_csv_bagpy('./aufnahmen/tmp/autocross_valid_16_05_23.bag')
-    #test_stacked_LSTM()
-    #samples_arr = csv_file_to_dataframe_to_numpyArray("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
-    #X, Y = create_XY_data_sequences(samples_arr, 3, 3)
-    #X, Y = create_XY_data_sequences(generate_test_array(), 3, 3)
-    #print("X: " + str(X[:3:]))
-    #print("Y: " + str(Y[:3:]))
 
     #test_stacked_LSTM("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv")
     #old_LSTM_autoencoder("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv")
@@ -33,8 +25,12 @@ if __name__ == '__main__':
     #test_lstm_autoencoder(10, [30, 30], 2, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv", "./aufnahmen/csv/autocross_valid2_17_23_44/can_interface-wheelspeed.csv"])
     #test_lstm_autoencoder(10, [30, 30], 2, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid2_17_23_44"], './models/pretty good autoencoder for wheel speed/LSTM_autoencoder_decoder_30_30.keras')
 
-    df = clean_csv("C:\\Users\\Luca\\PycharmProjects\AnoamlydetectionInFormulaStudent\\aufnahmen\csv\\autocross_valid_16_05_23\\diagnostics.csv")
-    print_unique_values(df, "status")
+    get_sample_time("./aufnahmen/csv/autocross_valid_16_05_23")
+
+    #test_lstm_autoencoder(10, [50, 50, 50], 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid2_17_23_44"])
+
+    #df = clean_csv("C:\\Users\\Luca\\PycharmProjects\AnoamlydetectionInFormulaStudent\\aufnahmen\csv\\autocross_valid_16_05_23\\diagnostics.csv")
+    #print_unique_values(df, "status")
 
     print_hi('PyCharm')
 
