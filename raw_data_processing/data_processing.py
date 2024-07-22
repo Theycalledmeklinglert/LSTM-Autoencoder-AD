@@ -20,7 +20,7 @@ def reshape_data_for_autoencoder_lstm(data_list, time_steps):
         else:
             data = data.reshape((data.shape[0], time_steps, data.shape[1]))
         data_list[i] = data
-        print("Reshaped data for LSTM into: " + str(data))
+        #print("Reshaped data for LSTM into: " + str(data))
     return data_list
 
 
@@ -30,20 +30,13 @@ def split_data_sequence_into_datasets(arr, train_ratio, val1_ratio, val2_ratio, 
     # val2_ratio = 0.1  #TODO: temp bandaid while early_stopping is not implemented
     # test_ratio = 0.1
 
-    assert (
-                   train_ratio * 10 + val1_ratio * 10 + val2_ratio * 10 + test_ratio * 10) == 10  #due to stupid floating point assertionError
+    assert (train_ratio * 10 + val1_ratio * 10 + val2_ratio * 10 + test_ratio * 10) == 10  #due to float round error
 
     n_total = len(arr)
     n_train = int(train_ratio * n_total)
     n_val1 = int(val1_ratio * n_total)
     n_val2 = int(val2_ratio * n_total)
     n_test = n_total - n_train - n_val1 - n_val2  # To ensure all samples are used
-
-    print(f"Total samples: {n_total}")
-    print(f"Training samples: {n_train}")
-    print(f"Validation 1 samples: {n_val1}")
-    print(f"Validation 2 samples: {n_val2}")
-    print(f"Test samples: {n_test}")
 
     # Split data sequentially
     sN = arr[:n_train]
@@ -55,10 +48,10 @@ def split_data_sequence_into_datasets(arr, train_ratio, val1_ratio, val2_ratio, 
     print(f"Validation set 2 size: {len(vN2)}")
     print(f"Test set size: {len(tN)}")
 
-    print("sN df: " + str(sN))
-    print("vN1 df: " + str(vN1))
-    print("vN2 df: " + str(vN2))
-    print("tN df: " + str(tN))
+    # print("sN df: " + str(sN))
+    # print("vN1 df: " + str(vN1))
+    # print("vN2 df: " + str(vN2))
+    # print("tN df: " + str(tN))
 
     #return sN, vN1, vN2, tN
     return sN, vN1, vN2, tN
@@ -119,10 +112,26 @@ def convert_timestamp_to_relative_time_diff(df):
     return df
 
 
-def csv_files_to_dataframe_to_numpyArray(directory):
+def directory_csv_files_to_dataframe_to_numpyArray(file_path):
+    df = clean_csv(file_path)
+    if df is None:
+        return
+    df = convert_timestamp_to_relative_time_diff(df)
+    samples = np.zeros((df.shape[0], df.shape[1]))
+    for row_index, row in df.iterrows():
+        for col_index, column in enumerate(df.columns):
+                samples[row_index, col_index] = row[column]
+                # print("row_index: " + str(row_index))
+                # print("column: " + str(column) + " + col_index: " + str(col_index))
+                # print("grabbed: " + str(row[column]))
+    return samples
+
+def old_directory_csv_files_to_dataframe_to_numpyArray(directory):
     print("Reading files from directory: " + directory)
     dims = [0, 0]
     dfs = []
+
+    return
 
     for file in get_csv_file_paths(directory):
         df = clean_csv(file)

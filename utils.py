@@ -1,3 +1,4 @@
+import os
 import random
 
 import numpy as np
@@ -63,8 +64,22 @@ class CustomL2Loss(Loss):
         print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
 
 
+def get_matching_file_pairs_from_directory(dir1, dir2):
+    # List all files in both directories
+    files_dir1 = os.listdir(dir1)
+    files_dir2 = os.listdir(dir2)
 
+    # Create a set for faster lookup
+    set_dir2 = set(files_dir2)
 
+    # Create a list of matching file pairs
+    matching_pairs = []
+
+    for file in files_dir1:
+        if file in set_dir2:
+            matching_pairs.append((os.path.join(dir1, file), os.path.join(dir2, file)))
+
+    return matching_pairs
 
 
 

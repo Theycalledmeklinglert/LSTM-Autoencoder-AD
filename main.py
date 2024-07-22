@@ -23,11 +23,14 @@ if __name__ == '__main__':
     print(keras.__version__)
 
     #test_lstm_autoencoder(10, [30, 30], 2, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv", "./aufnahmen/csv/autocross_valid2_17_23_44/can_interface-wheelspeed.csv"])
-    #test_lstm_autoencoder(10, [30, 30], 2, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid2_17_23_44"], './models/pretty good autoencoder for wheel speed/LSTM_autoencoder_decoder_30_30.keras')
+    #test_lstm_autoencoder(10, [30, 30], 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid2_17_23_44"], './models/pretty good autoencoder for wheel speed/LSTM_autoencoder_decoder_30_30.keras')
 
-    get_sample_time("./aufnahmen/csv/autocross_valid_16_05_23")
+    #get_sample_time("./aufnahmen/csv/autocross_valid_16_05_23")
 
-    #test_lstm_autoencoder(10, [50, 50, 50], 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid2_17_23_44"])
+    test_lstm_autoencoder(10, [80, 80], 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid2_17_23_44"])
+
+    #Test:
+    #test_lstm_autoencoder(10, [80, 80], 0.0, 32, 120, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"])
 
     #df = clean_csv("C:\\Users\\Luca\\PycharmProjects\AnoamlydetectionInFormulaStudent\\aufnahmen\csv\\autocross_valid_16_05_23\\diagnostics.csv")
     #print_unique_values(df, "status")

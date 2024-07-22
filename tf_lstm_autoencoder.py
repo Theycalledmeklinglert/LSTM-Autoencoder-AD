@@ -9,10 +9,10 @@ from tensorflow.keras.layers import Input, LSTM, Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import Model
 
-from raw_data_processing.data_processing import csv_files_to_dataframe_to_numpyArray, \
+from raw_data_processing.data_processing import old_directory_csv_files_to_dataframe_to_numpyArray, \
     convert_timestamp_to_relative_time_diff, reshape_data_for_autoencoder_lstm, normalize_data, \
-    split_data_sequence_into_datasets, reverse_normalize_data
-from utils import CustomL2Loss, autoencoder_predict_and_calculate_error
+    split_data_sequence_into_datasets, reverse_normalize_data, directory_csv_files_to_dataframe_to_numpyArray
+from utils import CustomL2Loss, autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directory
 
 
 @keras.saving.register_keras_serializable(package="MyLayers")
@@ -61,20 +61,24 @@ class LSTMAutoEncoder(tf.keras.Model):
         for i in reversed(layer_dims):
             if i == layer_dims[0]:
                 break
-            self.encoder_lstm.append(LSTM(i, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
-        self.encoder_lstm.append(LSTM(layer_dims[0], activation='relu', return_sequences=False, return_state=True, dropout=dropout))
+            self.encoder_lstm.append(
+                LSTM(i, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
+        self.encoder_lstm.append(
+            LSTM(layer_dims[0], activation='relu', return_sequences=False, return_state=True, dropout=dropout))
         # Decoder
         for i in reversed(layer_dims):
             if i == layer_dims[0]:
                 break
-            self.decoder_lstm.append(LSTM(i, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
-        self.decoder_lstm.append(LSTM(layer_dims[0], activation='relu', return_sequences=True, return_state=True, dropout=dropout))
+            self.decoder_lstm.append(
+                LSTM(i, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
+        self.decoder_lstm.append(
+            LSTM(layer_dims[0], activation='relu', return_sequences=True, return_state=True, dropout=dropout))
         self.decoder_dense = Dense(input_dim)
 
     def call(self, inputs, training=False):
         #if training is None:
         print("Training argument is " + str(training))
-            #return
+        #return
 
         encoder_inputs, decoder_inputs = inputs
         x = encoder_inputs
@@ -86,12 +90,10 @@ class LSTMAutoEncoder(tf.keras.Model):
         empty_encoder_states_cond = True
         #encoder_states = [None, None]
 
-
-    #I'm still not sure if this is correct. The previous function looked like this:
-    #    # for lstm_layer in self.encoder_lstm[:-1]:   #all but last layer
-    #         #     x, _, _ = lstm_layer(x)
-    #         # encoder_outputs, state_h, state_c = self.encoder_lstm[-1](x)  # output of last layer
-
+        #I'm still not sure if this is correct. The previous function looked like this:
+        #    # for lstm_layer in self.encoder_lstm[:-1]:   #all but last layer
+        #         #     x, _, _ = lstm_layer(x)
+        #         # encoder_outputs, state_h, state_c = self.encoder_lstm[-1](x)  # output of last layer
 
         #TODO: Should I pass the states inbetween layers or keep each layer's state in its corresponding layer and then only pass the states of the last layer to the decoder?
         for t in range(self.time_steps):
@@ -104,12 +106,11 @@ class LSTMAutoEncoder(tf.keras.Model):
                     x, state_h, state_c = lstm_layer(x, initial_state=encoder_states)
                 encoder_states = [state_h, state_c]
 
-
         encoder_states = [state_h, state_c]
         # Use the first value of the reversed sequence as initial input for the decoder
 
         all_outputs = []
-        inputs = decoder_inputs[:, 0:1, :] #last entry in time-series
+        inputs = decoder_inputs[:, 0:1, :]  #last entry in time-series
         for t in range(self.time_steps):
             for lstm_layer in self.decoder_lstm:
                 decoder_outputs, state_h, state_c = lstm_layer(inputs, initial_state=encoder_states)
@@ -140,8 +141,8 @@ class LSTMAutoEncoder(tf.keras.Model):
         return {m.name: m.result() for m in self.metrics}
 
     def test_step(self, data):
-        encoder_inputs, decoder_inputs = data[0]    # Unpacking encoder and decoder inputs
-        target = data[1]                            # Target values for current batch
+        encoder_inputs, decoder_inputs = data[0]  # Unpacking encoder and decoder inputs
+        target = data[1]  # Target values for current batch
 
         predictions = self([encoder_inputs, decoder_inputs], training=False)
         loss = self.compiled_loss(target, predictions, regularization_losses=self.losses)
@@ -149,13 +150,16 @@ class LSTMAutoEncoder(tf.keras.Model):
 
         return {m.name: m.result() for m in self.metrics}
 
+
 def calculate_rec_error_vecs(model, X_vN1, scaler):
     error_vecs = []
     for i in range(len(X_vN1)):
         current_sequence = X_vN1[i].reshape((1, X_vN1[i].shape[0], X_vN1[i].shape[1]))
         predicted_sequence = model.predict([current_sequence, np.flip(current_sequence, axis=1)], verbose=0)
-        current_sequence = reverse_normalize_data(np.squeeze(current_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
-        predicted_sequence = reverse_normalize_data(np.squeeze(predicted_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
+        current_sequence = reverse_normalize_data(np.squeeze(current_sequence, axis=0),
+                                                  scaler)  # Reverse reshaping and normalizing
+        predicted_sequence = reverse_normalize_data(np.squeeze(predicted_sequence, axis=0),
+                                                    scaler)  # Reverse reshaping and normalizing
         #print("Chosen sequence: " + str(current_sequence))
         #print("Predicted sequences: " + str(predicted_sequence))
         error_vecs.append(np.subtract(current_sequence, predicted_sequence))
@@ -166,7 +170,6 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
 def estimate_error_distribution(error_vecs):
     print("dipshit")
     return
-
 
 
 def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
@@ -184,51 +187,67 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
     #todo: implement overlapping window separation of data
     # ((((todo: maybe data shuffling maybe advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
-    scaler = MinMaxScaler(feature_range=(-1, 1))            #Scales the data to a fixed range, typically [0, 1].
+    #scaler = MinMaxScaler(feature_range=(-1, 1))  #Scales the data to a fixed range, typically [0, 1].
     #scaler = StandardScaler()           #Scales the data to have a mean of 0 and a standard deviation of 1.
-    #scaler = MaxAbsScaler()            #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
+    scaler = MaxAbsScaler()            #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
 
-    data = []
-    #data is automatically scaled to relative timestamps
-    for directory in directories:
-        data.append(csv_files_to_dataframe_to_numpyArray(directory))
-
-    print("converted csv('s) to numpy array: " + str(data))
-
-    # todo: the data arrays will have null elements due to the sensors having different measuring intervalls!
-    # possible solutions:
-    #       1. delete every entry of the data array that contains an empty cell ---> THIS DOESNT FKING WORK BECAUSE I WILL LOSE LIKE 9/10th OF THE DATA THAT HAVE SHORTER MEASURING INTERVALLS AND THE VALUES WONT EVEN REALLY
-    #          BE CORRELATED
-    #       2. find sensor with least data entries; downsample all other sensor data accordingly before adding them together
-    #       ----> I think 1. and 2. are equivalent aaaaaaaaaaaaaaaaaaaahhhhhh
-    #       3. average empty cells out or sth, idk that sounds retarded AND complicated, my favorite
-    #       3. Kill myself
-
-    data_with_time_diffs = []
-    for samples in data:
-        print("unscaled_data_with_time_diffs: \n" + str(samples))
-        normalized_data_with_time_diffs = normalize_data(samples, scaler)
-        print("normalized_data_with_time_diffs: \n" + str(normalized_data_with_time_diffs))
-        data_with_time_diffs.append(normalized_data_with_time_diffs)
-
-    data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps)
-    X_sN = data_with_time_diffs[0]  #ideally/eventually I would use completely seperate datasets/csv for all of them
-    _, X_vN1, X_vN2, _ = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 1.0, 0.0, 0.0)
-    _, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
-
-    input_dim = X_sN.shape[2]
-    if model_file_path is None:
-        model = create_autoencoder(input_dim, time_steps, layer_dims, len(layer_dims), dropout)
-        model.summary()
-        early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
-        #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
-        model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size, validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1), verbose=1, callbacks=[early_stopping])
-        #autoencoder_predict_and_calculate_error(model, X_tN, 1, 1, scaler)
-        model.save('./models/all_compatible_data_LSTM_autoencoder_decoder_30_30.keras')
-    else:
-        model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder" : LSTMAutoEncoder}, compile=True)
-
-    #autoencoder_predict_and_calculate_error(model, X_tN, 1, 100, scaler)
-    calculate_rec_error_vecs(model, X_vN1, scaler)
+    all_file_pairs = get_matching_file_pairs_from_directory(directories[0], directories[1])
+    print("all_file_pairs: " + str(all_file_pairs))
 
 
+    for file_pair in all_file_pairs:
+        data_with_time_diffs = []
+
+        print("Now training model on: " + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
+
+
+        #data is automatically scaled to relative timestamps
+        for single_file in file_pair:
+            data = directory_csv_files_to_dataframe_to_numpyArray(single_file)
+            if data is None:
+                continue
+            print("unnormalized_data_with_time_diffs: \n" + str(data))
+            normalized_data = normalize_data(data, scaler)
+            print("normalized_data_with_time_diffs: \n" + str(normalized_data))
+            data_with_time_diffs.append(normalized_data)
+
+        #if list is empty due to exception csv
+        if not data_with_time_diffs:
+            continue
+        data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps)
+
+        # todo: the data arrays will have null elements due to the sensors having different measuring intervalls!
+        # possible solutions:
+        #       1. delete every entry of the data array that contains an empty cell ---> THIS DOESNT FKING WORK BECAUSE I WILL LOSE LIKE 9/10th OF THE DATA THAT HAVE SHORTER MEASURING INTERVALLS AND THE VALUES WONT EVEN REALLY
+        #          BE CORRELATED
+        #       2. find sensor with least data entries; downsample all other sensor data accordingly before adding them together
+        #       ----> I think 1. and 2. are equivalent aaaaaaaaaaaaaaaaaaaahhhhhh
+        #       3. average empty cells out or sth, idk that sounds retarded AND complicated, my favorite
+        #       3. Kill myself
+
+        X_sN = data_with_time_diffs[0]  #ideally/eventually I would use completely seperate datasets/csv for all of them
+
+        np.random.shuffle(data_with_time_diffs[1]) #todo: EXPERIMENTAL!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        _, X_vN1, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.6, 0.0, 0.4)
+        #_, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
+
+        input_dim = X_sN.shape[2]
+        if model_file_path is None:
+            model = create_autoencoder(input_dim, time_steps, layer_dims, len(layer_dims), dropout)
+            model.summary()
+            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=40, restore_best_weights=True)
+            #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
+            model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size, validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1), verbose=1, callbacks=[early_stopping])
+            autoencoder_predict_and_calculate_error(model, X_tN, 1, len(X_tN), scaler)
+
+            model_name = "./models/LSTM_autoencoder_decoder_" + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv"))
+            for layer in layer_dims:
+                model_name = model_name + "_" + str(layer)
+
+            model.save(model_name + ".keras")
+        else:
+            model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder": LSTMAutoEncoder}, compile=True)
+
+        #autoencoder_predict_and_calculate_error(model, X_tN, 1, 100, scaler)
+        #alculate_rec_error_vecs(model, X_vN1, scaler)
