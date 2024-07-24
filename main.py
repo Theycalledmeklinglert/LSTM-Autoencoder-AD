@@ -27,7 +27,7 @@ if __name__ == '__main__':
 
     #get_sample_time("./aufnahmen/csv/autocross_valid_16_05_23")
 
-    test_lstm_autoencoder(10, [80, 80], 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid2_17_23_44"])
+    test_lstm_autoencoder(10, [50, 50], 0.0, 32, 200, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"]) #"C:\\Users\\Luca\\PycharmProjects\\AnoamlydetectionInFormulaStudent\\models\\LSTM_autoencoder_decoder_can_interface-wheelspeed_100_100.keras"
 
     #Test:
     #test_lstm_autoencoder(10, [80, 80], 0.0, 32, 120, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"])

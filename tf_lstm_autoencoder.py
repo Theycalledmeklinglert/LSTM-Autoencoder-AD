@@ -3,6 +3,8 @@ import tensorflow as tf
 import keras
 from keras.src.callbacks import EarlyStopping
 from keras.src.saving import load_model
+from scipy.linalg import inv
+from sklearn.metrics import precision_recall_curve
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer, MaxAbsScaler
 #from tensorflow import keras
 from tensorflow.keras.layers import Input, LSTM, Dense
@@ -95,7 +97,7 @@ class LSTMAutoEncoder(tf.keras.Model):
         #         #     x, _, _ = lstm_layer(x)
         #         # encoder_outputs, state_h, state_c = self.encoder_lstm[-1](x)  # output of last layer
 
-        #TODO: Should I pass the states inbetween layers or keep each layer's state in its corresponding layer and then only pass the states of the last layer to the decoder?
+        #Should I pass the states inbetween layers or keep each layer's state in its corresponding layer and then only pass the states of the last layer to the decoder?
         for t in range(self.time_steps):
             x = encoder_inputs[:, t:t + 1, :]  # Select one time step
             for lstm_layer in self.encoder_lstm:
@@ -123,7 +125,14 @@ class LSTMAutoEncoder(tf.keras.Model):
                 inputs = outputs  # Use the output as the next input
             encoder_states = [state_h, state_c]
 
-        decoder_outputs = tf.concat(all_outputs, axis=1)
+        #print("All outputs: \n" + str(all_outputs))
+        #reverse decoder output since it predicts target data in reverse
+        all_outputs = all_outputs[::-1]                 #todo: I think this is correct now??? Idfk man fuck
+        #print("Reversed outputs: \n" + str(all_outputs))
+
+
+
+        decoder_outputs = tf.concat(all_outputs, axis=1)    #Todo: FUCK all_outputs.flip() ?    np.flip(X_sN, axis=1)
         return decoder_outputs
 
     def train_step(self, data):
@@ -142,34 +151,13 @@ class LSTMAutoEncoder(tf.keras.Model):
 
     def test_step(self, data):
         encoder_inputs, decoder_inputs = data[0]  # Unpacking encoder and decoder inputs
-        target = data[1]  # Target values for current batch
+        target = data[1]
 
         predictions = self([encoder_inputs, decoder_inputs], training=False)
         loss = self.compiled_loss(target, predictions, regularization_losses=self.losses)
         self.compiled_metrics.update_state(target, predictions)
 
         return {m.name: m.result() for m in self.metrics}
-
-
-def calculate_rec_error_vecs(model, X_vN1, scaler):
-    error_vecs = []
-    for i in range(len(X_vN1)):
-        current_sequence = X_vN1[i].reshape((1, X_vN1[i].shape[0], X_vN1[i].shape[1]))
-        predicted_sequence = model.predict([current_sequence, np.flip(current_sequence, axis=1)], verbose=0)
-        current_sequence = reverse_normalize_data(np.squeeze(current_sequence, axis=0),
-                                                  scaler)  # Reverse reshaping and normalizing
-        predicted_sequence = reverse_normalize_data(np.squeeze(predicted_sequence, axis=0),
-                                                    scaler)  # Reverse reshaping and normalizing
-        #print("Chosen sequence: " + str(current_sequence))
-        #print("Predicted sequences: " + str(predicted_sequence))
-        error_vecs.append(np.subtract(current_sequence, predicted_sequence))
-    print(error_vecs)
-    return error_vecs
-
-
-def estimate_error_distribution(error_vecs):
-    print("dipshit")
-    return
 
 
 def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
@@ -179,13 +167,12 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     autoencoder = LSTMAutoEncoder(input_dim, time_steps, layer_dims, num_layers, dropout)
     outputs = autoencoder([encoder_inputs, decoder_inputs])
     model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
-    model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['accuracy'])
+    model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['accuracy'])  #for prints: ", run_eagerly=True"
     return model
 
 
 def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, directories, model_file_path=None):
-    #todo: implement overlapping window separation of data
-    # ((((todo: maybe data shuffling maybe advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
+    # ((((todo: data shuffling may be advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
     #scaler = MinMaxScaler(feature_range=(-1, 1))  #Scales the data to a fixed range, typically [0, 1].
     #scaler = StandardScaler()           #Scales the data to have a mean of 0 and a standard deviation of 1.
@@ -197,15 +184,13 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
 
     for file_pair in all_file_pairs:
         data_with_time_diffs = []
-
         print("Now training model on: " + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
-
 
         #data is automatically scaled to relative timestamps
         for single_file in file_pair:
             data = directory_csv_files_to_dataframe_to_numpyArray(single_file)
             if data is None:
-                continue
+                break
             print("unnormalized_data_with_time_diffs: \n" + str(data))
             normalized_data = normalize_data(data, scaler)
             print("normalized_data_with_time_diffs: \n" + str(normalized_data))
@@ -250,4 +235,56 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
             model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder": LSTMAutoEncoder}, compile=True)
 
         #autoencoder_predict_and_calculate_error(model, X_tN, 1, 100, scaler)
-        #alculate_rec_error_vecs(model, X_vN1, scaler)
+        #calculate_rec_error_vecs(model, X_vN1, scaler)
+
+
+def calculate_rec_error_vecs(model, X_vN1, scaler):
+    error_vecs = []
+    for i in range(len(X_vN1)):
+        current_sequence = X_vN1[i].reshape((1, X_vN1[i].shape[0], X_vN1[i].shape[1]))
+        predicted_sequence = model.predict([current_sequence, np.flip(current_sequence, axis=1)], verbose=0)
+        current_sequence = reverse_normalize_data(np.squeeze(current_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
+        predicted_sequence = reverse_normalize_data(np.squeeze(predicted_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
+        # print("Chosen sequence: " + str(current_sequence))
+        # print("Predicted sequences: " + str(predicted_sequence))
+        # print("Result: " + str(np.absolute(np.subtract(current_sequence, predicted_sequence))))
+        error_vecs.append(np.absolute(np.subtract(current_sequence, predicted_sequence)))
+    print("Error vecs: \n" + str(error_vecs))
+    return error_vecs
+
+
+    #todo:
+    #      finish evaluation of anomaly score.
+    #      implement overlapping window separation of data
+    #      find optimal hyperparameters for each sensor
+    #      find a way to create authentic anomalous data and test
+    #      find and implement next algorithm
+    #      write eMail to Schleif
+
+
+def estimate_normal_error_distribution(error_vecs):
+    # MLE for the mean (µ)
+    mu = np.mean(error_vecs, axis=0)
+    # MLE for the covariance matrix (Σ)
+    sigma = np.cov(error_vecs, rowvar=False)
+    return mu, sigma
+
+
+#todo: sigma is a matrix here. I'm not sure if this is correct but try it for now
+def compute_anomaly_score(error, mu, sigma):
+    diff = error - mu
+    inv_sigma = inv(sigma)
+    score = np.dot(np.dot(diff, inv_sigma), diff.T)
+    return score
+
+
+#todo: is supposed to use "from sklearn.metrics import precision_recall_curve, fbeta_score" but only uses "fbeta_scores". ChatGPT is currently down so look
+#todo: into it later
+def find_optimal_threshold(anomaly_scores, true_labels, beta=1.0):
+    precision, recall, thresholds = precision_recall_curve(true_labels, anomaly_scores)
+    fbeta_scores = (1 + beta**2) * (precision * recall) / (beta**2 * precision + recall)
+    best_index = np.argmax(fbeta_scores)
+    best_threshold = thresholds[best_index]
+    best_fbeta = fbeta_scores[best_index]
+    return best_threshold, best_fbeta
+
