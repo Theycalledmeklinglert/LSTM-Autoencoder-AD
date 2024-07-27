@@ -4,6 +4,7 @@ import keras
 from keras.src.callbacks import EarlyStopping
 from keras.src.layers import TimeDistributed
 from keras.src.saving import load_model
+from keras_tuner import RandomSearch
 from scipy.linalg import inv
 from sklearn.metrics import precision_recall_curve
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer, MaxAbsScaler
@@ -11,11 +12,13 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer, MaxA
 from tensorflow.keras.layers import Input, LSTM, Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import Model
-from keras import Loss
+from kerastuner import HyperModel
+from kerastuner.engine.hyperparameters import HyperParameters
 
 from raw_data_processing.data_processing import old_directory_csv_files_to_dataframe_to_numpyArray, \
     convert_timestamp_to_relative_time_diff, reshape_data_for_autoencoder_lstm, normalize_data, \
     split_data_sequence_into_datasets, reverse_normalize_data, directory_csv_files_to_dataframe_to_numpyArray
+from tf_lstm_autoencoder import CustomL2Loss
 from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directory
 
 
@@ -40,6 +43,13 @@ class LSTMAutoEncoder(tf.keras.Model):
         num_layers = config.pop("num_layers")
         dropout = config.pop("dropout")
 
+        print("Und Keras so: Fick dich!")
+        print(layer_dims)
+        print(input_dim)
+        print(time_steps)
+        print(num_layers)
+        print(dropout)
+
         return cls(input_dim, time_steps, layer_dims, num_layers, dropout, **config)
 
     def __init__(self, input_dim, time_steps, layer_dims, num_layers, dropout, **kwargs):
@@ -54,7 +64,7 @@ class LSTMAutoEncoder(tf.keras.Model):
         self.decoder_dense = None
 
         # Encoder
-        #print("Im going fucking feral: " + str(layer_dims))
+        print("Im going fucking feral: " + str(layer_dims))
         for i in layer_dims:
             self.encoder_lstm.append(
                 LSTM(i, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
@@ -74,8 +84,8 @@ class LSTMAutoEncoder(tf.keras.Model):
 
         encoder_inputs, decoder_inputs = inputs
         x = encoder_inputs
-        #print("This may be huge: " + str(decoder_inputs.shape))
-        #print("This may be huge2: " + str(encoder_inputs))
+        print("This may be huge: " + str(decoder_inputs.shape))
+        print("This may be huge2: " + str(encoder_inputs))
 
         encoder_states = [tf.zeros((tf.shape(encoder_inputs)[0], self.layer_dims[0])),
                           tf.zeros((tf.shape(encoder_inputs)[0], self.layer_dims[0]))]
@@ -117,7 +127,7 @@ class LSTMAutoEncoder(tf.keras.Model):
 
         #print("All outputs: \n" + str(all_outputs))
         #reverse decoder output since it predicts target data in reverse
-        #all_outputs = all_outputs[::-1]                 #todo: I think this is correct now??? Idfk man fuck
+        all_outputs = all_outputs[::-1]                 #todo: I think this is correct now??? Idfk man fuck
         #print("Reversed outputs: \n" + str(all_outputs))
 
 
@@ -161,8 +171,30 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     return model
 
 
+class LSTMAutoEncoderHyperModel(HyperModel):
+    def __init__(self, input_dim, time_steps):
+        self.input_dim = input_dim
+        self.time_steps = time_steps
 
-def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, directories, model_file_path=None):
+    def build(self, hp):
+        units = hp.Int('units', min_value=4, max_value=100, step=10)
+        layer_dims = [units, units]
+        dropout = hp.Float('dropout', min_value=0.0, max_value=0.5, step=0.1)
+        learning_rate = hp.Float('learning_rate', min_value=1e-4, max_value=1e-1, sampling='LOG')
+
+        encoder_inputs = Input(shape=(self.time_steps, self.input_dim))
+        decoder_inputs = Input(shape=(self.time_steps, self.input_dim))
+
+        autoencoder = LSTMAutoEncoder(self.input_dim, self.time_steps, layer_dims, len(layer_dims), dropout)
+        outputs = autoencoder([encoder_inputs, decoder_inputs])
+
+        model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
+        model.compile(optimizer=Adam(learning_rate=learning_rate), loss=CustomL2Loss, metrics=['accuracy'])
+        return model
+
+
+
+def tune_lstm_autoencoder(time_steps, directories):
     # ((((todo: data shuffling may be advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
     #scaler = MinMaxScaler(feature_range=(-1, 1))  #Scales the data to a fixed range, typically [0, 1].
@@ -204,44 +236,37 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         data_with_time_diffs[1] = data_with_time_diffs[1][indices]
         true_labels_list[1] = true_labels_list[1][indices]
 
-        idxsss = np.where(true_labels_list[1] == 1)         #todo: contains duplicates;
-        print("?" + str(idxsss))
-        [print("hey1: " + str(reverse_normalize_data(seq, scaler)) + "\n") for seq in data_with_time_diffs[1][np.unique(idxsss[0])]]
-        print("hey4: \n" + str(data_with_time_diffs[1][np.unique(idxsss[0])]))
-
-
-        #print("hey2: \n" + str(true_labels_list[1]))
-
-
         _, X_vN1, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.6, 0.0, 0.4)
         #_, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
 
 
         input_dim = X_sN.shape[2]
-        if model_file_path is None:
-            model = create_autoencoder(input_dim, time_steps, layer_dims, len(layer_dims), dropout)
-            model.summary()
-            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
+        hypermodel = LSTMAutoEncoderHyperModel(input_dim, time_steps)
 
-            #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
-            model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size, validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1), verbose=1, callbacks=[early_stopping])
+        tuner = RandomSearch(
+            hypermodel,
+            objective='val_loss',
+            max_trials=30,
+            executions_per_trial=1,
+            directory='tuner_results',
+            project_name='lstm_autoencoder_tuning'
+        )
 
-            model_name = "./models/LSTM_autoencoder_decoder_" + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv"))
-            for layer in layer_dims:
-                model_name = model_name + "_" + str(layer)
+        early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
 
-            print("Saved model to: " + str(model_name) + ".keras")
-            model.save(model_name + ".keras")
-        else:
-            model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder": LSTMAutoEncoder}, compile=True)
+        tuner.search([X_sN, np.flip(X_sN, axis=1)], X_sN,
+                     epochs=150,
+                     validation_split=0.2,
+                     callbacks=[early_stopping])
 
-        autoencoder_predict_and_calculate_error(model, X_tN, 1, len(X_tN), scaler)
-        #calculate_rec_error_vecs(model, X_vN1, scaler)
+        best_model = tuner.get_best_models(num_models=1)[0]
+        best_model.summary()
 
+        model_name = "./models/" + "keras_tuned" + "LSTM_autoencoder_decoder_" + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv"))
 
-class CustomL2Loss(Loss):
-    def call(self, y_true, y_pred):
-        return tf.reduce_mean(tf.square(y_true - y_pred))
+        print("Saved model to: " + str(model_name) + ".keras")
+        best_model.save(model_name + ".keras")
+        autoencoder_predict_and_calculate_error(best_model, X_sN, 1, len(X_sN), scaler)
 
 
 def calculate_rec_error_vecs(model, X_vN1, scaler):

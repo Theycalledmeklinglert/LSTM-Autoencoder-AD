@@ -3,7 +3,6 @@ import random
 
 import numpy as np
 import tensorflow as tf
-from keras import Loss
 
 from raw_data_processing.data_processing import reverse_normalize_data
 
@@ -25,8 +24,8 @@ def autoencoder_predict_and_calculate_error(model, X_tN, future_steps, iteration
                                                     scaler)  # Reverse reshaping and normalizing
 
         #predicted_sequence = predicted_sequence.reshape((future_steps, X_tN.shape[2]))
-        #print("Input sequence: " + str(chosen_sequence))
-        #print("Predicted sequences: " + str(predicted_sequence))
+        #print("Input sequence: \n" + str(chosen_sequence))
+        #print("Predicted sequences: \n" + str(predicted_sequence))
         error_vec = np.subtract(chosen_sequence, predicted_sequence)
         all_err_vecs.append(error_vec)
         #print("Error vec: " + str(error_vec) + "\n")
@@ -34,10 +33,6 @@ def autoencoder_predict_and_calculate_error(model, X_tN, future_steps, iteration
     print("Avg. error: " + str(avg_error_matrix))
     print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
 
-
-class CustomL2Loss(Loss):
-    def call(self, y_true, y_pred):
-        return tf.reduce_mean(tf.square(y_true - y_pred))
 
     def stacked_LSTM_predict_and_calculate_error(model, X_tN, Y_tN, future_steps, iterations):
         all_err_vecs = []

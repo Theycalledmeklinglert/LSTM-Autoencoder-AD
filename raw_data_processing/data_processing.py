@@ -190,7 +190,7 @@ def clean_csv(file_path):
 
     df = pd.read_csv(file_path)
     columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'child_frame_id',
-                         'twist.covariance']  #todo: test if removing this was good or bad: ", 'header.seq'"
+                         'twist.covariance', 'header.seq']  #todo: test if removing this was good or bad: ", 'header.seq'"
 
     for col in columns_to_remove:
         if col in df.columns:
