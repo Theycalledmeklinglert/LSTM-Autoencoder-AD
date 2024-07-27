@@ -14,7 +14,7 @@ def reshape_data_for_autoencoder_lstm(data_list, time_steps):
     # Reshape X to fit LSTM input shape (samples, time steps, features)
     for i in range(len(data_list)):
         data = data_list[i]
-        if (time_steps > 1):
+        if time_steps > 1:
             data = data[:(data.shape[0] // time_steps) * time_steps]
             data = data.reshape((data.shape[0] // time_steps, time_steps, data.shape[1]))
         else:
@@ -113,18 +113,27 @@ def convert_timestamp_to_relative_time_diff(df):
 
 
 def directory_csv_files_to_dataframe_to_numpyArray(file_path):
+    offset = 0
     df = clean_csv(file_path)
     if df is None:
         return
     df = convert_timestamp_to_relative_time_diff(df)
-    samples = np.zeros((df.shape[0], df.shape[1]))
+    if "Anomaly" in df.columns:
+        offset = 1
+
+    samples = np.zeros((df.shape[0], df.shape[1] - offset))
+    true_labels = np.zeros((df.shape[0], 1))
     for row_index, row in df.iterrows():
         for col_index, column in enumerate(df.columns):
-                samples[row_index, col_index] = row[column]
-                # print("row_index: " + str(row_index))
-                # print("column: " + str(column) + " + col_index: " + str(col_index))
-                # print("grabbed: " + str(row[column]))
-    return samples
+            if column == "Anomaly":
+                true_labels[row_index] = [row[column].astype('int')] #0 or 1; 1==anomaly
+                continue
+            samples[row_index, col_index] = row[column]
+            # print("row_index: " + str(row_index))
+            # print("column: " + str(column) + " + col_index: " + str(col_index))
+            # print("grabbed: " + str(row[column]))
+    return samples, true_labels
+
 
 def old_directory_csv_files_to_dataframe_to_numpyArray(directory):
     print("Reading files from directory: " + directory)
@@ -232,12 +241,12 @@ def get_sample_time(directory):
             #if i == 100:
             #    break
 
-        time_diffs = [float(value) / 1e6 for value in time_diffs]   #convert to msecs
+        time_diffs = [float(value) / 1e6 for value in time_diffs]  #convert to msecs
         all_time_diffs[file] = time_diffs
 
     for entry in all_time_diffs.keys():
         print("Sample time differences for " + entry[entry.rfind("/") + 1:] + ": " + str(
-        sum(all_time_diffs[entry]) / len(all_time_diffs[entry])) + " msecs")
+            sum(all_time_diffs[entry]) / len(all_time_diffs[entry])) + " msecs")
 
     for entry in all_time_diffs.keys():
         print("length of " + entry[entry.rfind("/") + 1:] + " :" + str(len(all_time_diffs[entry])))
@@ -246,4 +255,3 @@ def get_sample_time(directory):
     # print("t: " + str(t))
     # combined_nanoseconds = t.secs * 1e9 + t.nsecs
     # print("Combined secs and nsecs: " + str(combined_nanoseconds))
-

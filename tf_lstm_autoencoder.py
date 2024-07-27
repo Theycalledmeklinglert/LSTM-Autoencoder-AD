@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import keras
 from keras.src.callbacks import EarlyStopping
+from keras.src.layers import TimeDistributed
 from keras.src.saving import load_model
 from scipy.linalg import inv
 from sklearn.metrics import precision_recall_curve
@@ -66,7 +67,7 @@ class LSTMAutoEncoder(tf.keras.Model):
             self.encoder_lstm.append(
                 LSTM(i, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
         self.encoder_lstm.append(
-            LSTM(layer_dims[0], activation='relu', return_sequences=False, return_state=True, dropout=dropout))
+            LSTM(layer_dims[0], activation='relu', return_sequences=True, return_state=True, dropout=dropout))
         # Decoder
         for i in reversed(layer_dims):
             if i == layer_dims[0]:
@@ -184,38 +185,47 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
 
     for file_pair in all_file_pairs:
         data_with_time_diffs = []
+        true_labels_list = []       #specify whether a point is classified as anomaly
         print("Now training model on: " + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
 
         #data is automatically scaled to relative timestamps
         for single_file in file_pair:
-            data = directory_csv_files_to_dataframe_to_numpyArray(single_file)
+            data, true_labels = directory_csv_files_to_dataframe_to_numpyArray(single_file)
             if data is None:
                 break
             print("unnormalized_data_with_time_diffs: \n" + str(data))
             normalized_data = normalize_data(data, scaler)
             print("normalized_data_with_time_diffs: \n" + str(normalized_data))
             data_with_time_diffs.append(normalized_data)
+            true_labels_list.append(true_labels)
 
         #if list is empty due to exception csv
         if not data_with_time_diffs:
             continue
+
         data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps)
-
-        # todo: the data arrays will have null elements due to the sensors having different measuring intervalls!
-        # possible solutions:
-        #       1. delete every entry of the data array that contains an empty cell ---> THIS DOESNT FKING WORK BECAUSE I WILL LOSE LIKE 9/10th OF THE DATA THAT HAVE SHORTER MEASURING INTERVALLS AND THE VALUES WONT EVEN REALLY
-        #          BE CORRELATED
-        #       2. find sensor with least data entries; downsample all other sensor data accordingly before adding them together
-        #       ----> I think 1. and 2. are equivalent aaaaaaaaaaaaaaaaaaaahhhhhh
-        #       3. average empty cells out or sth, idk that sounds retarded AND complicated, my favorite
-        #       3. Kill myself
-
+        true_labels_list = reshape_data_for_autoencoder_lstm(true_labels_list, time_steps)
         X_sN = data_with_time_diffs[0]  #ideally/eventually I would use completely seperate datasets/csv for all of them
 
-        np.random.shuffle(data_with_time_diffs[1]) #todo: EXPERIMENTAL!!!!!!!!!!!!!!!!!!!!!!!!!!
+        #np.random.shuffle(data_with_time_diffs[1]) #todo: EXPERIMENTAL!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+        indices = np.arange(data_with_time_diffs[1].shape[0])
+        np.random.shuffle(indices)
+        data_with_time_diffs[1] = data_with_time_diffs[1][indices]
+        true_labels_list[1] = true_labels_list[1][indices]
+
+        idxsss = np.where(true_labels_list[1] == 1)         #todo: contains duplicates;
+        print("?" + str(idxsss))
+        [print("hey1: " + str(reverse_normalize_data(seq, scaler)) + "\n") for seq in data_with_time_diffs[1][np.unique(idxsss[0])]]
+        print("hey4: \n" + str(data_with_time_diffs[1][np.unique(idxsss[0])]))
+
+
+        #print("hey2: \n" + str(true_labels_list[1]))
+
 
         _, X_vN1, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.6, 0.0, 0.4)
         #_, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
+
 
         input_dim = X_sN.shape[2]
         if model_file_path is None:
@@ -224,17 +234,17 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
             early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=40, restore_best_weights=True)
             #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
             model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size, validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1), verbose=1, callbacks=[early_stopping])
-            autoencoder_predict_and_calculate_error(model, X_tN, 1, len(X_tN), scaler)
 
             model_name = "./models/LSTM_autoencoder_decoder_" + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv"))
             for layer in layer_dims:
                 model_name = model_name + "_" + str(layer)
 
+            print("Saved model to: " + str(model_name) + ".keras")
             model.save(model_name + ".keras")
         else:
             model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder": LSTMAutoEncoder}, compile=True)
 
-        #autoencoder_predict_and_calculate_error(model, X_tN, 1, 100, scaler)
+        autoencoder_predict_and_calculate_error(model, X_tN, 1, len(X_tN), scaler)
         #calculate_rec_error_vecs(model, X_vN1, scaler)
 
 
@@ -255,12 +265,26 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
 
     #todo:
     #      finish evaluation of anomaly score.
+    #      //add true_labels to all data
     #      implement overlapping window separation of data
     #      find optimal hyperparameters for each sensor
     #      find a way to create authentic anomalous data and test
     #      find and implement next algorithm
     #      write eMail to Schleif
 
+    #todo: -----------------------------> Try using KerasTuner   <-----------------------------
+
+
+
+
+  #the data arrays will have null elements due to the sensors having different measuring intervalls!
+        # possible solutions:
+        #       1. delete every entry of the data array that contains an empty cell ---> THIS DOESNT FKING WORK BECAUSE I WILL LOSE LIKE 9/10th OF THE DATA THAT HAVE SHORTER MEASURING INTERVALLS AND THE VALUES WONT EVEN REALLY
+        #          BE CORRELATED
+        #       2. find sensor with least data entries; downsample all other sensor data accordingly before adding them together
+        #       ----> I think 1. and 2. are equivalent aaaaaaaaaaaaaaaaaaaahhhhhh
+        #       3. average empty cells out or sth, idk that sounds retarded AND complicated, my favorite
+        #       3. Kill myself
 
 def estimate_normal_error_distribution(error_vecs):
     # MLE for the mean (µ)
@@ -270,11 +294,12 @@ def estimate_normal_error_distribution(error_vecs):
     return mu, sigma
 
 
+
 #todo: sigma is a matrix here. I'm not sure if this is correct but try it for now
 def compute_anomaly_score(error, mu, sigma):
     diff = error - mu
-    inv_sigma = inv(sigma)
-    score = np.dot(np.dot(diff, inv_sigma), diff.T)
+    inv_sigma = inv(sigma)                                  #todo: is this correct?
+    score = np.dot(np.dot(diff, inv_sigma), diff.T)         #todo: is this correct?
     return score
 
 
