@@ -246,17 +246,18 @@ def tune_lstm_autoencoder(time_steps, directories):
         tuner = RandomSearch(
             hypermodel,
             objective='val_loss',
-            max_trials=30,
-            executions_per_trial=1,
+            max_trials=10,
+            executions_per_trial=3,
             directory='tuner_results',
             project_name='lstm_autoencoder_tuning'
         )
 
         early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
 
-        tuner.search([X_sN, np.flip(X_sN, axis=1)], X_sN,
+        tuner.search(x=[X_sN, np.flip(X_sN, axis=1)], y=X_sN,
                      epochs=150,
-                     validation_split=0.2,
+                     batch_size=32,
+                     validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1),
                      callbacks=[early_stopping])
 
         best_model = tuner.get_best_models(num_models=1)[0]

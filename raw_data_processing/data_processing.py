@@ -89,12 +89,13 @@ def reverse_normalize_data(scaled_data, scaler):
         return scaled_data
     return scaler.inverse_transform(scaled_data)
 
-
-def convert_timestamp_to_absolute_time_diff(data):
-    # time_diffs = np.diff(data[:, 0], prepend=data[0, 0])
-    # return np.column_stack((time_diffs, data[:, 1:]))
-    print("this is stupid")
-    return
+def shuffle_data(data, true_labels=None):
+    indices = np.arange(data.shape[0])
+    np.random.shuffle(indices)
+    data = data[indices]
+    if true_labels is not None:
+        true_labels = true_labels[indices]
+    return data, true_labels
 
 
 def convert_timestamp_to_relative_time_diff(df):

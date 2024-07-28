@@ -15,7 +15,8 @@ from keras import Loss
 
 from raw_data_processing.data_processing import old_directory_csv_files_to_dataframe_to_numpyArray, \
     convert_timestamp_to_relative_time_diff, reshape_data_for_autoencoder_lstm, normalize_data, \
-    split_data_sequence_into_datasets, reverse_normalize_data, directory_csv_files_to_dataframe_to_numpyArray
+    split_data_sequence_into_datasets, reverse_normalize_data, directory_csv_files_to_dataframe_to_numpyArray, \
+    shuffle_data
 from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directory
 
 
@@ -116,13 +117,13 @@ class LSTMAutoEncoder(tf.keras.Model):
             encoder_states = [state_h, state_c]
 
         #print("All outputs: \n" + str(all_outputs))
-        #reverse decoder output since it predicts target data in reverse
-        #all_outputs = all_outputs[::-1]                 #todo: I think this is correct now??? Idfk man fuck
+        #reverse decoder output since decoder predicts target data in reverse
+        all_outputs = all_outputs[::-1]                 #todo: I think this is correct now??? Not 100% sure
         #print("Reversed outputs: \n" + str(all_outputs))
 
 
 
-        decoder_outputs = tf.concat(all_outputs, axis=1)    #Todo: FUCK all_outputs.flip() ?    np.flip(X_sN, axis=1)
+        decoder_outputs = tf.concat(all_outputs, axis=1)
         return decoder_outputs
 
     def train_step(self, data):
@@ -195,33 +196,28 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
 
         data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps)
         true_labels_list = reshape_data_for_autoencoder_lstm(true_labels_list, time_steps)
-        X_sN = data_with_time_diffs[0]  #ideally/eventually I would use completely seperate datasets/csv for all of them
 
-        #np.random.shuffle(data_with_time_diffs[1]) #todo: EXPERIMENTAL!!!!!!!!!!!!!!!!!!!!!!!!!!
+        #ideally/eventually I would use completely seperate datasets/csv for all of them
+        #X_sN, true_labels_list[0] = shuffle_data(data_with_time_diffs[0], true_labels_list[0])
 
-        indices = np.arange(data_with_time_diffs[1].shape[0])
-        np.random.shuffle(indices)
-        data_with_time_diffs[1] = data_with_time_diffs[1][indices]
-        true_labels_list[1] = true_labels_list[1][indices]
+        #TODO: Shuffling is likely entirely unnecessary/bad here since it destroys the Overlapping window functionality
+        #X_sN = data_with_time_diffs[0]
+        X_sN, X_vN1, X_vN2, _ = split_data_sequence_into_datasets(data_with_time_diffs[0], 0.8, 0.2, 0.0, 0.0)
+        #data_with_time_diffs[1], true_labels_list[1] = shuffle_data(data_with_time_diffs[1], true_labels_list[1])
+        _, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
+        # _, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
+
 
         idxsss = np.where(true_labels_list[1] == 1)         #todo: contains duplicates;
         print("?" + str(idxsss))
         [print("hey1: " + str(reverse_normalize_data(seq, scaler)) + "\n") for seq in data_with_time_diffs[1][np.unique(idxsss[0])]]
         print("hey4: \n" + str(data_with_time_diffs[1][np.unique(idxsss[0])]))
 
-
-        #print("hey2: \n" + str(true_labels_list[1]))
-
-
-        _, X_vN1, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.6, 0.0, 0.4)
-        #_, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
-
-
         input_dim = X_sN.shape[2]
         if model_file_path is None:
             model = create_autoencoder(input_dim, time_steps, layer_dims, len(layer_dims), dropout)
             model.summary()
-            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
+            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=40, restore_best_weights=True)
 
             #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
             model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size, validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1), verbose=1, callbacks=[early_stopping])
@@ -241,8 +237,23 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
 
 class CustomL2Loss(Loss):
     def call(self, y_true, y_pred):
-        return tf.reduce_mean(tf.square(y_true - y_pred))
+        #print("y_true: \n" + str(y_true))
+        #print("y_pred: \n" + str(y_pred))
+        diff = y_true - y_pred
+        l2_norm = tf.norm(diff, ord='euclidean', axis=-1, )
+        #print("diff: \n" + str(diff))
+        #print("l2_norm: \n" + str(l2_norm))
+        #print("l2_norm after reduce_sum: \n" + str(tf.reduce_sum(l2_norm)))
 
+        #return tf.reduce_sum(l2_norm)   #todo: reduce_sum or reduce_mean?
+        return tf.reduce_mean(l2_norm)
+
+def create_overlapping_data_windows(data, timesteps, step_window):
+    #todo: this likely conflicts with separation of data into timesteps and should be done there instead
+    return
+
+def remove_overlapping_data_windows(data, timesteps, step_window):
+    return
 
 def calculate_rec_error_vecs(model, X_vN1, scaler):
     error_vecs = []
