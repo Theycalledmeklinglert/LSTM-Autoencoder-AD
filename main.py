@@ -32,11 +32,12 @@ if __name__ == '__main__':
     #test_lstm_autoencoder(10, [50, 50], 0.0, 32, 200, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"]) #"C:\\Users\\Luca\\PycharmProjects\\AnoamlydetectionInFormulaStudent\\models\\LSTM_autoencoder_decoder_can_interface-wheelspeed_100_100.keras"
 
     #Test:
-    test_lstm_autoencoder(10, [40], 0.0, 32, 400, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"])
+    tune_lstm_autoencoder(30, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"])
+
+    test_lstm_autoencoder(30, [40], 0.0, 32, 400, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"])
     #df = clean_csv("C:\\Users\\Luca\\PycharmProjects\AnoamlydetectionInFormulaStudent\\aufnahmen\csv\\autocross_valid_16_05_23\\diagnostics.csv")
     #print_unique_values(df, "status")
 
-    #tune_lstm_autoencoder(10, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"])
 
     print_hi('PyCharm')
 

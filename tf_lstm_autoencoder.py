@@ -217,7 +217,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         if model_file_path is None:
             model = create_autoencoder(input_dim, time_steps, layer_dims, len(layer_dims), dropout)
             model.summary()
-            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=40, restore_best_weights=True)
+            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=60, restore_best_weights=True)
 
             #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
             model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size, validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1), verbose=1, callbacks=[early_stopping])

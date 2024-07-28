@@ -1,6 +1,7 @@
 import numpy as np
 import tensorflow as tf
 import keras
+from keras import Loss
 from keras.src.callbacks import EarlyStopping
 from keras.src.layers import TimeDistributed
 from keras.src.saving import load_model
@@ -192,8 +193,6 @@ class LSTMAutoEncoderHyperModel(HyperModel):
         model.compile(optimizer=Adam(learning_rate=learning_rate), loss=CustomL2Loss, metrics=['accuracy'])
         return model
 
-
-
 def tune_lstm_autoencoder(time_steps, directories):
     # ((((todo: data shuffling may be advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
@@ -246,8 +245,8 @@ def tune_lstm_autoencoder(time_steps, directories):
         tuner = RandomSearch(
             hypermodel,
             objective='val_loss',
-            max_trials=10,
-            executions_per_trial=3,
+            max_trials=1,           #10
+            executions_per_trial=3, #3
             directory='tuner_results',
             project_name='lstm_autoencoder_tuning'
         )
