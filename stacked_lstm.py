@@ -1,14 +1,12 @@
 import csv
-import random
 
 import numpy as np
 from keras import Sequential
-from keras.src.callbacks import Callback, EarlyStopping, ReduceLROnPlateau
-from keras.src.layers import LSTM, Dense, Dropout, BatchNormalization
-from sklearn.preprocessing import MinMaxScaler, StandardScaler
+from keras.src.callbacks import Callback, EarlyStopping
+from keras.src.layers import LSTM, Dense, Dropout
 
-from raw_data_processing.data_processing import old_directory_csv_files_to_dataframe_to_numpyArray, \
-    convert_timestamp_to_absolute_time_diff, convert_timestamp_to_relative_time_diff
+from data_processing import old_directory_csv_files_to_dataframe_to_numpyArray, \
+    convert_timestamp_to_relative_time_diff
 
 
 def generate_test_array(start=0, end=1000, sequence_length=5):

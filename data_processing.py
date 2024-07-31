@@ -10,15 +10,23 @@ import numpy as np
 from sklearn.preprocessing import MaxAbsScaler
 
 
-def reshape_data_for_autoencoder_lstm(data_list, time_steps):
+def reshape_data_for_autoencoder_lstm(data_list, window_size, window_step):
     # Reshape X to fit LSTM input shape (samples, time steps, features)
     for i in range(len(data_list)):
         data = data_list[i]
-        if time_steps > 1:
-            data = data[:(data.shape[0] // time_steps) * time_steps]
-            data = data.reshape((data.shape[0] // time_steps, time_steps, data.shape[1]))
+        windowed_data = []
+        if window_size > 1:
+            data = data[:(data.shape[0] // window_size) * window_size]  #cut out rest of data that doesn't fit in window size
+
+            # for i in range(data.shape[0]):
+            #     if i < window_step:
+            #         curr_window = data[i:i+window_size]
+            #     else
+
+
+            data = data.reshape((data.shape[0] // window_size, window_size, data.shape[1]))
         else:
-            data = data.reshape((data.shape[0], time_steps, data.shape[1]))
+            data = data.reshape((data.shape[0], window_size, data.shape[1]))
         data_list[i] = data
         #print("Reshaped data for LSTM into: " + str(data))
     return data_list
@@ -127,9 +135,9 @@ def directory_csv_files_to_dataframe_to_numpyArray(file_path):
     for row_index, row in df.iterrows():
         for col_index, column in enumerate(df.columns):
             if column == "Anomaly":
-                true_labels[row_index] = [row[column].astype('int')] #0 or 1; 1==anomaly
-                continue
-            samples[row_index, col_index] = row[column]
+                true_labels[row_index] = row[column].astype('int') #0 or 1; 1==anomaly
+            else:
+                samples[row_index, col_index] = row[column]
             # print("row_index: " + str(row_index))
             # print("column: " + str(column) + " + col_index: " + str(col_index))
             # print("grabbed: " + str(row[column]))
@@ -198,6 +206,11 @@ def clean_csv(file_path):
             df.drop(columns=[col], inplace=True)
 
     # Remove columns that contain only the column name
+    if df.isnull().values.any():  # True if there are NaNs, False otherwise
+        from utils import DataFrameContainsNaNError
+        print("DataFrame contains NaN")
+        raise DataFrameContainsNaNError()
+
     df.dropna(axis=1, how='all', inplace=True)
 
     # Remove columns that only contain one and the same value

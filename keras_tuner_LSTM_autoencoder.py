@@ -1,25 +1,21 @@
+import shutil
+
 import numpy as np
 import tensorflow as tf
 import keras
 from keras import Loss
 from keras.src.callbacks import EarlyStopping
-from keras.src.layers import TimeDistributed
-from keras.src.saving import load_model
 from keras_tuner import RandomSearch
 from scipy.linalg import inv
 from sklearn.metrics import precision_recall_curve
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, Normalizer, MaxAbsScaler
-#from tensorflow import keras
+from sklearn.preprocessing import MaxAbsScaler
 from tensorflow.keras.layers import Input, LSTM, Dense
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras import Model
 from kerastuner import HyperModel
-from kerastuner.engine.hyperparameters import HyperParameters
 
-from raw_data_processing.data_processing import old_directory_csv_files_to_dataframe_to_numpyArray, \
-    convert_timestamp_to_relative_time_diff, reshape_data_for_autoencoder_lstm, normalize_data, \
+from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
     split_data_sequence_into_datasets, reverse_normalize_data, directory_csv_files_to_dataframe_to_numpyArray
-from tf_lstm_autoencoder import CustomL2Loss
 from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directory
 
 
@@ -128,12 +124,10 @@ class LSTMAutoEncoder(tf.keras.Model):
 
         #print("All outputs: \n" + str(all_outputs))
         #reverse decoder output since it predicts target data in reverse
-        all_outputs = all_outputs[::-1]                 #todo: I think this is correct now??? Idfk man fuck
+        all_outputs = all_outputs[::-1]  #todo: I think this is correct now??? Not 100% sure
         #print("Reversed outputs: \n" + str(all_outputs))
 
-
-
-        decoder_outputs = tf.concat(all_outputs, axis=1)    #Todo: FUCK all_outputs.flip() ?    np.flip(X_sN, axis=1)
+        decoder_outputs = tf.concat(all_outputs, axis=1)
         return decoder_outputs
 
     def train_step(self, data):
@@ -161,15 +155,16 @@ class LSTMAutoEncoder(tf.keras.Model):
         return {m.name: m.result() for m in self.metrics}
 
 
-def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
-    keras.saving.get_custom_objects().clear()
-    encoder_inputs = Input(shape=(time_steps, input_dim))
-    decoder_inputs = Input(shape=(time_steps, input_dim))
-    autoencoder = LSTMAutoEncoder(input_dim, time_steps, layer_dims, num_layers, dropout)
-    outputs = autoencoder([encoder_inputs, decoder_inputs])
-    model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
-    model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['accuracy'])  #for prints: ", run_eagerly=True"
-    return model
+# def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
+#     keras.saving.get_custom_objects().clear()
+#     keras.saving.get_custom_objects().update({"customL2Loss": CustomL2Loss})  # Register the custom loss
+#     encoder_inputs = Input(shape=(time_steps, input_dim))
+#     decoder_inputs = Input(shape=(time_steps, input_dim))
+#     autoencoder = LSTMAutoEncoder(input_dim, time_steps, layer_dims, num_layers, dropout)
+#     outputs = autoencoder([encoder_inputs, decoder_inputs])
+#     model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
+#     model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['accuracy'])  #for prints: ", run_eagerly=True"
+#     return model
 
 
 class LSTMAutoEncoderHyperModel(HyperModel):
@@ -178,8 +173,11 @@ class LSTMAutoEncoderHyperModel(HyperModel):
         self.time_steps = time_steps
 
     def build(self, hp):
-        units = hp.Int('units', min_value=4, max_value=100, step=10)
-        layer_dims = [units, units]
+        units = hp.Int('units', min_value=8, max_value=256, step=10)
+        layer_amount = hp.Int('layer_amount', min_value=1, max_value=2, step=1)
+        layer_dims = []
+        for i in range(layer_amount):
+            layer_dims.append(units)
         dropout = hp.Float('dropout', min_value=0.0, max_value=0.5, step=0.1)
         learning_rate = hp.Float('learning_rate', min_value=1e-4, max_value=1e-1, sampling='LOG')
 
@@ -190,23 +188,47 @@ class LSTMAutoEncoderHyperModel(HyperModel):
         outputs = autoencoder([encoder_inputs, decoder_inputs])
 
         model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
-        model.compile(optimizer=Adam(learning_rate=learning_rate), loss=CustomL2Loss, metrics=['accuracy'])
+        model.compile(optimizer=Adam(learning_rate=learning_rate), loss=CustomL2Loss(), metrics=['accuracy'])
         return model
 
+
+
+@keras.saving.register_keras_serializable(package="my_package", name="CustomL2Loss")
+class CustomL2Loss(Loss):
+    def get_config(self):
+        base_config = super().get_config()
+        return base_config
+
+    def call(self, y_true, y_pred):
+        # print("y_true: \n" + str(y_true))
+        # print("y_pred: \n" + str(y_pred))
+        diff = y_true - y_pred
+        l2_norm = tf.norm(diff, ord='euclidean', axis=-1, )
+        # print("diff: \n" + str(diff))
+        # print("l2_norm: \n" + str(l2_norm))
+        # print("l2_norm after reduce_sum: \n" + str(tf.reduce_sum(l2_norm)))
+
+        # return tf.reduce_sum(l2_norm)   #todo: reduce_sum or reduce_mean?
+        return tf.reduce_mean(l2_norm)
+
+
+
+
 def tune_lstm_autoencoder(time_steps, directories):
+    shutil.rmtree('tuner_results')
+
     # ((((todo: data shuffling may be advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
     #scaler = MinMaxScaler(feature_range=(-1, 1))  #Scales the data to a fixed range, typically [0, 1].
     #scaler = StandardScaler()           #Scales the data to have a mean of 0 and a standard deviation of 1.
-    scaler = MaxAbsScaler()            #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
+    scaler = MaxAbsScaler()  #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
 
     all_file_pairs = get_matching_file_pairs_from_directory(directories[0], directories[1])
     print("all_file_pairs: " + str(all_file_pairs))
 
-
     for file_pair in all_file_pairs:
         data_with_time_diffs = []
-        true_labels_list = []       #specify whether a point is classified as anomaly
+        true_labels_list = []  #specify whether a point is classified as anomaly
         print("Now training model on: " + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
 
         #data is automatically scaled to relative timestamps
@@ -226,7 +248,6 @@ def tune_lstm_autoencoder(time_steps, directories):
 
         data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps)
         true_labels_list = reshape_data_for_autoencoder_lstm(true_labels_list, time_steps)
-        X_sN = data_with_time_diffs[0]  #ideally/eventually I would use completely seperate datasets/csv for all of them
 
         #np.random.shuffle(data_with_time_diffs[1]) #todo: EXPERIMENTAL!!!!!!!!!!!!!!!!!!!!!!!!!!
 
@@ -235,54 +256,75 @@ def tune_lstm_autoencoder(time_steps, directories):
         data_with_time_diffs[1] = data_with_time_diffs[1][indices]
         true_labels_list[1] = true_labels_list[1][indices]
 
-        _, X_vN1, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.6, 0.0, 0.4)
-        #_, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
+        X_sN, X_vN1, X_vN2, _ = split_data_sequence_into_datasets(data_with_time_diffs[0], 0.8, 0.2, 0.0, 0.0)
+        _, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
+        #_, X_vN1, X_vN2, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.6, 0.0, 0.4)
 
+        print("reached after data split")
 
         input_dim = X_sN.shape[2]
         hypermodel = LSTMAutoEncoderHyperModel(input_dim, time_steps)
 
+        print("reached after hypermodel def")
+
         tuner = RandomSearch(
             hypermodel,
             objective='val_loss',
-            max_trials=1,           #10
-            executions_per_trial=3, #3
+            max_trials=8,  #10
+            executions_per_trial=1,  #3
             directory='tuner_results',
             project_name='lstm_autoencoder_tuning'
         )
 
         early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
 
+        print("before tuner search")
+
         tuner.search(x=[X_sN, np.flip(X_sN, axis=1)], y=X_sN,
                      epochs=150,
                      batch_size=32,
                      validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1),
-                     callbacks=[early_stopping])
+                     callbacks=[early_stopping],
+                     verbose=2)
+
+        print("after tuner search")
+
 
         best_model = tuner.get_best_models(num_models=1)[0]
         best_model.summary()
+        best_hps = tuner.get_best_hyperparameters(num_trials=1)[0]
+        best_hps_dict = best_hps.values
 
-        model_name = "./models/" + "keras_tuned" + "LSTM_autoencoder_decoder_" + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv"))
+        print("Best hyperparameters:")
+        for param, value in best_hps_dict.items():
+            print(f"{param}: {value}")
 
-        print("Saved model to: " + str(model_name) + ".keras")
-        best_model.save(model_name + ".keras")
+        model_name = "./models/" + "keras_tuned_" + "LSTM_autoencoder_decoder_" + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")) + "_timesteps" + str(time_steps) + ".keras"
+
+        print("Saved model to: " + str(model_name))
+        best_model.save(model_name)
+
+        print("before predict test")
+
         autoencoder_predict_and_calculate_error(best_model, X_sN, 1, len(X_sN), scaler)
 
+        print("after predict test")
 
 def calculate_rec_error_vecs(model, X_vN1, scaler):
     error_vecs = []
     for i in range(len(X_vN1)):
         current_sequence = X_vN1[i].reshape((1, X_vN1[i].shape[0], X_vN1[i].shape[1]))
         predicted_sequence = model.predict([current_sequence, np.flip(current_sequence, axis=1)], verbose=0)
-        current_sequence = reverse_normalize_data(np.squeeze(current_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
-        predicted_sequence = reverse_normalize_data(np.squeeze(predicted_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
+        current_sequence = reverse_normalize_data(np.squeeze(current_sequence, axis=0),
+                                                  scaler)  # Reverse reshaping and normalizing
+        predicted_sequence = reverse_normalize_data(np.squeeze(predicted_sequence, axis=0),
+                                                    scaler)  # Reverse reshaping and normalizing
         # print("Chosen sequence: " + str(current_sequence))
         # print("Predicted sequences: " + str(predicted_sequence))
         # print("Result: " + str(np.absolute(np.subtract(current_sequence, predicted_sequence))))
         error_vecs.append(np.absolute(np.subtract(current_sequence, predicted_sequence)))
     print("Error vecs: \n" + str(error_vecs))
     return error_vecs
-
 
     #todo:
     #      finish evaluation of anomaly score.
@@ -296,16 +338,14 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     #todo: -----------------------------> Try using KerasTuner   <-----------------------------
 
 
-
-
-  #the data arrays will have null elements due to the sensors having different measuring intervalls!
-        # possible solutions:
-        #       1. delete every entry of the data array that contains an empty cell ---> THIS DOESNT FKING WORK BECAUSE I WILL LOSE LIKE 9/10th OF THE DATA THAT HAVE SHORTER MEASURING INTERVALLS AND THE VALUES WONT EVEN REALLY
-        #          BE CORRELATED
-        #       2. find sensor with least data entries; downsample all other sensor data accordingly before adding them together
-        #       ----> I think 1. and 2. are equivalent aaaaaaaaaaaaaaaaaaaahhhhhh
-        #       3. average empty cells out or sth, idk that sounds retarded AND complicated, my favorite
-        #       3. Kill myself
+#the data arrays will have null elements due to the sensors having different measuring intervalls!
+# possible solutions:
+#       1. delete every entry of the data array that contains an empty cell ---> THIS DOESNT FKING WORK BECAUSE I WILL LOSE LIKE 9/10th OF THE DATA THAT HAVE SHORTER MEASURING INTERVALLS AND THE VALUES WONT EVEN REALLY
+#          BE CORRELATED
+#       2. find sensor with least data entries; downsample all other sensor data accordingly before adding them together
+#       ----> I think 1. and 2. are equivalent aaaaaaaaaaaaaaaaaaaahhhhhh
+#       3. average empty cells out or sth, idk that sounds retarded AND complicated, my favorite
+#       3. Kill myself
 
 def estimate_normal_error_distribution(error_vecs):
     # MLE for the mean (µ)
@@ -315,12 +355,11 @@ def estimate_normal_error_distribution(error_vecs):
     return mu, sigma
 
 
-
 #todo: sigma is a matrix here. I'm not sure if this is correct but try it for now
 def compute_anomaly_score(error, mu, sigma):
     diff = error - mu
-    inv_sigma = inv(sigma)                                  #todo: is this correct?
-    score = np.dot(np.dot(diff, inv_sigma), diff.T)         #todo: is this correct?
+    inv_sigma = inv(sigma)  #todo: is this correct?
+    score = np.dot(np.dot(diff, inv_sigma), diff.T)  #todo: is this correct?
     return score
 
 
@@ -328,9 +367,8 @@ def compute_anomaly_score(error, mu, sigma):
 #todo: into it later
 def find_optimal_threshold(anomaly_scores, true_labels, beta=1.0):
     precision, recall, thresholds = precision_recall_curve(true_labels, anomaly_scores)
-    fbeta_scores = (1 + beta**2) * (precision * recall) / (beta**2 * precision + recall)
+    fbeta_scores = (1 + beta ** 2) * (precision * recall) / (beta ** 2 * precision + recall)
     best_index = np.argmax(fbeta_scores)
     best_threshold = thresholds[best_index]
     best_fbeta = fbeta_scores[best_index]
     return best_threshold, best_fbeta
-

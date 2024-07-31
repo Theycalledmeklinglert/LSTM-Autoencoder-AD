@@ -1,24 +1,17 @@
-import random
 from functools import partial
 
-import numpy as np
-from keras import Sequential, Loss, Input, Model
+from keras import Sequential
 from keras.src.callbacks import EarlyStopping
-from keras.src.layers import LSTM, Dense, Reshape, RepeatVector, TimeDistributed, Lambda
+from keras.src.layers import LSTM, Dense, RepeatVector
 from keras.src.optimizers import Adam
 from scikeras.wrappers import KerasClassifier
-from sklearn.preprocessing import StandardScaler, MaxAbsScaler, MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler
 
-from raw_data_processing.data_processing import old_directory_csv_files_to_dataframe_to_numpyArray, \
-    convert_timestamp_to_absolute_time_diff, convert_timestamp_to_relative_time_diff, normalize_data, \
-    reshape_data_for_autoencoder_lstm
-from stacked_lstm import create_XY_data_sequences, split_data_sequence_into_datasets, check_shapes_after_reshape
+from data_processing import old_directory_csv_files_to_dataframe_to_numpyArray, \
+    convert_timestamp_to_absolute_time_diff, convert_timestamp_to_relative_time_diff, reshape_data_for_autoencoder_lstm
+from stacked_lstm import split_data_sequence_into_datasets
 from utils import autoencoder_predict_and_calculate_error, CustomL2Loss
 from sklearn.model_selection import GridSearchCV
-import tensorflow as tf
-from tensorflow.keras import backend
-from tensorflow.python.keras import backend
-
 
 global time_steps  # Use the time_steps most recent value
 global future_steps  # Predict the next future_steps values
