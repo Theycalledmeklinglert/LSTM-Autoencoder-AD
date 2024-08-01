@@ -2,6 +2,8 @@ import csv
 import glob
 import os
 import traceback
+
+import numpy
 import rosbag
 import genpy
 import pandas as pd
@@ -12,25 +14,39 @@ from sklearn.preprocessing import MaxAbsScaler
 
 def reshape_data_for_autoencoder_lstm(data_list, window_size, window_step):
     # Reshape X to fit LSTM input shape (samples, time steps, features)
+    if window_size < 1 or window_step < 0 or window_step >= window_size:
+        from utils import InvalidReshapeParamters
+        raise InvalidReshapeParamters()
+        return
+
+    if window_step == 0:
+        window_step = window_size
+    windowed_data = []
     for i in range(len(data_list)):
         data = data_list[i]
-        windowed_data = []
-        if window_size > 1:
-            data = data[:(data.shape[0] // window_size) * window_size]  #cut out rest of data that doesn't fit in window size
+        temp = []
 
-            # for i in range(data.shape[0]):
-            #     if i < window_step:
-            #         curr_window = data[i:i+window_size]
-            #     else
+        for window_start in range(0, data.shape[0] - window_size, window_step):
+            window_end = window_start + window_size
+            cur_window = data[window_start:window_end]
+            temp.append(cur_window)
 
+        windowed_data.append(numpy.array(temp))
 
-            data = data.reshape((data.shape[0] // window_size, window_size, data.shape[1]))
-        else:
-            data = data.reshape((data.shape[0], window_size, data.shape[1]))
-        data_list[i] = data
-        #print("Reshaped data for LSTM into: " + str(data))
-    return data_list
+        # print("Reshaped data of single file into: " + str(windowed_data[0]))
+        # print("Reshaped data of single file into: " + str(windowed_data[1]))
+        # print("First single: " + str(windowed_data[0].shape))
+        # print("Second single: " + str(windowed_data[0].shape))
+        #
+        # for k in range(len(data_list[i])):
+        #     print("Length at " + str(k) + ": " + str(data_list[i][k].shape))
+        #     if k == len(data_list[i])-1:
+        #         print(str(data_list[i][k]))
+        #
+        # print("All: " + str(numpy.array(windowed_data).shape))
+        # print("Reshaped data for LSTM into: " + str(numpy.array(windowed_data)))
 
+    return windowed_data
 
 def split_data_sequence_into_datasets(arr, train_ratio, val1_ratio, val2_ratio, test_ratio):
     # train_ratio = 0.7
@@ -89,6 +105,8 @@ def check_shapes_after_reshape(X_sN, X_vN2, X_tN, Y_sN, Y_vN2, Y_tN):
 
 
 def normalize_data(data, scaler):
+    if scaler is None:
+        return data
     return scaler.fit_transform(data)
 
 
@@ -103,6 +121,13 @@ def shuffle_data(data, true_labels=None):
     data = data[indices]
     if true_labels is not None:
         true_labels = true_labels[indices]
+
+    # idxsss = np.where(true_labels_list[1] == 1)
+    # print("?" + str(idxsss))
+    # [print("hey1: " + str(reverse_normalize_data(seq, scaler)) + "\n") for seq in
+    #  data_with_time_diffs[1][np.unique(idxsss[0])]]
+    # print("hey4: \n" + str(data_with_time_diffs[1][np.unique(idxsss[0])]))
+
     return data, true_labels
 
 

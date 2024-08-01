@@ -164,6 +164,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
     #scaler = MinMaxScaler(feature_range=(-1, 1))  #Scales the data to a fixed range, typically [0, 1].
     #scaler = StandardScaler()           #Scales the data to have a mean of 0 and a standard deviation of 1.
     scaler = MaxAbsScaler()  #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
+    #scaler = None
 
     all_file_pairs = get_matching_file_pairs_from_directory(directories[0], directories[1])
     print("all_file_pairs: " + str(all_file_pairs))
@@ -194,35 +195,25 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps, 0)
         true_labels_list = reshape_data_for_autoencoder_lstm(true_labels_list, time_steps, 0)
 
-        print("reshaped data: \n" + str(data_with_time_diffs))
+        print("reshaped data shape: \n" + str(data_with_time_diffs[0].shape))
+        # print("reshaped data type: \n" + str(type(data_with_time_diffs[0])))
+        print("reshaped data shape: \n" + str(data_with_time_diffs[1].shape))
+        # print("reshaped data type: \n" + str(type(data_with_time_diffs[1])))
+        # print("len: \n" + str(len(data_with_time_diffs)))
+        # print("reshaped data: \n" + str(data_with_time_diffs))
+        # print("reshaped labels: \n" + str(true_labels_list))
+        # print("test: \n" + str(true_labels_list[0][3]))
 
-        print("reshaped labels: \n" + str(true_labels_list))
-        print("test: \n" + str(true_labels_list[0][3]))
 
-
-        #ideally/eventually I would use completely seperate datasets/csv for all of them
         #shuffle data
         #data_with_time_diffs[0], true_labels_list[0] = shuffle_data(data_with_time_diffs[0], true_labels_list[0])
         #data_with_time_diffs[1], true_labels_list[1] = shuffle_data(data_with_time_diffs[1], true_labels_list[1])
         X_sN, X_vN1, X_sN_labels, X_vN1_labels = train_test_split(data_with_time_diffs[0], true_labels_list[0], test_size=0.30, shuffle=False) #shuffle=True
         _, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
         #X_sN, X_vN1, X_vN2, _ = split_data_sequence_into_datasets(data_with_time_diffs[0], 0.8, 0.2, 0.0, 0.0)
-        # print(X_sN.shape)
-        # print(str(X_sN[0]))
-        # print(X_sN_labels.shape)
-        # print(str(X_sN_labels[0]))
-        # print(X_vN1.shape)
-        # print(str(X_vN1[0]))
-        # print(X_vN1_labels.shape)
-        # print(str(X_vN1_labels[0]))
 
         #TODO: Shuffling is likely entirely unnecessary/bad here since it destroys the Overlapping window functionality
 
-        # idxsss = np.where(true_labels_list[1] == 1)
-        # print("?" + str(idxsss))
-        # [print("hey1: " + str(reverse_normalize_data(seq, scaler)) + "\n") for seq in
-        #  data_with_time_diffs[1][np.unique(idxsss[0])]]
-        # print("hey4: \n" + str(data_with_time_diffs[1][np.unique(idxsss[0])]))
 
         input_dim = X_sN.shape[2]
         if model_file_path is None:
@@ -293,13 +284,13 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     #todo:
     #      //add true_labels to all data
     #      implement overlapping window separation of data
+    #      implement early stopping using X_vN2
     #      finish anomaly score and febta score
     #      find optimal hyperparameters for each sensor
     #      find a way to create authentic anomalous data and test
     #      find and implement next algorithm
     #      write eMail to Schleif
 
-    #todo: -----------------------------> Try using KerasTuner   <-----------------------------
 
 
 #the data arrays will have null elements due to the sensors having different measuring intervalls!

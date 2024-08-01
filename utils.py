@@ -34,15 +34,15 @@ def autoencoder_predict_and_calculate_error(model, X_tN, labels, future_steps, i
 
         if 1 in labels[i]:
             print("In certified anomaly")
-            print(str(error_vec))
+            #print(str(error_vec))
             anomaly_err_vecs.append(error_vec)
 
         else:
-            print("Normal error: \n" + str(error_vec))
+            #print("Normal error: \n" + str(error_vec))
             normal_err_vecs.append(error_vec)
-            j = j + 1
-            if j == 2:
-                break
+            # j = j + 1
+            # if j == 2:
+            #     break
 
         # if normal_err_vecs:
         #     avg_normal_error_matrix = np.mean(np.mean(normal_err_vecs, axis=0), axis=0)
@@ -113,5 +113,9 @@ class DataFrameContainsNaNError(Exception):
         self.message = message
         super().__init__(self.message)
 
+class InvalidReshapeParamters(Exception):
+    def __init__(self, message="Window size must be greater than or equal to 1. \n window_step must be greater than 0 \n Window size must be greater than window_step"):
+        self.message = message
+        super().__init__(self.message)
 
 
