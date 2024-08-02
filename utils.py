@@ -30,10 +30,10 @@ def autoencoder_predict_and_calculate_error(model, X_tN, labels, future_steps, i
         #print("Iteration: " + str(i))
         #print("Input sequence: \n" + str(chosen_sequence))
         #print("Predicted sequences: \n" + str(predicted_sequence))
-        error_vec = np.subtract(chosen_sequence, predicted_sequence)
+        error_vec = np.absolute(np.subtract(chosen_sequence, predicted_sequence))   #todo: np.absolute might be really counterproductive here
 
         if 1 in labels[i]:
-            print("In certified anomaly")
+            #print("In certified anomaly")
             #print(str(error_vec))
             anomaly_err_vecs.append(error_vec)
 

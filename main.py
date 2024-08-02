@@ -74,7 +74,7 @@ if __name__ == '__main__':
  [-1.02899656e+01, -6.56977654e-01, -2.76355028e-01, -1]]
 
 
-    test_lstm_autoencoder(100, [120], 0.0, 32, 500, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"], "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps100_layers_120.keras")
+    test_lstm_autoencoder(20, [40], 0.0, 32, 500, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"]) #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps100_layers_120.keras")
     #df = clean_csv("C:\\Users\\Luca\\PycharmProjects\AnoamlydetectionInFormulaStudent\\aufnahmen\csv\\autocross_valid_16_05_23\\diagnostics.csv")
     #print_unique_values(df, "status")
 

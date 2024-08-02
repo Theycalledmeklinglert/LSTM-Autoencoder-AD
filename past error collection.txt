@@ -211,3 +211,25 @@ Avg. error (now with 20% less cancer!): [-0.18655097 -0.10366863 -0.0060873  -0.
 Avg. error (now with 20% less cancer!): [-0.87359711 -0.00185947 -0.13454344 -0.33978997 -0.06007744]   #32 batch, [32, 32] layer
 
 25, [128], 0.0, 32, 400,
+
+#batch size 32, timesteps = 20, layers=[40]
+Avg. normal error (now with 20% less cancer!): [10.30608016  0.46375388  0.1774716   0.82837482  0.26084342]
+Avg. anomaly error (now with 20% less cancer!): [2.00011965 0.25723534 0.13882331 0.61304827 0.96886238]
+
+#batch size 16, timesteps = 20, layers=[40]
+Avg. normal error (now with 20% less cancer!): [7.39151483 0.44317082 0.31427962 0.57598003 0.32221851]
+Avg. anomaly error (now with 20% less cancer!): [3.64813932 0.27652718 0.17077913 0.69018062 0.83201575]
+
+#batch size 32, timesteps = 80, layers=[128]
+Avg. normal error (now with 20% less cancer!): [11.46324347  0.68129675  0.46123622  1.0070137   0.51100059]
+Avg. anomaly error (now with 20% less cancer!): [11.88042356  0.51163305  0.28651252  0.95986669  0.94760471]
+
+reversed:
+Avg. normal error (now with 20% less cancer!): [1.12229042e+04 1.06248623e+01 1.68514444e+02 3.47656093e+02
+ 4.31415984e+02]
+Avg. anomaly error (now with 20% less cancer!): [3.85129979e+03 3.64423654e+00 5.63432274e+01 1.19636961e+02
+ 1.45144586e+02]
+
+#batch size = 32, timesteps = 20, layer=[40]
+Avg. normal error (now with 20% less cancer!): [5.3207034  0.42463478 0.26169091 0.47456042 0.28478924]
+Avg. anomaly error (now with 20% less cancer!): [3.6187072  0.29613673 0.05737692 0.55481004 0.96483425]

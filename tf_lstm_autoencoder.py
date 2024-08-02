@@ -283,9 +283,10 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
 
     #todo:
     #      //add true_labels to all data
-    #      implement overlapping window separation of data
-    #      implement early stopping using X_vN2
-    #      finish anomaly score and febta score
+    #      //implement overlapping window separation of data
+    #      finish anomaly score and fbeta score using X_vN2 and X_vA
+    #      consider switch to loss_function='mse' and compre performance
+    #      find way to create anomalous datasets
     #      find optimal hyperparameters for each sensor
     #      find a way to create authentic anomalous data and test
     #      find and implement next algorithm
@@ -310,6 +311,10 @@ def estimate_normal_error_distribution(error_vecs):
     return mu, sigma
 
 
+#todo:
+# It might be better to somehow compare each single value in the vector with a treshold instead of the entire one
+# however in the paper they explcitly use the whole vector
+# ----> alternatively I could modify the error function to split the predicted/choosen sequnece into four and then use each subvector, will have to see
 #todo: sigma is a matrix here. I'm not sure if this is correct but try it for now
 def compute_anomaly_score(error, mu, sigma):
     diff = error - mu
