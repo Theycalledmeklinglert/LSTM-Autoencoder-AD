@@ -14,7 +14,7 @@ from tensorflow.keras import Model
 from keras import Loss
 
 from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
-    split_data_sequence_into_datasets, reverse_normalize_data, directory_csv_files_to_dataframe_to_numpyArray
+    split_data_sequence_into_datasets, reverse_normalization, directory_csv_files_to_dataframe_to_numpyArray
 from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directory
 
 
@@ -234,8 +234,11 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         else:
             model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder": LSTMAutoEncoder}, compile=True)
 
-        autoencoder_predict_and_calculate_error(model, X_tN, true_labels_list[1], 1, len(X_tN), scaler)
-        #calculate_rec_error_vecs(model, X_vN1, scaler)
+        #autoencoder_predict_and_calculate_error(model, X_tN, true_labels_list[1], 1, len(X_tN), scaler)
+
+        error_vecs = calculate_rec_error_vecs(model, X_vN1, scaler)
+        mu, sigma = estimate_normal_error_distribution(error_vecs)
+
 
 
 class CustomL2Loss(Loss):
@@ -256,29 +259,18 @@ class CustomL2Loss(Loss):
         return tf.reduce_mean(l2_norm)
 
 
-def create_overlapping_data_windows(data, timesteps, step_window):
-    #todo: this likely conflicts with separation of data into timesteps and should be done there instead
-    return
-
-
-def remove_overlapping_data_windows(data, timesteps, step_window):
-    return
-
-
 def calculate_rec_error_vecs(model, X_vN1, scaler):
     error_vecs = []
     for i in range(len(X_vN1)):
         current_sequence = X_vN1[i].reshape((1, X_vN1[i].shape[0], X_vN1[i].shape[1]))
         predicted_sequence = model.predict([current_sequence, np.flip(current_sequence, axis=1)], verbose=0)
-        current_sequence = reverse_normalize_data(np.squeeze(current_sequence, axis=0),
-                                                  scaler)  # Reverse reshaping and normalizing
-        predicted_sequence = reverse_normalize_data(np.squeeze(predicted_sequence, axis=0),
-                                                    scaler)  # Reverse reshaping and normalizing
+        current_sequence = reverse_normalization(np.squeeze(current_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
+        predicted_sequence = reverse_normalization(np.squeeze(predicted_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
         # print("Chosen sequence: " + str(current_sequence))
         # print("Predicted sequences: " + str(predicted_sequence))
         # print("Result: " + str(np.absolute(np.subtract(current_sequence, predicted_sequence))))
         error_vecs.append(np.absolute(np.subtract(current_sequence, predicted_sequence)))
-    print("Error vecs: \n" + str(error_vecs))
+    #print("Error vecs: \n" + str(error_vecs))
     return error_vecs
 
     #todo:
@@ -315,11 +307,14 @@ def estimate_normal_error_distribution(error_vecs):
 # It might be better to somehow compare each single value in the vector with a treshold instead of the entire one
 # however in the paper they explcitly use the whole vector
 # ----> alternatively I could modify the error function to split the predicted/choosen sequnece into four and then use each subvector, will have to see
-#todo: sigma is a matrix here. I'm not sure if this is correct but try it for now
-def compute_anomaly_score(error, mu, sigma):
+# sigma is a matrix here. I'm not sure if this is correct but try it for now
+
+
+def compute_anomaly_score(error, mu, sigma):    #todo: Need to calculate anomaly score for each error_vec; not sure if this does this but otherwise just do it with a loop
     diff = error - mu
     inv_sigma = inv(sigma)  #todo: is this correct?
-    score = np.dot(np.dot(diff, inv_sigma), diff.T)  #todo: is this correct?
+    score = np.dot(np.dot(diff, inv_sigma), diff.T)  #todo: likely incorrect; probably implement this myself since this was GPT most recent answer:
+                                                     # anomaly_scores = np.einsum('ij,ij->i', diff @ np.linalg.inv(Sigma), diff) ---> bruh?
     return score
 
 

@@ -3,12 +3,13 @@ import random
 
 import numpy as np
 
-from data_processing import reverse_normalize_data
+from data_processing import reverse_normalization
 
 # test
 def autoencoder_predict_and_calculate_error(model, X_tN, labels, future_steps, iterations, scaler):
     normal_err_vecs = []
     anomaly_err_vecs = []
+    all_err_vecs = []
 
     j = 0
 
@@ -22,27 +23,26 @@ def autoencoder_predict_and_calculate_error(model, X_tN, labels, future_steps, i
         predicted_sequence = model.predict([chosen_sequence, np.flip(chosen_sequence, axis=1)], verbose=0)
         # Reshape predicted sequences to match the original y shape
 
-        chosen_sequence = reverse_normalize_data(np.squeeze(chosen_sequence, axis=0),
-                                                 scaler)  # Reverse reshaping and normalizing
-        predicted_sequence = reverse_normalize_data(np.squeeze(predicted_sequence, axis=0),
-                                                    scaler)  # Reverse reshaping and normalizing
+        chosen_sequence = reverse_normalization(np.squeeze(chosen_sequence, axis=0),
+                                                scaler)  # Reverse reshaping and normalizing
+        predicted_sequence = reverse_normalization(np.squeeze(predicted_sequence, axis=0),
+                                                   scaler)  # Reverse reshaping and normalizing
 
         #print("Iteration: " + str(i))
         #print("Input sequence: \n" + str(chosen_sequence))
         #print("Predicted sequences: \n" + str(predicted_sequence))
         error_vec = np.absolute(np.subtract(chosen_sequence, predicted_sequence))   #todo: np.absolute might be really counterproductive here
 
-        if 1 in labels[i]:
-            #print("In certified anomaly")
-            #print(str(error_vec))
-            anomaly_err_vecs.append(error_vec)
+        # if 1 in labels[i]:
+        #     #print("In certified anomaly")
+        #     #print(str(error_vec))
+        #     anomaly_err_vecs.append(error_vec)
+        #
+        # else:
+        #     #print("Normal error: \n" + str(error_vec))
+        #     normal_err_vecs.append(error_vec)
 
-        else:
-            #print("Normal error: \n" + str(error_vec))
-            normal_err_vecs.append(error_vec)
-            # j = j + 1
-            # if j == 2:
-            #     break
+        all_err_vecs.append(error_vec)
 
         # if normal_err_vecs:
         #     avg_normal_error_matrix = np.mean(np.mean(normal_err_vecs, axis=0), axis=0)
@@ -55,13 +55,14 @@ def autoencoder_predict_and_calculate_error(model, X_tN, labels, future_steps, i
         #         print(str(chosen_sequence))
         #print("Error vec: " + str(error_vec) + "\n")
 
-    avg_normal_error_matrix = np.mean(normal_err_vecs, axis=0)
-    avg_anomaly_error_matrix = np.mean(anomaly_err_vecs, axis=0)
-    print("Avg. normal error: " + str(avg_normal_error_matrix))
-    print("Avg. anomaly error: " + str(avg_anomaly_error_matrix))
-
-    print("Avg. normal error (now with 20% less cancer!): " + str(np.mean(avg_normal_error_matrix, axis=0)))
-    print("Avg. anomaly error (now with 20% less cancer!): " + str(np.mean(avg_anomaly_error_matrix, axis=0)))
+    # avg_normal_error_matrix = np.mean(normal_err_vecs, axis=0)
+    # avg_anomaly_error_matrix = np.mean(anomaly_err_vecs, axis=0)
+    # print("Avg. normal error: " + str(avg_normal_error_matrix))
+    # print("Avg. anomaly error: " + str(avg_anomaly_error_matrix))
+    #
+    # print("Avg. normal error (now with 20% less cancer!): " + str(np.mean(avg_normal_error_matrix, axis=0)))
+    # print("Avg. anomaly error (now with 20% less cancer!): " + str(np.mean(avg_anomaly_error_matrix, axis=0)))
+    return all_err_vecs
 
 
     def stacked_LSTM_predict_and_calculate_error(model, X_tN, Y_tN, future_steps, iterations):

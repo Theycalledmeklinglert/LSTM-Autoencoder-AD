@@ -110,7 +110,7 @@ def normalize_data(data, scaler):
     return scaler.fit_transform(data)
 
 
-def reverse_normalize_data(scaled_data, scaler):
+def reverse_normalization(scaled_data, scaler):
     if scaler is None:
         return scaled_data
     return scaler.inverse_transform(scaled_data)

@@ -15,7 +15,7 @@ from tensorflow.keras import Model
 from kerastuner import HyperModel
 
 from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
-    split_data_sequence_into_datasets, reverse_normalize_data, directory_csv_files_to_dataframe_to_numpyArray
+    split_data_sequence_into_datasets, reverse_normalization, directory_csv_files_to_dataframe_to_numpyArray
 from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directory
 
 
@@ -315,10 +315,10 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     for i in range(len(X_vN1)):
         current_sequence = X_vN1[i].reshape((1, X_vN1[i].shape[0], X_vN1[i].shape[1]))
         predicted_sequence = model.predict([current_sequence, np.flip(current_sequence, axis=1)], verbose=0)
-        current_sequence = reverse_normalize_data(np.squeeze(current_sequence, axis=0),
-                                                  scaler)  # Reverse reshaping and normalizing
-        predicted_sequence = reverse_normalize_data(np.squeeze(predicted_sequence, axis=0),
-                                                    scaler)  # Reverse reshaping and normalizing
+        current_sequence = reverse_normalization(np.squeeze(current_sequence, axis=0),
+                                                 scaler)  # Reverse reshaping and normalizing
+        predicted_sequence = reverse_normalization(np.squeeze(predicted_sequence, axis=0),
+                                                   scaler)  # Reverse reshaping and normalizing
         # print("Chosen sequence: " + str(current_sequence))
         # print("Predicted sequences: " + str(predicted_sequence))
         # print("Result: " + str(np.absolute(np.subtract(current_sequence, predicted_sequence))))

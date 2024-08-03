@@ -233,3 +233,7 @@ Avg. anomaly error (now with 20% less cancer!): [3.85129979e+03 3.64423654e+00 5
 #batch size = 32, timesteps = 20, layer=[40]
 Avg. normal error (now with 20% less cancer!): [5.3207034  0.42463478 0.26169091 0.47456042 0.28478924]
 Avg. anomaly error (now with 20% less cancer!): [3.6187072  0.29613673 0.05737692 0.55481004 0.96483425]
+
+#previous
+Avg. normal error (now with 20% less cancer!): [5.27022382 0.42218563 0.25740623 0.47737976 0.28040689]
+Avg. anomaly error (now with 20% less cancer!): [3.96826701 0.28895173 0.0728715  0.50696625 0.79694378]
