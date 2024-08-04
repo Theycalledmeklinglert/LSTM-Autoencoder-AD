@@ -238,8 +238,9 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
 
         error_vecs = calculate_rec_error_vecs(model, X_vN1, scaler)
         mu, sigma = estimate_normal_error_distribution(error_vecs)
-
-
+        anomaly_scores = compute_anomaly_score(error_vecs, mu, sigma)
+        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, X_vN1_labels, 0.9)
+        print("Best anomaly threshold: " + str(best_anomaly_threshold))
 
 class CustomL2Loss(Loss):
     def get_config(self):
@@ -273,6 +274,7 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     #print("Error vecs: \n" + str(error_vecs))
     return error_vecs
 
+
     #todo:
     #      //add true_labels to all data
     #      //implement overlapping window separation of data
@@ -282,11 +284,9 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     #      find optimal hyperparameters for each sensor
     #      find a way to create authentic anomalous data and test
     #      find and implement next algorithm
-    #      write eMail to Schleif
+    #      Schleif meeting
 
 
-
-#the data arrays will have null elements due to the sensors having different measuring intervalls!
 # possible solutions:
 #       1. delete every entry of the data array that contains an empty cell ---> THIS DOESNT FKING WORK BECAUSE I WILL LOSE LIKE 9/10th OF THE DATA THAT HAVE SHORTER MEASURING INTERVALLS AND THE VALUES WONT EVEN REALLY
 #          BE CORRELATED
@@ -305,22 +305,23 @@ def estimate_normal_error_distribution(error_vecs):
 
 #todo:
 # It might be better to somehow compare each single value in the vector with a treshold instead of the entire one
-# however in the paper they explcitly use the whole vector
+# however in the paper they explicitly use the whole vector
 # ----> alternatively I could modify the error function to split the predicted/choosen sequnece into four and then use each subvector, will have to see
 # sigma is a matrix here. I'm not sure if this is correct but try it for now
 
 
-def compute_anomaly_score(error, mu, sigma):    #todo: Need to calculate anomaly score for each error_vec; not sure if this does this but otherwise just do it with a loop
-    diff = error - mu
-    inv_sigma = inv(sigma)  #todo: is this correct?
-    score = np.dot(np.dot(diff, inv_sigma), diff.T)  #todo: likely incorrect; probably implement this myself since this was GPT most recent answer:
-                                                     # anomaly_scores = np.einsum('ij,ij->i', diff @ np.linalg.inv(Sigma), diff) ---> bruh?
-    return score
+def compute_anomaly_score(error_vecs, mu, sigma):    #todo: Need to calculate anomaly score for each error_vec; not sure if this does this but otherwise just do it with a loop
+    diff = error_vecs - mu
+    inv_sigma = np.linalg.inv(sigma)  #todo: is this correct?
+    #score = np.dot(np.dot(diff, inv_sigma), diff.T)  #todo: likely incorrect; probably implement this myself since this was GPT most recent answer:
+                                                      # anomaly_scores = np.einsum('ij,ij->i', diff @ np.linalg.inv(Sigma), diff) ---> bruh?
+    scores = np.einsum('ij,jk,ik->i', diff, inv_sigma, diff)
+    return scores
 
 
 #todo: is supposed to use "from sklearn.metrics import precision_recall_curve, fbeta_score" but only uses "fbeta_scores". ChatGPT is currently down so look
 #todo: into it later
-def find_optimal_threshold(anomaly_scores, true_labels, beta=1.0):
+def find_optimal_threshold(anomaly_scores, true_labels, beta):
     precision, recall, thresholds = precision_recall_curve(true_labels, anomaly_scores)
     fbeta_scores = (1 + beta ** 2) * (precision * recall) / (beta ** 2 * precision + recall)
     best_index = np.argmax(fbeta_scores)
