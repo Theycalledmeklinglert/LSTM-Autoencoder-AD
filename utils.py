@@ -2,6 +2,7 @@ import os
 import random
 
 import numpy as np
+import pandas as pd
 
 from data_processing import reverse_normalization
 
@@ -56,56 +57,88 @@ def autoencoder_predict_and_calculate_error(model, X_tN, labels, future_steps, i
         #print("Error vec: " + str(error_vec) + "\n")
 
     avg_normal_error_matrix = np.mean(normal_err_vecs, axis=0)
-    avg_anomaly_error_matrix = np.mean(anomaly_err_vecs, axis=0)
     # print("Avg. normal error: " + str(avg_normal_error_matrix))
     # print("Avg. anomaly error: " + str(avg_anomaly_error_matrix))
     #
     print("Avg. normal error (now with 20% less cancer!): " + str(np.mean(avg_normal_error_matrix, axis=0)))
-    print("Avg. anomaly error (now with 20% less cancer!): " + str(np.mean(avg_anomaly_error_matrix, axis=0)))
+    if not anomaly_err_vecs:
+        avg_anomaly_error_matrix = 0
+    else:
+        avg_anomaly_error_matrix = np.mean(np.mean(anomaly_err_vecs, axis=0), axis=0)
+    print("Avg. anomaly error (now with 20% less cancer!): " + str(avg_anomaly_error_matrix))
     return all_err_vecs
 
 
-    def stacked_LSTM_predict_and_calculate_error(model, X_tN, Y_tN, future_steps, iterations):
-        all_err_vecs = []
-        for i in range(0, iterations):
-            rand_int = random.randint(0, X_tN.shape[0] - future_steps)
-            chosen_sequence = np.array(X_tN[rand_int:(rand_int + future_steps), :])  # sequence to be predicted
-            print("Input sequence: " + str(chosen_sequence))
-            # Reshape chosen_sequence to fit LSTM input shape (samples, time steps, features)
-            chosen_sequence = chosen_sequence.reshape((1, chosen_sequence.shape[0], chosen_sequence.shape[1]))
-            predicted_sequence = model.predict(chosen_sequence, verbose=0)
-            # Reshape predicted sequences to match the original y shape
-            predicted_sequence = predicted_sequence.reshape((future_steps, X_tN.shape[2]))
-            print("Predicted sequences: " + str(predicted_sequence))
+def stacked_LSTM_predict_and_calculate_error(model, X_tN, Y_tN, future_steps, iterations):
+    all_err_vecs = []
+    for i in range(0, iterations):
+        rand_int = random.randint(0, X_tN.shape[0] - future_steps)
+        chosen_sequence = np.array(X_tN[rand_int:(rand_int + future_steps), :])  # sequence to be predicted
+        print("Input sequence: " + str(chosen_sequence))
+        # Reshape chosen_sequence to fit LSTM input shape (samples, time steps, features)
+        chosen_sequence = chosen_sequence.reshape((1, chosen_sequence.shape[0], chosen_sequence.shape[1]))
+        predicted_sequence = model.predict(chosen_sequence, verbose=0)
+        # Reshape predicted sequences to match the original y shape
+        predicted_sequence = predicted_sequence.reshape((future_steps, X_tN.shape[2]))
+        print("Predicted sequences: " + str(predicted_sequence))
 
-            true_sequence = np.array(Y_tN[rand_int:(rand_int + future_steps)])
-            true_sequence = true_sequence.reshape((future_steps, Y_tN.shape[2]))
+        true_sequence = np.array(Y_tN[rand_int:(rand_int + future_steps)])
+        true_sequence = true_sequence.reshape((future_steps, Y_tN.shape[2]))
 
-            error_vec = np.subtract(true_sequence, predicted_sequence)
-            all_err_vecs.append(error_vec)
-            print("Error vec: " + str(error_vec) + "\n")
+        error_vec = np.subtract(true_sequence, predicted_sequence)
+        all_err_vecs.append(error_vec)
+        print("Error vec: " + str(error_vec) + "\n")
 
-        avg_error_matrix = np.mean(all_err_vecs, axis=0)
-        print("Avg. error: " + str(avg_error_matrix))
-        print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
+    avg_error_matrix = np.mean(all_err_vecs, axis=0)
+    print("Avg. error: " + str(avg_error_matrix))
+    print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
 
 
-def get_matching_file_pairs_from_directory(dir1, dir2):
-    # List all files in both directories
-    files_dir1 = os.listdir(dir1)
-    files_dir2 = os.listdir(dir2)
+def get_matching_file_pairs_from_directories(directories, file_name=None):
+    # Ensure there are at least two directories to compare
+    if len(directories) < 2:
+        raise ValueError("At least two directories are required.")
 
-    # Create a set for faster lookup
-    set_dir2 = set(files_dir2)
+    if file_name:
+        # If a specific file name is provided, check its existence in all directories
+        for directory in directories:
+            if file_name not in os.listdir(directory):
+                return []  # If the file is not found in any directory, return an empty list
+        # Collect the full paths of the matching file
+        matching_files = [[os.path.join(directory, file_name) for directory in directories]]
+    else:
+        # List all files in the first directory
+        common_files = set(os.listdir(directories[0]))
 
-    # Create a list of matching file pairs
-    matching_pairs = []
+        # Find the intersection of files across all directories
+        for directory in directories[1:]:
+            common_files.intersection_update(os.listdir(directory))
 
-    for file in files_dir1:
-        if file in set_dir2:
-            matching_pairs.append((os.path.join(dir1, file), os.path.join(dir2, file)))
+        # Collect the full paths of matching files from each directory
+        matching_files = []
+        for file in common_files:
+            file_paths = [os.path.join(directory, file) for directory in directories]
+            matching_files.append(file_paths)
 
-    return matching_pairs
+    return matching_files
+
+
+def add_anomaly_column_to_csv_files(directories):
+    for directory in directories:
+        # List all files in the directory
+        for filename in os.listdir(directory):
+            if filename.endswith('.csv'):
+                file_path = os.path.join(directory, filename)
+
+                # Read the CSV file
+                df = pd.read_csv(file_path)
+
+                # Add the "Anomaly" column with value 0
+                df['Anomaly'] = 0
+
+                # Save the updated CSV file back to the same location
+                df.to_csv(file_path, index=False)
+                print(f"Updated {file_path}")
 
 
 class DataFrameContainsNaNError(Exception):

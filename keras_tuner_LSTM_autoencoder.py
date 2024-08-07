@@ -16,7 +16,7 @@ from kerastuner import HyperModel
 
 from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
     split_data_sequence_into_datasets, reverse_normalization, directory_csv_files_to_dataframe_to_numpyArray
-from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directory
+from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directories
 
 
 @keras.saving.register_keras_serializable(package="MyLayers")
@@ -223,7 +223,7 @@ def tune_lstm_autoencoder(time_steps, directories):
     #scaler = StandardScaler()           #Scales the data to have a mean of 0 and a standard deviation of 1.
     scaler = MaxAbsScaler()  #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
 
-    all_file_pairs = get_matching_file_pairs_from_directory(directories[0], directories[1])
+    all_file_pairs = get_matching_file_pairs_from_directories(directories)
     print("all_file_pairs: " + str(all_file_pairs))
 
     for file_pair in all_file_pairs:

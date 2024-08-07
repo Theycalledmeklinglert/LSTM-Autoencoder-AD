@@ -16,7 +16,8 @@ from keras import Loss
 from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
     split_data_sequence_into_datasets, reverse_normalization, directory_csv_files_to_dataframe_to_numpyArray, \
     transform_true_labels_to_window_size
-from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directory
+from utils import autoencoder_predict_and_calculate_error, \
+    get_matching_file_pairs_from_directories
 
 
 @keras.saving.register_keras_serializable(package="MyLayers")
@@ -167,7 +168,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
     scaler = MaxAbsScaler()  #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
     #scaler = None
 
-    all_file_pairs = get_matching_file_pairs_from_directory(directories[0], directories[1])
+    all_file_pairs = get_matching_file_pairs_from_directories(directories, "can_interface-wheelspeed.csv")
     print("all_file_pairs: " + str(all_file_pairs))
 
     for file_pair in all_file_pairs:
@@ -196,9 +197,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps, 0)
         true_labels_list = reshape_data_for_autoencoder_lstm(true_labels_list, time_steps, 0)
 
-        print("reshaped data shape: \n" + str(data_with_time_diffs[0].shape))
-        # print("reshaped data type: \n" + str(type(data_with_time_diffs[0])))
-        print("reshaped data shape: \n" + str(data_with_time_diffs[1].shape))
+        [print("reshaped data shape: \n" + str(data.shape)) for data in data_with_time_diffs]
         # print("reshaped data type: \n" + str(type(data_with_time_diffs[1])))
         # print("len: \n" + str(len(data_with_time_diffs)))
         # print("reshaped data: \n" + str(data_with_time_diffs))
@@ -209,13 +208,17 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         #shuffle data
         #data_with_time_diffs[0], true_labels_list[0] = shuffle_data(data_with_time_diffs[0], true_labels_list[0])
         #data_with_time_diffs[1], true_labels_list[1] = shuffle_data(data_with_time_diffs[1], true_labels_list[1])
-        X_sN, X_vN1, X_sN_labels, X_vN1_labels = train_test_split(data_with_time_diffs[0], true_labels_list[0], test_size=0.30, shuffle=False) #shuffle=True
-        _, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
+        #X_sN, X_vN1, X_sN_labels, X_vN1_labels = train_test_split(data_with_time_diffs[0], true_labels_list[0], test_size=0.30, shuffle=False)
+        #_, _, _, X_tN = split_data_sequence_into_datasets(data_with_time_diffs[1], 0.0, 0.0, 0.0, 1.0)
         #X_sN, X_vN1, X_vN2, _ = split_data_sequence_into_datasets(data_with_time_diffs[0], 0.8, 0.2, 0.0, 0.0)
+        X_sN = data_with_time_diffs[0]
 
+        # TODO: shuffle=True is entirely experimental. X_val is used for MLE and Fbeta so I do not think it
+        #  it matters but im not sure
+        X_vN1, X_vN2, X_vN1_labels, X_vN2_labels = train_test_split(data_with_time_diffs[1], true_labels_list[1], test_size=0.50, shuffle=True)
+        X_vNA = data_with_time_diffs[2]
+        X_tN = data_with_time_diffs[3]
         #TODO: Shuffling is likely entirely unnecessary/bad here since it destroys the Overlapping window functionality
-
-        print("here lol: " + str(true_labels_list[1]))
 
         input_dim = X_sN.shape[2]
         if model_file_path is None:
@@ -236,7 +239,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         else:
             model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder": LSTMAutoEncoder}, compile=True)
 
-        #autoencoder_predict_and_calculate_error(model, X_tN, true_labels_list[1], 1, len(X_tN), scaler)
+        autoencoder_predict_and_calculate_error(model, X_tN, true_labels_list[1], 1, len(X_tN), scaler)
 
         true_labels_list = transform_true_labels_to_window_size(true_labels_list)
         print("new: \n" + str(true_labels_list[1]))
@@ -251,11 +254,15 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         print(flattened_X_vN1_error_vecs[0])
 
         mu, sigma = estimate_normal_error_distribution(flattened_X_vN1_error_vecs)
+        X_vNA_error_vecs = calculate_rec_error_vecs(model, X_vNA, scaler)
+        anomaly_scores = compute_anomaly_score(X_vNA_error_vecs, mu, sigma) #todo: X_vN2 needs to be appended somewhere here and put into calc febeta as well
+
+        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[2].flatten(), 0.9)
+        print("Anomaly scores: \n" + str(anomaly_scores.tolist()))
+        print("Best anomaly threshold: " + str(best_anomaly_threshold))
         X_tN_error_vecs = calculate_rec_error_vecs(model, X_tN, scaler)
         anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
-        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[1].flatten(), 0.9)
-        print("Anomaly scores: \n" + str(anomaly_scores))
-        print("Best anomaly threshold: " + str(best_anomaly_threshold))
+
 
 class CustomL2Loss(Loss):
     def get_config(self):
