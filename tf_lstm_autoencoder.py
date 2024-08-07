@@ -14,7 +14,8 @@ from tensorflow.keras import Model
 from keras import Loss
 
 from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
-    split_data_sequence_into_datasets, reverse_normalization, directory_csv_files_to_dataframe_to_numpyArray
+    split_data_sequence_into_datasets, reverse_normalization, directory_csv_files_to_dataframe_to_numpyArray, \
+    transform_true_labels_to_window_size
 from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directory
 
 
@@ -154,7 +155,7 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     autoencoder = LSTMAutoEncoder(input_dim, time_steps, layer_dims, num_layers, dropout)
     outputs = autoencoder([encoder_inputs, decoder_inputs])
     model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
-    model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['accuracy'])  #for prints: ", run_eagerly=True"
+    model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['accuracy'])  #for prints: ", run_eagerly=True";
     return model
 
 
@@ -214,6 +215,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
 
         #TODO: Shuffling is likely entirely unnecessary/bad here since it destroys the Overlapping window functionality
 
+        print("here lol: " + str(true_labels_list[1]))
 
         input_dim = X_sN.shape[2]
         if model_file_path is None:
@@ -236,10 +238,23 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
 
         #autoencoder_predict_and_calculate_error(model, X_tN, true_labels_list[1], 1, len(X_tN), scaler)
 
-        error_vecs = calculate_rec_error_vecs(model, X_vN1, scaler)
-        mu, sigma = estimate_normal_error_distribution(error_vecs)
-        anomaly_scores = compute_anomaly_score(error_vecs, mu, sigma)
-        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, X_vN1_labels, 0.9)
+        true_labels_list = transform_true_labels_to_window_size(true_labels_list)
+        print("new: \n" + str(true_labels_list[1]))
+        print("len: \n" + str(true_labels_list[1].shape))
+        print(X_tN.shape)
+
+        X_vN1_error_vecs = np.asarray(calculate_rec_error_vecs(model, X_vN1, scaler))
+
+        #todo: the way i flatten it might be incorrect
+        flattened_X_vN1_error_vecs = X_vN1_error_vecs.reshape(X_vN1_error_vecs.shape[0], X_vN1_error_vecs.shape[1] * X_vN1_error_vecs.shape[2])
+        print(X_vN1_error_vecs[0])
+        print(flattened_X_vN1_error_vecs[0])
+
+        mu, sigma = estimate_normal_error_distribution(flattened_X_vN1_error_vecs)
+        X_tN_error_vecs = calculate_rec_error_vecs(model, X_tN, scaler)
+        anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
+        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[1].flatten(), 0.9)
+        print("Anomaly scores: \n" + str(anomaly_scores))
         print("Best anomaly threshold: " + str(best_anomaly_threshold))
 
 class CustomL2Loss(Loss):
@@ -265,22 +280,19 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     for i in range(len(X_vN1)):
         current_sequence = X_vN1[i].reshape((1, X_vN1[i].shape[0], X_vN1[i].shape[1]))
         predicted_sequence = model.predict([current_sequence, np.flip(current_sequence, axis=1)], verbose=0)
-        current_sequence = reverse_normalization(np.squeeze(current_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
-        predicted_sequence = reverse_normalization(np.squeeze(predicted_sequence, axis=0), scaler)  # Reverse reshaping and normalizing
-        # print("Chosen sequence: " + str(current_sequence))
-        # print("Predicted sequences: " + str(predicted_sequence))
-        # print("Result: " + str(np.absolute(np.subtract(current_sequence, predicted_sequence))))
-        error_vecs.append(np.absolute(np.subtract(current_sequence, predicted_sequence)))
-    #print("Error vecs: \n" + str(error_vecs))
-    return error_vecs
+        current_sequence = reverse_normalization(np.squeeze(current_sequence, axis=0), scaler)
+        predicted_sequence = reverse_normalization(np.squeeze(predicted_sequence, axis=0), scaler)
+        error_vecs.append(np.subtract(current_sequence, predicted_sequence)) #took np.absolute() out because i don't think it is useful here
+    return np.asarray(error_vecs)
 
 
     #todo:
     #      //add true_labels to all data
     #      //implement overlapping window separation of data
     #      finish anomaly score and fbeta score using X_vN2 and X_vA
-    #      consider switch to loss_function='mse' and compre performance
+    #      //consider switch to loss_function='mse' and compare performance --> mse was worse (very limited sample size so grain of salt)
     #      find way to create anomalous datasets
+    #      ask Sebastian or Tamara what typical anomalies (might) look like
     #      find optimal hyperparameters for each sensor
     #      find a way to create authentic anomalous data and test
     #      find and implement next algorithm
@@ -311,12 +323,33 @@ def estimate_normal_error_distribution(error_vecs):
 
 
 def compute_anomaly_score(error_vecs, mu, sigma):    #todo: Need to calculate anomaly score for each error_vec; not sure if this does this but otherwise just do it with a loop
-    diff = error_vecs - mu
-    inv_sigma = np.linalg.inv(sigma)  #todo: is this correct?
-    #score = np.dot(np.dot(diff, inv_sigma), diff.T)  #todo: likely incorrect; probably implement this myself since this was GPT most recent answer:
+    # print("Mu: " + str(mu))
+    # print("Sigma: " + str(sigma))
+    # print("Error vec: " + str(error_vecs))
+    # print(error_vecs.shape)
+    #
+    # flattened_error_vecs2 = error_vecs.reshape(error_vecs.shape[0], error_vecs.shape[1] * error_vecs.shape[2])
+    # print("Mu: \n" + str(mu))
+    # print("Flattened error vecs2: \n", flattened_error_vecs2)
+    # print("Mu shape: " + str(mu.shape))
+    # print("Flattened error vecs2: ", flattened_error_vecs2.shape)
+
+
+    scores = []
+    inv_sigma = np.linalg.inv(sigma)
+
+    error_vecs = error_vecs.reshape(error_vecs.shape[0], error_vecs.shape[1] * error_vecs.shape[2]) #todo: this might be totally incorrect but idrk rn
+    for error in error_vecs:
+        diff = np.subtract(error, mu)
+        score = np.dot(np.dot(diff, inv_sigma), diff.T)
+        #print("individual score: " + str(score))
+        scores.append(score)  #todo: likely incorrect; probably implement this myself since this was GPT most recent answer:
                                                       # anomaly_scores = np.einsum('ij,ij->i', diff @ np.linalg.inv(Sigma), diff) ---> bruh?
-    scores = np.einsum('ij,jk,ik->i', diff, inv_sigma, diff)
-    return scores
+    #scores = np.einsum('ij,jk,ik->i', diff, inv_sigma, diff)
+    test_score_np_arr = np.asarray(scores)
+    #print("scores " + str(test_score_np_arr))
+    #print("scores shape: " + str(test_score_np_arr.shape))
+    return test_score_np_arr
 
 
 #todo: is supposed to use "from sklearn.metrics import precision_recall_curve, fbeta_score" but only uses "fbeta_scores". ChatGPT is currently down so look
@@ -325,6 +358,7 @@ def find_optimal_threshold(anomaly_scores, true_labels, beta):
     precision, recall, thresholds = precision_recall_curve(true_labels, anomaly_scores)
     fbeta_scores = (1 + beta ** 2) * (precision * recall) / (beta ** 2 * precision + recall)
     best_index = np.argmax(fbeta_scores)
+    #print(str(thresholds))
     best_threshold = thresholds[best_index]
     best_fbeta = fbeta_scores[best_index]
     return best_threshold, best_fbeta

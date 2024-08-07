@@ -12,6 +12,19 @@ import numpy as np
 from sklearn.preprocessing import MaxAbsScaler
 
 
+def transform_true_labels_to_window_size(true_labels_list):
+    all_trans_labels = []
+    for true_labels in true_labels_list:
+        trans_true_labels = []
+        for labels_of_window in true_labels:
+            if 1 in labels_of_window:
+                trans_true_labels.append(1)
+            else:
+                trans_true_labels.append(0)
+        all_trans_labels.append(np.asarray(trans_true_labels))
+    return all_trans_labels
+
+
 def reshape_data_for_autoencoder_lstm(data_list, window_size, window_step):
     # Reshape X to fit LSTM input shape (samples, time steps, features)
     if window_size < 1 or window_step < 0 or window_step >= window_size:
@@ -48,13 +61,14 @@ def reshape_data_for_autoencoder_lstm(data_list, window_size, window_step):
 
     return windowed_data
 
+
 def split_data_sequence_into_datasets(arr, train_ratio, val1_ratio, val2_ratio, test_ratio):
     # train_ratio = 0.7
     # val1_ratio = 0.1  #TODO: should be 0.2; haven't implemented early_stopping using val1 yet
     # val2_ratio = 0.1  #TODO: temp bandaid while early_stopping is not implemented
     # test_ratio = 0.1
 
-    assert (train_ratio * 10 + val1_ratio * 10 + val2_ratio * 10 + test_ratio * 10) == 10  #due to float round error
+    assert (train_ratio * 10 + val1_ratio * 10 + val2_ratio * 10 + test_ratio * 10) == 10  # due to float round error
 
     n_total = len(arr)
     n_train = int(train_ratio * n_total)
@@ -77,13 +91,13 @@ def split_data_sequence_into_datasets(arr, train_ratio, val1_ratio, val2_ratio, 
     # print("vN2 df: " + str(vN2))
     # print("tN df: " + str(tN))
 
-    #return sN, vN1, vN2, tN
+    # return sN, vN1, vN2, tN
     return sN, vN1, vN2, tN
 
 
 def reshape_data_for_LSTM(data, steps):
     # Reshape X to fit LSTM input shape (samples, time steps, features)
-    #print(data.shape)
+    # print(data.shape)
     data = data.reshape((data.shape[0], steps, data.shape[2]))
     print("Reshaped data for LSTM into: " + str(data))
     return data
@@ -114,6 +128,7 @@ def reverse_normalization(scaled_data, scaler):
     if scaler is None:
         return scaled_data
     return scaler.inverse_transform(scaled_data)
+
 
 def shuffle_data(data, true_labels=None):
     indices = np.arange(data.shape[0])
@@ -160,7 +175,7 @@ def directory_csv_files_to_dataframe_to_numpyArray(file_path):
     for row_index, row in df.iterrows():
         for col_index, column in enumerate(df.columns):
             if column == "Anomaly":
-                true_labels[row_index] = row[column].astype('int') #0 or 1; 1==anomaly
+                true_labels[row_index] = row[column].astype('int')  # 0 or 1; 1==anomaly
             else:
                 samples[row_index, col_index] = row[column]
             # print("row_index: " + str(row_index))
@@ -173,8 +188,6 @@ def old_directory_csv_files_to_dataframe_to_numpyArray(directory):
     print("Reading files from directory: " + directory)
     dims = [0, 0]
     dfs = []
-
-    return
 
     for file in get_csv_file_paths(directory):
         df = clean_csv(file)
@@ -206,7 +219,7 @@ def old_directory_csv_files_to_dataframe_to_numpyArray(directory):
     return samples
 
 
-#removes empty columns, columns containing only one and the same value through and through and columns that do not offer useful information
+# removes empty columns, columns containing only one and the same value through and through and columns that do not offer useful information
 def clean_csv(file_path):
     # list of known incompatible csv files due to incompatible/incorrect formatting or files that are simply are not sensor data
     exceptions = [
@@ -214,9 +227,9 @@ def clean_csv(file_path):
         "slam-state", "stereo_cone_perception-cones", "tf", "estimation-velocity", "lidar-cone_position_cloud",
         "map_matching-driving_path", "sbg-gps_raw",
         "map_matching-reference_track", "diagnostics"
-        #todo: diagnostics is temporary here for now. might be useful to scan and process it separetly first and not include it in anomaly detection itself
-        #todo: also ask Sebastian if "map_matching-reference_track" is of any use for AD; for now it's out
-        #todo: "sbg-ekf_euler" also looks weird; not sure if useful
+        # todo: diagnostics is temporary here for now. might be useful to scan and process it separetly first and not include it in anomaly detection itself
+        # todo: also ask Sebastian if "map_matching-reference_track" is of any use for AD; for now it's out
+        # todo: "sbg-ekf_euler" also looks weird; not sure if useful
     ]
     if any(keyword in file_path for keyword in exceptions):
         print("did not process: " + str(file_path))
@@ -224,7 +237,8 @@ def clean_csv(file_path):
 
     df = pd.read_csv(file_path)
     columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'child_frame_id',
-                         'twist.covariance', 'header.seq']  #todo: test if removing this was good or bad: ", 'header.seq'"
+                         'twist.covariance',
+                         'header.seq']  # todo: test if removing this was good or bad: ", 'header.seq'"
 
     for col in columns_to_remove:
         if col in df.columns:
@@ -277,10 +291,10 @@ def get_sample_time(directory):
             curr_timestamp = df.iloc[i]["Time"]
             time_diffs.append(curr_timestamp - prev_timestamp)
             prev_timestamp = curr_timestamp
-            #if i == 100:
+            # if i == 100:
             #    break
 
-        time_diffs = [float(value) / 1e6 for value in time_diffs]  #convert to msecs
+        time_diffs = [float(value) / 1e6 for value in time_diffs]  # convert to msecs
         all_time_diffs[file] = time_diffs
 
     for entry in all_time_diffs.keys():
@@ -294,3 +308,24 @@ def get_sample_time(directory):
     # print("t: " + str(t))
     # combined_nanoseconds = t.secs * 1e9 + t.nsecs
     # print("Combined secs and nsecs: " + str(combined_nanoseconds))
+
+
+def read_file_to_csv_bagpy(path):
+    b = bagreader(path)
+    csvfiles = []
+    for topic in b.topics:
+        if (topic =="/sbg/imu_data"):   #causes UTF-8 encoding error
+            continue
+        print(topic)
+        data = b.message_by_topic(topic)
+        print(data)
+        csvfiles.append(data)
+
+    print(csvfiles[0])
+    data = pd.read_csv(csvfiles[0])
+
+    print(csvfiles[1])
+    data = pd.read_csv(csvfiles[1])
+
+    print(csvfiles[2])
+    data = pd.read_csv(csvfiles[2])

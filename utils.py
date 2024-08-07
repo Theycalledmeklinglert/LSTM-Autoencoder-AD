@@ -33,16 +33,16 @@ def autoencoder_predict_and_calculate_error(model, X_tN, labels, future_steps, i
         #print("Predicted sequences: \n" + str(predicted_sequence))
         error_vec = np.absolute(np.subtract(chosen_sequence, predicted_sequence))   #todo: np.absolute might be really counterproductive here
 
-        # if 1 in labels[i]:
-        #     #print("In certified anomaly")
-        #     #print(str(error_vec))
-        #     anomaly_err_vecs.append(error_vec)
-        #
-        # else:
-        #     #print("Normal error: \n" + str(error_vec))
-        #     normal_err_vecs.append(error_vec)
+        if 1 in labels[i]:
+            #print("In certified anomaly")
+            #print(str(error_vec))
+            anomaly_err_vecs.append(error_vec)
 
-        all_err_vecs.append(error_vec)
+        else:
+            #print("Normal error: \n" + str(error_vec))
+            normal_err_vecs.append(error_vec)
+
+        #all_err_vecs.append(error_vec)
 
         # if normal_err_vecs:
         #     avg_normal_error_matrix = np.mean(np.mean(normal_err_vecs, axis=0), axis=0)
@@ -55,13 +55,13 @@ def autoencoder_predict_and_calculate_error(model, X_tN, labels, future_steps, i
         #         print(str(chosen_sequence))
         #print("Error vec: " + str(error_vec) + "\n")
 
-    # avg_normal_error_matrix = np.mean(normal_err_vecs, axis=0)
-    # avg_anomaly_error_matrix = np.mean(anomaly_err_vecs, axis=0)
+    avg_normal_error_matrix = np.mean(normal_err_vecs, axis=0)
+    avg_anomaly_error_matrix = np.mean(anomaly_err_vecs, axis=0)
     # print("Avg. normal error: " + str(avg_normal_error_matrix))
     # print("Avg. anomaly error: " + str(avg_anomaly_error_matrix))
     #
-    # print("Avg. normal error (now with 20% less cancer!): " + str(np.mean(avg_normal_error_matrix, axis=0)))
-    # print("Avg. anomaly error (now with 20% less cancer!): " + str(np.mean(avg_anomaly_error_matrix, axis=0)))
+    print("Avg. normal error (now with 20% less cancer!): " + str(np.mean(avg_normal_error_matrix, axis=0)))
+    print("Avg. anomaly error (now with 20% less cancer!): " + str(np.mean(avg_anomaly_error_matrix, axis=0)))
     return all_err_vecs
 
 

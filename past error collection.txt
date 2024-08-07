@@ -237,3 +237,7 @@ Avg. anomaly error (now with 20% less cancer!): [3.6187072  0.29613673 0.0573769
 #previous
 Avg. normal error (now with 20% less cancer!): [5.27022382 0.42218563 0.25740623 0.47737976 0.28040689]
 Avg. anomaly error (now with 20% less cancer!): [3.96826701 0.28895173 0.0728715  0.50696625 0.79694378]
+
+#mse:
+Avg. normal error (now with 20% less cancer!): [9.54856983 0.50350304 0.57462309 0.74699043 0.5540313 ]
+Avg. anomaly error (now with 20% less cancer!): [11.39127765  0.44743849  0.31117049  1.1676968   0.68115397]
