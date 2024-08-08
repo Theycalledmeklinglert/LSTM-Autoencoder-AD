@@ -3,6 +3,7 @@ import tensorflow as tf
 import keras
 from keras.src.callbacks import EarlyStopping
 from keras.src.saving import load_model
+from matplotlib import pyplot as plt
 from scipy.linalg import inv
 from sklearn.metrics import precision_recall_curve
 from sklearn.model_selection import train_test_split
@@ -257,9 +258,28 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         X_vNA_error_vecs = calculate_rec_error_vecs(model, X_vNA, scaler)
         anomaly_scores = compute_anomaly_score(X_vNA_error_vecs, mu, sigma) #todo: X_vN2 needs to be appended somewhere here and put into calc febeta as well
 
-        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[2].flatten(), 0.9)
+        print("anom score shape: " + str(anomaly_scores.shape))
+        print("true labels shape: " + str(true_labels_list[2].flatten().shape))
+
+        stupid_hack = true_labels_list[2].flatten().tolist()
+        for index, label in enumerate(true_labels_list[2].flatten().tolist()):
+            if stupid_hack[index] == 1 and stupid_hack[index+1] == 0:
+                # print("index of anom: " + str(index) + " | " + "anomaly score: " + str(anomaly_scores[index]))
+                # print("previous/following score: " + str(anomaly_scores[index-1]) + ", " + str(anomaly_scores[index+1]))
+                print("index of anom: " + str(index) + " | " + "anomaly score: " + str(anomaly_scores[index]))
+                print("previous score: " + str(anomaly_scores[index - 1]))
+                print("15 following scores: " + str(anomaly_scores[index:index+15]))
+
+
+        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[2].flatten(), 0.3)
         print("Anomaly scores: \n" + str(anomaly_scores.tolist()))
         print("Best anomaly threshold: " + str(best_anomaly_threshold))
+
+        for index, anomaly_score in enumerate(anomaly_scores):
+            if anomaly_score > best_anomaly_threshold:
+                print("score: " + str(anomaly_score))
+                print("index of window: " + str(index))
+
         X_tN_error_vecs = calculate_rec_error_vecs(model, X_tN, scaler)
         anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
 
@@ -368,4 +388,14 @@ def find_optimal_threshold(anomaly_scores, true_labels, beta):
     #print(str(thresholds))
     best_threshold = thresholds[best_index]
     best_fbeta = fbeta_scores[best_index]
+
+    plt.figure()
+    plt.plot(thresholds, precision[:-1], 'b-', label='Precision')
+    plt.plot(thresholds, recall[:-1], 'g-', label='Recall')
+    plt.xlabel('Threshold')
+    plt.ylabel('Precision/Recall')
+    plt.legend(loc='best')
+    plt.title('Precision-Recall Curve')
+    plt.show()
+
     return best_threshold, best_fbeta
