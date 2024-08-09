@@ -3,6 +3,7 @@ import random
 
 import numpy as np
 import pandas as pd
+from matplotlib import pyplot as plt
 
 from data_processing import reverse_normalization
 
@@ -139,7 +140,6 @@ def add_anomaly_column_to_csv_files(directories):
                 # Save the updated CSV file back to the same location
                 df.to_csv(file_path, index=False)
                 print(f"Updated {file_path}")
-
 
 class DataFrameContainsNaNError(Exception):
     """Exception raised when the DataFrame contains NaN values."""

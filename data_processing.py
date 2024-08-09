@@ -9,7 +9,33 @@ import genpy
 import pandas as pd
 from bagpy import bagreader
 import numpy as np
+from matplotlib import pyplot as plt
 from sklearn.preprocessing import MaxAbsScaler
+from statsmodels.graphics.tsaplots import plot_acf
+from statsmodels.stats.diagnostic import acorr_ljungbox
+
+
+def get_normalized_data_and_labels(file_pair, scaler):
+    data_with_time_diffs = []
+    true_labels_list = []  # specify whether a point is classified as anomaly
+    print("Now training model on: " + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
+
+    for single_file in file_pair:
+        data, true_labels = directory_csv_files_to_dataframe_to_numpyArray(single_file) # timestamps are scaled to relative timestamps
+        if data is None:
+            break
+
+        plot_data(data, str(single_file[single_file.rfind("\\") + 1:].rstrip(".csv")))
+
+        print("unnormalized_data_with_time_diffs: \n" + str(data))
+        normalized_data = normalize_data(data, scaler)
+        print("normalized_data_with_time_diffs: \n" + str(normalized_data))
+        data_with_time_diffs.append(normalized_data)
+
+        print("Anoamaly labels: \n" + str(true_labels))
+
+        true_labels_list.append(true_labels)
+    return data_with_time_diffs, true_labels_list
 
 
 def transform_true_labels_to_window_size(true_labels_list):
@@ -329,3 +355,61 @@ def read_file_to_csv_bagpy(path):
 
     print(csvfiles[2])
     data = pd.read_csv(csvfiles[2])
+
+
+def plot_data(data, file_name):
+    timestamps = data[:, 0]
+    values = data[:, 1:]
+
+    # Plotting
+    plt.figure(figsize=(10, 6))
+    for i in range(values.shape[1]):
+        plt.plot(timestamps, values[:, i], label=f'Series {i + 1}')
+
+    plt.xlabel('Time (s)')
+    plt.ylabel('Value')
+    plt.title('Plot of ' + file_name)
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    series = data[:, 1]
+    diff_series = np.diff(series)
+
+    # Create ACF plot of Difference
+    plt.figure(figsize=(10, 6))
+    plot_acf(diff_series, lags=20, alpha=0.05)
+    plt.title('Autocorrelation Function (ACF) of Differenced Data')
+    plt.xlabel('Lag')
+    plt.ylabel('Autocorrelation')
+    plt.show()
+
+
+
+    # series = data[:, 1]
+    #
+    # # Step 1: Compute the differences
+    # diff_series = np.diff(series)
+    #
+    # # Step 2: Perform the Ljung-Box test
+    # ljung_box_result = acorr_ljungbox(diff_series, lags=[10], return_df=True)
+    #
+    # # Step 3: Plot the differenced series
+    # plt.figure(figsize=(14, 6))
+    # plt.subplot(1, 2, 1)
+    # plt.plot(diff_series)
+    # plt.title('Differenced Series')
+    # plt.xlabel('Time')
+    # plt.ylabel('Differenced Value')
+    #
+    # # Step 4: Plot the p-values from the Ljung-Box test
+    # plt.subplot(1, 2, 2)
+    # plt.bar(ljung_box_result.index, ljung_box_result['lb_pvalue'])
+    # #plt.yscale('log')
+    # plt.title('Ljung-Box Test p-values')
+    # plt.xlabel('Lag')
+    # plt.ylabel('p-value')
+    # plt.axhline(y=0.05, color='r', linestyle='--')  # Significance level line
+    #
+    # plt.tight_layout()
+    # plt.show()

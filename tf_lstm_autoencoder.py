@@ -16,7 +16,7 @@ from keras import Loss
 
 from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
     split_data_sequence_into_datasets, reverse_normalization, directory_csv_files_to_dataframe_to_numpyArray, \
-    transform_true_labels_to_window_size
+    transform_true_labels_to_window_size, get_normalized_data_and_labels
 from utils import autoencoder_predict_and_calculate_error, \
     get_matching_file_pairs_from_directories
 
@@ -173,25 +173,9 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
     print("all_file_pairs: " + str(all_file_pairs))
 
     for file_pair in all_file_pairs:
-        data_with_time_diffs = []
-        true_labels_list = []  #specify whether a point is classified as anomaly
-        print("Now training model on: " + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
-
-        #data is automatically scaled to relative timestamps
-        for single_file in file_pair:
-            data, true_labels = directory_csv_files_to_dataframe_to_numpyArray(single_file)
-            if data is None:
-                break
-            print("unnormalized_data_with_time_diffs: \n" + str(data))
-            normalized_data = normalize_data(data, scaler)
-            print("normalized_data_with_time_diffs: \n" + str(normalized_data))
-            data_with_time_diffs.append(normalized_data)
-
-            print("Anoamaly labels: \n" + str(true_labels))
-
-            true_labels_list.append(true_labels)
-
-        #if list is empty due to exception csv
+        data_with_time_diffs, true_labels_list = get_normalized_data_and_labels(file_pair, scaler)
+        #plot_data(data_with_time_diffs[0])
+        #if list is empty due to excluded csv file
         if not data_with_time_diffs:
             continue
 
