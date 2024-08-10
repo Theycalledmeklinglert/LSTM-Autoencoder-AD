@@ -4,6 +4,7 @@ import keras
 from keras.src.callbacks import EarlyStopping
 from keras.src.saving import load_model
 from matplotlib import pyplot as plt
+from matplotlib.lines import Line2D
 from scipy.linalg import inv
 from sklearn.metrics import precision_recall_curve
 from sklearn.model_selection import train_test_split
@@ -253,6 +254,32 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
                 print("index of anom: " + str(index) + " | " + "anomaly score: " + str(anomaly_scores[index]))
                 print("previous score: " + str(anomaly_scores[index - 1]))
                 print("15 following scores: " + str(anomaly_scores[index:index+15]))
+
+
+
+        # Plotting
+        plt.figure(figsize=(12, 6))
+        for i, (score, label) in enumerate(zip(anomaly_scores, stupid_hack)):
+            color = 'red' if label == 1 else 'blue'
+            marker = 'x' if label == 1 else 'o'
+            plt.scatter(i, score, color=color, marker=marker, s=100, label='Anomaly' if label == 1 else 'Normal')
+
+        # Adding labels and title
+        plt.ylim(0, 200000)
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
+            Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
+        ]
+        plt.legend(handles=legend_elements, loc='upper left')
+        plt.title('Anomaly Scores with True Labels')
+        plt.xlabel('Index')
+        plt.ylabel('Anomaly Score')
+        plt.axhline(y=0.5, color='gray', linestyle='--', linewidth=0.5)  # Optional: a threshold line
+        #plt.legend(['Normal', 'Anomaly'], loc='upper left')
+        plt.show()
+
+
+
 
 
         best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[2].flatten(), 0.3)

@@ -25,6 +25,8 @@ def get_normalized_data_and_labels(file_pair, scaler):
         if data is None:
             break
 
+        #data = np.diff(data, axis=0)    #TODO: EXPERIMENTAL
+
         plot_data(data, str(single_file[single_file.rfind("\\") + 1:].rstrip(".csv")))
 
         print("unnormalized_data_with_time_diffs: \n" + str(data))
@@ -201,7 +203,7 @@ def directory_csv_files_to_dataframe_to_numpyArray(file_path):
     for row_index, row in df.iterrows():
         for col_index, column in enumerate(df.columns):
             if column == "Anomaly":
-                true_labels[row_index] = row[column].astype('int')  # 0 or 1; 1==anomaly
+                true_labels[row_index] = row[column].astype('int')  # 0 or 1; 1=anomaly
             else:
                 samples[row_index, col_index] = row[column]
             # print("row_index: " + str(row_index))
@@ -264,7 +266,7 @@ def clean_csv(file_path):
     df = pd.read_csv(file_path)
     columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'child_frame_id',
                          'twist.covariance',
-                         'header.seq']  # todo: test if removing this was good or bad: ", 'header.seq'"
+                         'header.seq', 'Time']  # todo: test if removing this was good or bad: ", 'header.seq'"
 
     for col in columns_to_remove:
         if col in df.columns:
