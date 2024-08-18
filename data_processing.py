@@ -25,7 +25,7 @@ def get_normalized_data_and_labels(file_pair, scaler, remove_timestamps):
         if data is None:
             break
 
-        plot_data(data, str(single_file[single_file.rfind("\\") + 1:].rstrip(".csv")))
+        #plot_data(data, str(single_file[single_file.rfind("\\") + 1:].rstrip(".csv")))
 
         print("unnormalized_data_with_time_diffs: \n" + str(data))
         normalized_data = normalize_data(data, scaler)
@@ -188,17 +188,27 @@ def convert_timestamp_to_relative_time_diff(df):
 
 
 def csv_file_to_nparr(file_path, remove_timestamps):
+    print("Getting data from: " + str(file_path))
+
     offset = 0
     df = clean_csv(file_path, remove_timestamps)
     if df is None:
         return
+
+    print("cleaned csv")
+
     df = convert_timestamp_to_relative_time_diff(df)
     if "Anomaly" in df.columns:
         offset = 1
 
+    print("converted timestamps")
+    print(df.shape)
+
     samples = np.zeros((df.shape[0], df.shape[1] - offset))
+    print(samples.shape)
     true_labels = np.zeros((df.shape[0], 1))
     for row_index, row in df.iterrows():
+        #print("going through row: " + str(row_index))
         for col_index, column in enumerate(df.columns):
             if column == "Anomaly":
                 true_labels[row_index] = row[column].astype('int')  # 0 or 1; 1=anomaly
@@ -294,12 +304,29 @@ def clean_csv(file_path, remove_timestamps=False):
         print("DataFrame contains NaN")
         raise DataFrameContainsNaNError()
 
-    df.dropna(axis=1, how='all', inplace=True)
+    cols_to_check = [col for col in df.columns if col != "Anomaly"]
+    print("Columns in DataFrame:", df.columns.tolist())
+    print("Columns to check:", cols_to_check)
+    cols_to_check = [col for col in cols_to_check if col in df.columns]
+    print("Columns to check2:", cols_to_check)
+    print("df: " + str(df))
 
-    # Remove columns that only contain one and the same value
-    for col in df.columns:
-        if df[col].nunique() == 1:
-            df.drop(columns=[col], inplace=True)
+    if not cols_to_check:
+        print("No columns to check after filtering.")
+    else:
+        # Drop columns with all missing values, excluding "Anomaly"
+        print(type(cols_to_check))
+        df.dropna(axis=0, how='all', subset=cols_to_check, inplace=True) # i don't know why this works since axis=0 is supposed to be deleting rows and axis=1 to delete columns. However axis=1 crashes for some reason
+                                                                         # and axis=0 works and removes only the 0 columns so I guess I'll just leave it here for now if it doesnt cause any issues
+
+        # Remove columns that only contain one and the same value, excluding "Anomaly"
+        for col in cols_to_check:
+            if df[col].nunique() == 1:
+                df.drop(columns=[col], inplace=True)
+
+
+    print("df after removing nan and 0 cols: " + str(df))
+
 
     return df
 

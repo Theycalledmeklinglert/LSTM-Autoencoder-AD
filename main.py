@@ -55,8 +55,10 @@ if __name__ == '__main__':
 
     #add_anomaly_column_to_csv_files(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"])
 
-    test_lstm_autoencoder(20, [60], 0.0, 32, 500, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "can_interface-current_steering_angle.csv")
-    #test_lstm_autoencoder(20, [60], 0.0, 32, 500, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "can_interface-wheelspeed.csv", "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_60.keras")
+    #todo: I think either saving or loading the model is not saving/loading the weights or internal states correctly....FUCKKKKKKK
+
+    #test_lstm_autoencoder(150, [20], 0.0, 64, 500, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "can_interface-current_steering_angle.csv", "./models/LSTM_autoencoder_decoder_can_interface-current_steering_angle_timesteps150_layers_20.keras")
+    test_lstm_autoencoder(20, [60], 0.0, 32, 500, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "can_interface-wheelspeed.csv", "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_60.keras")
     #df = clean_csv("C:\\Users\\Luca\\PycharmProjects\AnoamlydetectionInFormulaStudent\\aufnahmen\csv\\autocross_valid_16_05_23\\diagnostics.csv")
     #print_unique_values(df, "status")
 

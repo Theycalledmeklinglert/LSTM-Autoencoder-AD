@@ -180,6 +180,8 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         if not data_with_time_diffs:
             continue
 
+        print("now reshaping")
+
         data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps, 0)
         true_labels_list = reshape_data_for_autoencoder_lstm(true_labels_list, time_steps, 0)
 
@@ -225,7 +227,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         else:
             model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder": LSTMAutoEncoder}, compile=True)
 
-        autoencoder_predict_and_calculate_error(model, X_tN, true_labels_list[1], 1, len(X_tN), scaler)
+        autoencoder_predict_and_calculate_error(model, X_tN, true_labels_list[3], 1, len(X_tN), scaler)
 
         true_labels_list = transform_true_labels_to_window_size(true_labels_list)
         print("new: \n" + str(true_labels_list[1]))
@@ -265,7 +267,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
             plt.scatter(i, score, color=color, marker=marker, s=100, label='Anomaly' if label == 1 else 'Normal')
 
         # Adding labels and title
-        plt.ylim(0, 200000)
+        plt.ylim(0, anomaly_scores.max()*1.5)
         legend_elements = [
             Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
             Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
@@ -278,18 +280,22 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         #plt.legend(['Normal', 'Anomaly'], loc='upper left')
         plt.show()
 
-
-
-
-
-        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[2].flatten(), 0.3)
+        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[2].flatten(), 1.3) #todo: optimal value of beta seems to be application knowledge
         print("Anomaly scores: \n" + str(anomaly_scores.tolist()))
         print("Best anomaly threshold: " + str(best_anomaly_threshold))
 
-        for index, anomaly_score in enumerate(anomaly_scores):
-            if anomaly_score > best_anomaly_threshold:
-                print("score: " + str(anomaly_score))
-                print("index of window: " + str(index))
+        # for index, anomaly_score in enumerate(anomaly_scores):
+        #     if anomaly_score > best_anomaly_threshold:
+        #         print("score: " + str(anomaly_score))
+        #         print("index of window: " + str(index))
+
+        print("detection with fbeta threshold: \n")
+        calculate_detection_rate(anomaly_scores, true_labels_list[2], best_anomaly_threshold)
+        print("detection with hack threshold: \n")
+        average_anomaly_score_of_actual_anomalies = np.mean(anomaly_scores[true_labels_list[2].flatten() == 1])
+        print("hack threshold: " + str(average_anomaly_score_of_actual_anomalies))
+        calculate_detection_rate(anomaly_scores, true_labels_list[2], average_anomaly_score_of_actual_anomalies)
+
 
         X_tN_error_vecs = calculate_rec_error_vecs(model, X_tN, scaler)
         anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
@@ -324,10 +330,15 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     return np.asarray(error_vecs)
 
 
+    #todo: I think either saving or loading the model is not saving/loading the weights or internal states correctly....FUCKKKKKKK
+    #todo: I think either saving or loading the model is not saving/loading the weights or internal states correctly....FUCKKKKKKK
+    #todo: I think either saving or loading the model is not saving/loading the weights or internal states correctly....FUCKKKKKKK
+
+
     #todo:
     #      //add true_labels to all data
     #      //implement overlapping window separation of data
-    #      finish anomaly score and fbeta score using X_vN2 and X_vA
+    #      //finish anomaly score and fbeta score using X_vN2 and X_vA
     #      //consider switch to loss_function='mse' and compare performance --> mse was worse (very limited sample size so grain of salt)
     #      find way to create anomalous datasets
     #      //ask Sebastian or Tamara what typical anomalies (might) look like
@@ -409,3 +420,47 @@ def find_optimal_threshold(anomaly_scores, true_labels, beta):
     plt.show()
 
     return best_threshold, best_fbeta
+
+
+def calculate_detection_rate(anomaly_scores, true_labels, threshold):
+    true_labels = true_labels.flatten()
+    total_anoms = np.sum(true_labels == 1)
+    anomaly_scores_of_anoms = []
+    avg_anomaly_score_of_anoms = 0
+    avg_anomaly_score_of_normals = 0
+
+    true_pos = 0
+    false_pos = 0
+    false_neg = 0
+    true_neg = 0
+
+    if anomaly_scores.shape != true_labels.shape:
+        print("anomaly scores shape is not equal to true labels shape")
+        return
+
+    for i in range(len(true_labels)):
+        if true_labels[i] == 1:
+            anomaly_scores_of_anoms.append(anomaly_scores[i])
+            avg_anomaly_score_of_anoms += anomaly_scores[i]
+            if anomaly_scores[i] >= threshold:
+                true_pos += 1
+            if anomaly_scores[i] <= threshold:
+                false_neg += 1
+        elif true_labels[i] == 0:
+            avg_anomaly_score_of_normals += anomaly_scores[i]
+            if anomaly_scores[i] >= threshold:
+                false_pos += 1
+            if anomaly_scores[i] <= threshold:
+                true_neg += 1
+
+    avg_anomaly_score_of_anoms = avg_anomaly_score_of_anoms / total_anoms
+    avg_anomaly_score_of_normals = avg_anomaly_score_of_normals / anomaly_scores.shape[0] - total_anoms
+    print("true positives: " + str(true_pos))
+    print("false positives: " + str(false_pos))
+    print("true negatives: " + str(true_neg))
+    print("false negatives: " + str(false_neg))
+
+    print("total anomalies: " + str(total_anoms))
+    print("average anomaly score of all anomalies: " + str(avg_anomaly_score_of_anoms))
+    print("scores of all anomalies: " + str(anomaly_scores_of_anoms))
+    print("average score of normal data windows: " + str(avg_anomaly_score_of_normals))
