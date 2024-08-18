@@ -15,17 +15,15 @@ from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.stats.diagnostic import acorr_ljungbox
 
 
-def get_normalized_data_and_labels(file_pair, scaler):
+def get_normalized_data_and_labels(file_pair, scaler, remove_timestamps):
     data_with_time_diffs = []
     true_labels_list = []  # specify whether a point is classified as anomaly
     print("Now training model on: " + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
 
     for single_file in file_pair:
-        data, true_labels = directory_csv_files_to_dataframe_to_numpyArray(single_file) # timestamps are scaled to relative timestamps
+        data, true_labels = csv_file_to_nparr(single_file, remove_timestamps) # timestamps are scaled to relative timestamps
         if data is None:
             break
-
-        #data = np.diff(data, axis=0)    #TODO: EXPERIMENTAL
 
         plot_data(data, str(single_file[single_file.rfind("\\") + 1:].rstrip(".csv")))
 
@@ -189,9 +187,9 @@ def convert_timestamp_to_relative_time_diff(df):
     return df
 
 
-def directory_csv_files_to_dataframe_to_numpyArray(file_path):
+def csv_file_to_nparr(file_path, remove_timestamps):
     offset = 0
-    df = clean_csv(file_path)
+    df = clean_csv(file_path, remove_timestamps)
     if df is None:
         return
     df = convert_timestamp_to_relative_time_diff(df)
@@ -210,6 +208,20 @@ def directory_csv_files_to_dataframe_to_numpyArray(file_path):
             # print("column: " + str(column) + " + col_index: " + str(col_index))
             # print("grabbed: " + str(row[column]))
     return samples, true_labels
+
+
+def csv_files_to_df(file_path, remove_timestamps):
+    df = clean_csv(file_path, remove_timestamps)
+    if df is None:
+        return
+    df = convert_timestamp_to_relative_time_diff(df)
+    return df
+
+def get_flattened_single_column_from_nd_nparray(list_of_data, col_idx):
+    for idx, data in enumerate(list_of_data):
+        list_of_data[idx] = data[:, :col_idx].flatten()
+    return list_of_data
+
 
 
 def old_directory_csv_files_to_dataframe_to_numpyArray(directory):
@@ -248,11 +260,11 @@ def old_directory_csv_files_to_dataframe_to_numpyArray(directory):
 
 
 # removes empty columns, columns containing only one and the same value through and through and columns that do not offer useful information
-def clean_csv(file_path):
+def clean_csv(file_path, remove_timestamps=False):
     # list of known incompatible csv files due to incompatible/incorrect formatting or files that are simply are not sensor data
     exceptions = [
         "slam-car_state", "slam-landmark_info", "slam-map",
-        "slam-state", "stereo_cone_perception-cones", "tf", "estimation-velocity", "lidar-cone_position_cloud",
+        "slam-state", "stereo_cone_perception-cones", "tf", "estimation-velocity", "lidar-cone_position_cloud", #todo: estimation-velocity is doable, just need to handle the matrices somehow
         "map_matching-driving_path", "sbg-gps_raw",
         "map_matching-reference_track", "diagnostics"
         # todo: diagnostics is temporary here for now. might be useful to scan and process it separetly first and not include it in anomaly detection itself
@@ -266,7 +278,11 @@ def clean_csv(file_path):
     df = pd.read_csv(file_path)
     columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'child_frame_id',
                          'twist.covariance',
-                         'header.seq', 'Time']  # todo: test if removing this was good or bad: ", 'header.seq'"
+                         'header.seq']  # ", 'header.seq'"
+
+    if remove_timestamps:
+        columns_to_remove.append('Time')    #todo: test if removing this was good or bad:
+
 
     for col in columns_to_remove:
         if col in df.columns:

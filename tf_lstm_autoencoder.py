@@ -16,7 +16,7 @@ from tensorflow.keras import Model
 from keras import Loss
 
 from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
-    split_data_sequence_into_datasets, reverse_normalization, directory_csv_files_to_dataframe_to_numpyArray, \
+    split_data_sequence_into_datasets, reverse_normalization, csv_file_to_nparr, \
     transform_true_labels_to_window_size, get_normalized_data_and_labels
 from utils import autoencoder_predict_and_calculate_error, \
     get_matching_file_pairs_from_directories
@@ -162,7 +162,7 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     return model
 
 
-def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, directories, model_file_path=None):
+def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, directories, single_sensor_name=None, model_file_path=None):
     # ((((todo: data shuffling may be advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
     #scaler = MinMaxScaler(feature_range=(-1, 1))  #Scales the data to a fixed range, typically [0, 1].
@@ -170,11 +170,11 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
     scaler = MaxAbsScaler()  #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
     #scaler = None
 
-    all_file_pairs = get_matching_file_pairs_from_directories(directories, "can_interface-wheelspeed.csv")
+    all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
     print("all_file_pairs: " + str(all_file_pairs))
 
     for file_pair in all_file_pairs:
-        data_with_time_diffs, true_labels_list = get_normalized_data_and_labels(file_pair, scaler)
+        data_with_time_diffs, true_labels_list = get_normalized_data_and_labels(file_pair, scaler, remove_timestamps=True)
         #plot_data(data_with_time_diffs[0])
         #if list is empty due to excluded csv file
         if not data_with_time_diffs:
@@ -330,9 +330,8 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     #      finish anomaly score and fbeta score using X_vN2 and X_vA
     #      //consider switch to loss_function='mse' and compare performance --> mse was worse (very limited sample size so grain of salt)
     #      find way to create anomalous datasets
-    #      ask Sebastian or Tamara what typical anomalies (might) look like
+    #      //ask Sebastian or Tamara what typical anomalies (might) look like
     #      find optimal hyperparameters for each sensor
-    #      find a way to create authentic anomalous data and test
     #      find and implement next algorithm
     #      Schleif meeting
 

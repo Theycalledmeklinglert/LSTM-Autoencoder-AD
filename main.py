@@ -3,12 +3,15 @@
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 import numpy as np
 import tensorflow as tf
+from pmdarima.datasets import load_sunspots
 from tensorflow import keras
 
-from data_processing import directory_csv_files_to_dataframe_to_numpyArray, \
+from auto_arima import run_auto_arima
+from data_processing import csv_file_to_nparr, \
     old_directory_csv_files_to_dataframe_to_numpyArray, read_file_to_csv_bagpy
 from tf_lstm_autoencoder import test_lstm_autoencoder
 from utils import add_anomaly_column_to_csv_files
+import pmdarima as pm
 
 
 def print_hi(name):
@@ -25,17 +28,35 @@ if __name__ == '__main__':
     print(tf.__version__)
     print(keras.__version__)
 
-    #test_lstm_autoencoder(10, [30, 30], 2, 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv", "./aufnahmen/csv/autocross_valid2_17_23_44/can_interface-wheelspeed.csv"])
-    #test_lstm_autoencoder(10, [30, 30], 0.0, 32, 120, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid2_17_23_44"], './models/pretty good autoencoder for wheel speed/LSTM_autoencoder_decoder_30_30.keras')
+    wineind = pm.datasets.load_wineind()
+
+    print(type(wineind))
+
+    y = load_sunspots(True)
+    print(y.head())
+    print(type(y))
+
+    #run_auto_arima(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run"])
+
+    #todo:
+    # tsdisplay(y_train, lag_max=100)
+    # fit2 = Pipeline([
+    #     ('boxcox', BoxCoxEndogTransformer(lmbda2=1e-6)),
+    #     ('arima', pm.AutoARIMA(trace=True,
+    #                            suppress_warnings=True,
+    #                            m=12))
+    # ])
+    # fit2.fit(y_train)
+
 
     #get_sample_time("./aufnahmen/csv/autocross_valid_16_05_23")
 
     #test_lstm_autoencoder(10, [50, 50], 0.0, 32, 200, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"]) #"C:\\Users\\Luca\\PycharmProjects\\AnoamlydetectionInFormulaStudent\\models\\LSTM_autoencoder_decoder_can_interface-wheelspeed_100_100.keras"
 
-    #Test:
     #add_anomaly_column_to_csv_files(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"])
 
-    test_lstm_autoencoder(20, [60], 0.0, 32, 500, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"]) #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_60.keras")
+    test_lstm_autoencoder(20, [60], 0.0, 32, 500, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "can_interface-current_steering_angle.csv")
+    #test_lstm_autoencoder(20, [60], 0.0, 32, 500, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "can_interface-wheelspeed.csv", "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_60.keras")
     #df = clean_csv("C:\\Users\\Luca\\PycharmProjects\AnoamlydetectionInFormulaStudent\\aufnahmen\csv\\autocross_valid_16_05_23\\diagnostics.csv")
     #print_unique_values(df, "status")
 

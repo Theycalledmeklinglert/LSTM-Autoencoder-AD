@@ -15,7 +15,7 @@ from tensorflow.keras import Model
 from kerastuner import HyperModel
 
 from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
-    split_data_sequence_into_datasets, reverse_normalization, directory_csv_files_to_dataframe_to_numpyArray
+    split_data_sequence_into_datasets, reverse_normalization, csv_file_to_nparr
 from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directories
 
 
@@ -233,7 +233,9 @@ def tune_lstm_autoencoder(time_steps, directories):
 
         #data is automatically scaled to relative timestamps
         for single_file in file_pair:
-            data, true_labels = directory_csv_files_to_dataframe_to_numpyArray(single_file)
+            #data, true_labels = directory_csv_files_to_dataframe_to_numpyArray(single_file) #todo: this is outdated; see tf_lstm_autoencoder for up to date implementation
+            data = None
+            true_labels = None
             if data is None:
                 break
             print("unnormalized_data_with_time_diffs: \n" + str(data))
