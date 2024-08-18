@@ -8,7 +8,7 @@ from matplotlib.lines import Line2D
 from scipy.linalg import inv
 from sklearn.metrics import precision_recall_curve
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MaxAbsScaler
+from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler
 #from tensorflow import keras
 from tensorflow.keras.layers import Input, LSTM, Dense
 from tensorflow.keras.optimizers import Adam
@@ -165,9 +165,9 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
 def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, directories, single_sensor_name=None, model_file_path=None):
     # ((((todo: data shuffling may be advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
-    #scaler = MinMaxScaler(feature_range=(-1, 1))  #Scales the data to a fixed range, typically [0, 1].
+    scaler = MinMaxScaler(feature_range=(0, 1))  #Scales the data to a fixed range, typically [0, 1].
     #scaler = StandardScaler()           #Scales the data to have a mean of 0 and a standard deviation of 1.
-    scaler = MaxAbsScaler()  #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
+    #scaler = MaxAbsScaler()  #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
     #scaler = None
 
     all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
@@ -230,8 +230,8 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
         autoencoder_predict_and_calculate_error(model, X_tN, true_labels_list[3], 1, len(X_tN), scaler)
 
         true_labels_list = transform_true_labels_to_window_size(true_labels_list)
-        print("new: \n" + str(true_labels_list[1]))
-        print("len: \n" + str(true_labels_list[1].shape))
+        print("new: \n" + str(true_labels_list[2]))
+        print("len: \n" + str(true_labels_list[2].shape))
         print(X_tN.shape)
 
         X_vN1_error_vecs = np.asarray(calculate_rec_error_vecs(model, X_vN1, scaler))
