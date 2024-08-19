@@ -162,7 +162,7 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     return model
 
 
-def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, directories, single_sensor_name=None, model_file_path=None):
+def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, remove_timestamps, directories, single_sensor_name=None, model_file_path=None):
     # ((((todo: data shuffling may be advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
 
     scaler = MinMaxScaler(feature_range=(0, 1))  #Scales the data to a fixed range, typically [0, 1].
@@ -174,7 +174,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, d
     print("all_file_pairs: " + str(all_file_pairs))
 
     for file_pair in all_file_pairs:
-        data_with_time_diffs, true_labels_list = get_normalized_data_and_labels(file_pair, scaler, remove_timestamps=True)
+        data_with_time_diffs, true_labels_list = get_normalized_data_and_labels(file_pair, scaler, remove_timestamps)
         #plot_data(data_with_time_diffs[0])
         #if list is empty due to excluded csv file
         if not data_with_time_diffs:

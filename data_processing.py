@@ -25,6 +25,7 @@ def get_normalized_data_and_labels(file_pair, scaler, remove_timestamps):
         if data is None:
             break
 
+        #data = np.diff(data)    #EXPERIMENTAL; not recommended for LSTM autoenc
         #plot_data(data, str(single_file[single_file.rfind("\\") + 1:].rstrip(".csv")))
 
         print("unnormalized_data_with_time_diffs: \n" + str(data))
