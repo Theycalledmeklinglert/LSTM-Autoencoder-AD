@@ -250,7 +250,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
 
         stupid_hack = true_labels_list[2].flatten().tolist()
         for index, label in enumerate(true_labels_list[2].flatten().tolist()):
-            if stupid_hack[index] == 1 and stupid_hack[index+1] == 0:
+            if (stupid_hack[index] == 1 and index >= len(stupid_hack) - 1) or (stupid_hack[index] == 1 and stupid_hack[index+1] == 0):
                 # print("index of anom: " + str(index) + " | " + "anomaly score: " + str(anomaly_scores[index]))
                 # print("previous/following score: " + str(anomaly_scores[index-1]) + ", " + str(anomaly_scores[index+1]))
                 print("index of anom: " + str(index) + " | " + "anomaly score: " + str(anomaly_scores[index]))
@@ -280,7 +280,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
         #plt.legend(['Normal', 'Anomaly'], loc='upper left')
         plt.show()
 
-        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[2].flatten(), 1.3) #todo: optimal value of beta seems to be application knowledge
+        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[2].flatten(), 1.0) #todo: optimal value of beta seems to be application knowledge
         print("Anomaly scores: \n" + str(anomaly_scores.tolist()))
         print("Best anomaly threshold: " + str(best_anomaly_threshold))
 

@@ -1,5 +1,8 @@
+import pickle
+
 import numpy as np
 from matplotlib import pyplot as plt
+from pmdarima import StepwiseContext
 from pmdarima.preprocessing import LogEndogTransformer, BoxCoxEndogTransformer
 from scipy.stats import normaltest
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, MaxAbsScaler, PowerTransformer
@@ -64,9 +67,14 @@ def run_auto_arima(directories, specific_sensor):
     data_yeojohnson = scaler.fit_transform(data_for_display.reshape(-1, 1))
     tsdisplay(data_yeojohnson, lag_max=100)
 
-    #todo: takes forever; let it run to see
-    fit1 = pm.auto_arima(data_for_fit, m=50, trace=True, suppress_warnings=True)
+    with StepwiseContext(max_dur=500):
+        #todo: takes forever; let it run to see
+        fit1 = pm.auto_arima(data_for_fit, m=50, trace=True, suppress_warnings=True, seasonal=True, n_fits=5)
     print(fit1.summary())
+
+    with open('arima.pkl', 'wb') as pkl:
+        pickle.dump(fit1, pkl)
+
     forecasts, conf_int = fit1.predict(n_periods=data_for_fit.size, return_conf_int=True)
 
     plot_forecasts(data_for_fit, forecasts, "Test for wheelspeed")
