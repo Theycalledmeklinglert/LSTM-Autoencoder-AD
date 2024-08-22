@@ -26,7 +26,7 @@ def get_normalized_data_and_labels(file_pair, scaler, remove_timestamps):
             break
 
         #data = np.diff(data)    #EXPERIMENTAL; not recommended for LSTM autoenc
-        #plot_data(data, str(single_file[single_file.rfind("\\") + 1:].rstrip(".csv")))
+        plot_data(data, single_file, not remove_timestamps)
 
         print("unnormalized_data_with_time_diffs: \n" + str(data))
         normalized_data = normalize_data(data, scaler)
@@ -40,16 +40,16 @@ def get_normalized_data_and_labels(file_pair, scaler, remove_timestamps):
 
 
 def transform_true_labels_to_window_size(true_labels_list):
-    all_trans_labels = []
+    windowed_true_labels = []
     for true_labels in true_labels_list:
-        trans_true_labels = []
+        cur_window = []
         for labels_of_window in true_labels:
             if 1 in labels_of_window:
-                trans_true_labels.append(1)
+                cur_window.append(1)
             else:
-                trans_true_labels.append(0)
-        all_trans_labels.append(np.asarray(trans_true_labels))
-    return all_trans_labels
+                cur_window.append(0)
+        windowed_true_labels.append(np.asarray(cur_window))
+    return windowed_true_labels
 
 
 def reshape_data_for_autoencoder_lstm(data_list, window_size, window_step):
@@ -234,7 +234,6 @@ def get_flattened_single_column_from_nd_nparray(list_of_data, col_idx):
     return list_of_data
 
 
-
 def old_directory_csv_files_to_dataframe_to_numpyArray(directory):
     print("Reading files from directory: " + directory)
     dims = [0, 0]
@@ -294,7 +293,6 @@ def clean_csv(file_path, remove_timestamps=False):
     if remove_timestamps:
         columns_to_remove.append('Time')    #todo: test if removing this was good or bad:
 
-
     for col in columns_to_remove:
         if col in df.columns:
             df.drop(columns=[col], inplace=True)
@@ -319,16 +317,12 @@ def clean_csv(file_path, remove_timestamps=False):
         print(type(cols_to_check))
         df.dropna(axis=0, how='all', subset=cols_to_check, inplace=True) # i don't know why this works since axis=0 is supposed to be deleting rows and axis=1 to delete columns. However axis=1 crashes for some reason
                                                                          # and axis=0 works and removes only the 0 columns so I guess I'll just leave it here for now if it doesnt cause any issues
-
         # Remove columns that only contain one and the same value, excluding "Anomaly"
         for col in cols_to_check:
             if df[col].nunique() == 1:
                 df.drop(columns=[col], inplace=True)
 
-
     print("df after removing nan and 0 cols: " + str(df))
-
-
     return df
 
 
@@ -382,7 +376,7 @@ def get_sample_time(directory):
     # print("Combined secs and nsecs: " + str(combined_nanoseconds))
 
 
-def read_file_to_csv_bagpy(path):
+def read_file_from_bagpy_to_csv(path):
     b = bagreader(path)
     csvfiles = []
     for topic in b.topics:
@@ -403,14 +397,23 @@ def read_file_to_csv_bagpy(path):
     data = pd.read_csv(csvfiles[2])
 
 
-def plot_data(data, file_name):
-    timestamps = data[:, 0]
-    values = data[:, 1:]
+def plot_data(data, file_name, contains_timestamps):
+    if contains_timestamps:
+        timestamps = data[:, 0]
+        values = data[:, 1:]
+    else:
+        timestamps = np.arange(data.shape[0])  # Create a sequence of indices as timestamps
+        values = data
 
-    # Plotting
+        # Plotting
     plt.figure(figsize=(10, 6))
-    for i in range(values.shape[1]):
-        plt.plot(timestamps, values[:, i], label=f'Series {i + 1}')
+    if values.shape[1] == 1:
+        # If there's only one column of values
+        plt.plot(timestamps, values, label='Series 1')
+    else:
+        # If there are multiple columns of values
+        for i in range(values.shape[1]):
+            plt.plot(timestamps, values[:, i], label=f'Series {i + 1}')
 
     plt.xlabel('Time (s)')
     plt.ylabel('Value')
@@ -419,16 +422,18 @@ def plot_data(data, file_name):
     plt.grid(True)
     plt.show()
 
-    series = data[:, 1]
-    diff_series = np.diff(series)
+    #diff_series = np.diff(values)
 
     # Create ACF plot of Difference
-    plt.figure(figsize=(10, 6))
-    plot_acf(diff_series, lags=20, alpha=0.05)
-    plt.title('Autocorrelation Function (ACF) of Differenced Data')
-    plt.xlabel('Lag')
-    plt.ylabel('Autocorrelation')
-    plt.show()
+    if values.shape[1] > 1:
+        print("Hier könnte ihr ACF Plot stehen!")
+    else:
+        plt.figure(figsize=(10, 6))
+        plot_acf(values, lags=20, alpha=0.05)
+        plt.title('Autocorrelation Function (ACF) of Data')
+        plt.xlabel('Lag')
+        plt.ylabel('Autocorrelation')
+        plt.show()
 
 
 

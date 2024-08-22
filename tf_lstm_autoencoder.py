@@ -163,11 +163,9 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
 
 
 def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, remove_timestamps, directories, single_sensor_name=None, model_file_path=None):
-    # ((((todo: data shuffling may be advisable (think i saw it in the other guys code) --> i dont think so but worth a try ))))
-
-    scaler = MinMaxScaler(feature_range=(0, 1))  #Scales the data to a fixed range, typically [0, 1].
+    #scaler = MinMaxScaler(feature_range=(0, 1))  #Scales the data to a fixed range, typically [0, 1].
     #scaler = StandardScaler()           #Scales the data to have a mean of 0 and a standard deviation of 1.
-    #scaler = MaxAbsScaler()  #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
+    scaler = MaxAbsScaler()  #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
     #scaler = None
 
     all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
@@ -201,18 +199,19 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
         #X_sN, X_vN1, X_vN2, _ = split_data_sequence_into_datasets(data_with_time_diffs[0], 0.8, 0.2, 0.0, 0.0)
         X_sN = data_with_time_diffs[0]
 
-        # TODO: shuffle=True is entirely experimental. X_val is used for MLE and Fbeta so I do not think it
-        #  it matters but im not sure
+        # TODO: shuffle=True is entirely experimental. X_val is used for MLE and Fbeta so I do not think it matters but im not sure
         X_vN1, X_vN2, X_vN1_labels, X_vN2_labels = train_test_split(data_with_time_diffs[1], true_labels_list[1], test_size=0.50, shuffle=True)
         X_vNA = data_with_time_diffs[2]
         X_tN = data_with_time_diffs[3]
+        true_labels_list = transform_true_labels_to_window_size(true_labels_list)
+        print("true label list shape: \n" + str(true_labels_list[2].shape))
         #TODO: Shuffling is likely entirely unnecessary/bad here since it destroys the Overlapping window functionality
 
         input_dim = X_sN.shape[2]
         if model_file_path is None:
             model = create_autoencoder(input_dim, time_steps, layer_dims, len(layer_dims), dropout)
             model.summary()
-            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=60, restore_best_weights=True)
+            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
 
             #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
             model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size,
@@ -227,12 +226,9 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
         else:
             model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder": LSTMAutoEncoder}, compile=True)
 
-        autoencoder_predict_and_calculate_error(model, X_tN, true_labels_list[3], 1, len(X_tN), scaler)
-
-        true_labels_list = transform_true_labels_to_window_size(true_labels_list)
-        print("new: \n" + str(true_labels_list[2]))
-        print("len: \n" + str(true_labels_list[2].shape))
-        print(X_tN.shape)
+        #autoencoder_predict_and_calculate_error(model, X_tN, true_labels_list[3], 1, len(X_tN), scaler)
+        # print("new: \n" + str(true_labels_list[2]))
+        # print(X_tN.shape)
 
         X_vN1_error_vecs = np.asarray(calculate_rec_error_vecs(model, X_vN1, scaler))
 
@@ -243,62 +239,54 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
 
         mu, sigma = estimate_normal_error_distribution(flattened_X_vN1_error_vecs)
         X_vNA_error_vecs = calculate_rec_error_vecs(model, X_vNA, scaler)
-        anomaly_scores = compute_anomaly_score(X_vNA_error_vecs, mu, sigma) #todo: X_vN2 needs to be appended somewhere here and put into calc febeta as well
+        val_anomaly_scores = compute_anomaly_score(X_vNA_error_vecs, mu, sigma) #todo: X_vN2 needs to be appended somewhere here and put into calc febeta as well
 
-        print("anom score shape: " + str(anomaly_scores.shape))
+        print("anom score shape: " + str(val_anomaly_scores.shape))
         print("true labels shape: " + str(true_labels_list[2].flatten().shape))
 
-        stupid_hack = true_labels_list[2].flatten().tolist()
-        for index, label in enumerate(true_labels_list[2].flatten().tolist()):
-            if (stupid_hack[index] == 1 and index >= len(stupid_hack) - 1) or (stupid_hack[index] == 1 and stupid_hack[index+1] == 0):
+        flattened_X_vNA_labels = true_labels_list[2].flatten().tolist()
+        for index, label in enumerate(flattened_X_vNA_labels):
+            if flattened_X_vNA_labels[index] == 1 or (flattened_X_vNA_labels[index] == 1 and flattened_X_vNA_labels[index+1] == 0 and index <= len(flattened_X_vNA_labels) - 1):
                 # print("index of anom: " + str(index) + " | " + "anomaly score: " + str(anomaly_scores[index]))
                 # print("previous/following score: " + str(anomaly_scores[index-1]) + ", " + str(anomaly_scores[index+1]))
-                print("index of anom: " + str(index) + " | " + "anomaly score: " + str(anomaly_scores[index]))
-                print("previous score: " + str(anomaly_scores[index - 1]))
-                print("15 following scores: " + str(anomaly_scores[index:index+15]))
+                print("index of anom: " + str(index) + " | " + "anomaly score: " + str(val_anomaly_scores[index]))
+                print("previous score: " + str(val_anomaly_scores[index - 1]))
+                print("15 following scores: " + str(val_anomaly_scores[index:index+15]))
 
 
 
-        # Plotting
-        plt.figure(figsize=(12, 6))
-        for i, (score, label) in enumerate(zip(anomaly_scores, stupid_hack)):
-            color = 'red' if label == 1 else 'blue'
-            marker = 'x' if label == 1 else 'o'
-            plt.scatter(i, score, color=color, marker=marker, s=100, label='Anomaly' if label == 1 else 'Normal')
 
-        # Adding labels and title
-        plt.ylim(0, anomaly_scores.max()*1.5)
-        legend_elements = [
-            Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
-            Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
-        ]
-        plt.legend(handles=legend_elements, loc='upper left')
-        plt.title('Anomaly Scores with True Labels')
-        plt.xlabel('Index')
-        plt.ylabel('Anomaly Score')
-        plt.axhline(y=0.5, color='gray', linestyle='--', linewidth=0.5)  # Optional: a threshold line
-        #plt.legend(['Normal', 'Anomaly'], loc='upper left')
-        plt.show()
-
-        best_anomaly_threshold, best_fbeta = find_optimal_threshold(anomaly_scores, true_labels_list[2].flatten(), 1.0) #todo: optimal value of beta seems to be application knowledge
-        print("Anomaly scores: \n" + str(anomaly_scores.tolist()))
+        best_anomaly_threshold, best_fbeta = find_optimal_threshold(val_anomaly_scores, true_labels_list[2].flatten(), 0.8) #todo: optimal value of beta seems to be application knowledge
+        print("Anomaly scores: \n" + str(val_anomaly_scores.tolist()))
         print("Best anomaly threshold: " + str(best_anomaly_threshold))
 
-        # for index, anomaly_score in enumerate(anomaly_scores):
-        #     if anomaly_score > best_anomaly_threshold:
-        #         print("score: " + str(anomaly_score))
-        #         print("index of window: " + str(index))
+        plot_data_over_threshold(val_anomaly_scores, true_labels_list[2], best_anomaly_threshold, str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
 
+        print("\n---------------------------------------------------------------------------------\nDetection rate for valildation data: \n")
         print("detection with fbeta threshold: \n")
-        calculate_detection_rate(anomaly_scores, true_labels_list[2], best_anomaly_threshold)
+        calculate_detection_rate(val_anomaly_scores, true_labels_list[2], best_anomaly_threshold)
         print("detection with hack threshold: \n")
-        average_anomaly_score_of_actual_anomalies = np.mean(anomaly_scores[true_labels_list[2].flatten() == 1])
+        average_anomaly_score_of_actual_anomalies = np.mean(val_anomaly_scores[true_labels_list[2].flatten() == 1])
         print("hack threshold: " + str(average_anomaly_score_of_actual_anomalies))
-        calculate_detection_rate(anomaly_scores, true_labels_list[2], average_anomaly_score_of_actual_anomalies)
-
+        calculate_detection_rate(val_anomaly_scores, true_labels_list[2], average_anomaly_score_of_actual_anomalies)
+        print("\n---------------------------------------------------------------------------------\n")
 
         X_tN_error_vecs = calculate_rec_error_vecs(model, X_tN, scaler)
-        anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
+        test_anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
+
+        print("\n---------------------------------------------------------------------------------\nDetection rate for Test data: \n")
+        print("detection with fbeta threshold: \n")
+        calculate_detection_rate(test_anomaly_scores, true_labels_list[3], best_anomaly_threshold)
+        print("detection with hack threshold: \n")
+        average_anomaly_score_of_actual_anomalies = np.mean(test_anomaly_scores[true_labels_list[3].flatten() == 1])
+        print("hack threshold: " + str(average_anomaly_score_of_actual_anomalies))
+        calculate_detection_rate(test_anomaly_scores, true_labels_list[3], average_anomaly_score_of_actual_anomalies)
+        print("\n---------------------------------------------------------------------------------\n")
+
+        plot_data_over_threshold(test_anomaly_scores, true_labels_list[3], best_anomaly_threshold, str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
+
+        # X_tN_error_vecs = calculate_rec_error_vecs(model, X_tN, scaler)
+        # anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
 
 
 class CustomL2Loss(Loss):
@@ -344,7 +332,7 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     #      //ask Sebastian or Tamara what typical anomalies (might) look like
     #      find optimal hyperparameters for each sensor
     #      find and implement next algorithm
-    #      Schleif meeting
+    #      //Schleif meeting
 
 
 # possible solutions:
@@ -391,7 +379,7 @@ def compute_anomaly_score(error_vecs, mu, sigma):    #todo: Need to calculate an
         diff = np.subtract(error, mu)
         score = np.dot(np.dot(diff, inv_sigma), diff.T)
         #print("individual score: " + str(score))
-        scores.append(score)  #todo: likely incorrect; probably implement this myself since this was GPT most recent answer:
+        scores.append(score)  #todo: seems to work?
                                                       # anomaly_scores = np.einsum('ij,ij->i', diff @ np.linalg.inv(Sigma), diff) ---> bruh?
     #scores = np.einsum('ij,jk,ik->i', diff, inv_sigma, diff)
     test_score_np_arr = np.asarray(scores)
@@ -464,3 +452,55 @@ def calculate_detection_rate(anomaly_scores, true_labels, threshold):
     print("average anomaly score of all anomalies: " + str(avg_anomaly_score_of_anoms))
     print("scores of all anomalies: " + str(anomaly_scores_of_anoms))
     print("average score of normal data windows: " + str(avg_anomaly_score_of_normals))
+
+
+def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name):
+    # """
+    #    Plots the data points under the threshold as blue dots, the ones over the threshold as red crosses,
+    #    and the threshold itself as a red dotted line.
+    #
+    #    Parameters:
+    #    - data: 1D numpy array of data points
+    #    - threshold: A scalar value representing the threshold
+    #    - anomaly_labels: 1D numpy array of 0s and 1s indicating actual anomalies (1 for anomaly, 0 for normal)
+    #    """
+    # plt.figure(figsize=(10, 6))
+    # plt.plot(np.where(data <= threshold)[0], data[data <= threshold], 'bo', label='Normal')  # Blue dots for "Normal"
+    # plt.plot(np.where(data > threshold)[0], data[data > threshold], 'rx', label='Anomaly')  # Red crosses for "Anomaly"
+    # plt.title('Prediction Result')
+    # plt.xlabel('Index')
+    # plt.ylabel('Anomaly Score')
+    # plt.legend()
+    # plt.show()
+
+    # Plotting
+    plt.figure(figsize=(12, 6))
+    for i, (score, label) in enumerate(zip(anomaly_scores, true_labels)):
+        color = 'red' if label == 1 else 'blue'
+        marker = 'x' if label == 1 else 'o'
+        plt.scatter(i, score, color=color, marker=marker, s=100, label='Anomaly' if label == 1 else 'Normal')
+
+    # Adding labels and title
+    # if threshold * 1.5 > anomaly_scores.max() * 1.5:
+    #     plt.ylim(0, threshold * 1.5)
+    # else:
+    #     plt.ylim(0, anomaly_scores.max() * 1.5)
+
+    plt.ylim(0, threshold * 1.5)
+
+
+    legend_elements = [
+        Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
+        Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
+    ]
+
+    plt.axhline(y=threshold, color='red', linestyle='--', label='Anomaly Threshold', linewidth=3)  # Red dotted line for the threshold
+    plt.legend(handles=legend_elements, loc='upper left')
+    plt.title('Anomaly Scores with True Labels of' + file_name)
+    plt.xlabel('Index')
+    plt.ylabel('Anomaly Score')
+    # plt.legend(['Normal', 'Anomaly'], loc='upper left')
+    plt.show()
+
+    print("Number of elements above threshold: " + str(np.sum(anomaly_scores > threshold)))
+
