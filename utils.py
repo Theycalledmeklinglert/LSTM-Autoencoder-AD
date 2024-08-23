@@ -147,6 +147,21 @@ class DataFrameContainsNaNError(Exception):
         self.message = message
         super().__init__(self.message)
 
+
+class SensorFileColumnsContainsOnlyZeroesError(Exception):
+    """Exception raised when the DataFrame contains NaN values."""
+    def __init__(self, message="Sensor File contains at least one column with nothing but zeroes."):
+        self.message = message
+        super().__init__(self.message)
+
+
+class SensorFileColumnsOnlyContainsSameValue(Exception):
+    """Exception raised when the DataFrame contains NaN values."""
+    def __init__(self, message="Sensor File contains at least one column with nothing but zeroes."):
+        self.message = message
+        super().__init__(self.message)
+
+
 class InvalidReshapeParamters(Exception):
     def __init__(self, message="Window size must be greater than or equal to 1. \n window_step must be greater than 0 \n Window size must be greater than window_step"):
         self.message = message

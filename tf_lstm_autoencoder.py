@@ -260,7 +260,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
         print("Anomaly scores: \n" + str(val_anomaly_scores.tolist()))
         print("Best anomaly threshold: " + str(best_anomaly_threshold))
 
-        plot_data_over_threshold(val_anomaly_scores, true_labels_list[2], best_anomaly_threshold, str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
+        plot_data_over_threshold(val_anomaly_scores, true_labels_list[2], best_anomaly_threshold, file_pair[0])
 
         print("\n---------------------------------------------------------------------------------\nDetection rate for valildation data: \n")
         print("detection with fbeta threshold: \n")
@@ -283,12 +283,12 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
         calculate_detection_rate(test_anomaly_scores, true_labels_list[3], average_anomaly_score_of_actual_anomalies)
         print("\n---------------------------------------------------------------------------------\n")
 
-        plot_data_over_threshold(test_anomaly_scores, true_labels_list[3], best_anomaly_threshold, str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
+        plot_data_over_threshold(test_anomaly_scores, true_labels_list[3], best_anomaly_threshold, file_pair[3])
 
         X_vNAll_error_vecs = calculate_rec_error_vecs(model, data_with_time_diffs[1], scaler)
         X_vNAll_anomaly_scores = compute_anomaly_score(X_vNAll_error_vecs, mu, sigma)
 
-        plot_data_over_threshold(X_vNAll_anomaly_scores, true_labels_list[1], best_anomaly_threshold, str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
+        plot_data_over_threshold(X_vNAll_anomaly_scores, true_labels_list[1], best_anomaly_threshold, file_pair[1])
 
         # X_tN_error_vecs = calculate_rec_error_vecs(model, X_tN, scaler)
         # anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
@@ -494,13 +494,12 @@ def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name):
         marker = 'x' if label == 1 else 'o'
         plt.scatter(i, score, color=color, marker=marker, s=100, label='Anomaly' if label == 1 else 'Normal')
 
-    # Adding labels and title
     # if threshold * 1.5 > anomaly_scores.max() * 1.5:
     #     plt.ylim(0, threshold * 1.5)
     # else:
     #     plt.ylim(0, anomaly_scores.max() * 1.5)
 
-    plt.ylim(0, threshold * 1.5)
+    plt.ylim(0, threshold * 4)
 
 
     legend_elements = [
@@ -508,7 +507,7 @@ def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name):
         Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
     ]
 
-    plt.axhline(y=threshold, color='red', linestyle='--', label='Anomaly Threshold', linewidth=3)  # Red dotted line for the threshold
+    plt.axhline(y=threshold, color='red', linestyle='--', label='Anomaly Threshold', linewidth=2)  # Red dotted line for the threshold
     plt.legend(handles=legend_elements, loc='upper left')
     plt.title('Anomaly Scores with True Labels of' + file_name)
     plt.xlabel('Index')

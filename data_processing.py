@@ -282,7 +282,7 @@ def clean_csv(file_path, remove_timestamps=False):
         # todo: "sbg-ekf_euler" also looks weird; not sure if useful
     ]
     if any(keyword in file_path for keyword in exceptions):
-        print("did not process: " + str(file_path))
+        print("Intentionally did not process: " + str(file_path))
         return
 
     df = pd.read_csv(file_path)
@@ -300,29 +300,44 @@ def clean_csv(file_path, remove_timestamps=False):
     # Remove columns that contain only the column name
     if df.isnull().values.any():  # True if there are NaNs, False otherwise
         from utils import DataFrameContainsNaNError
-        print("DataFrame contains NaN")
         raise DataFrameContainsNaNError()
 
     cols_to_check = [col for col in df.columns if col != "Anomaly"]
     print("Columns in DataFrame:", df.columns.tolist())
     print("Columns to check:", cols_to_check)
-    cols_to_check = [col for col in cols_to_check if col in df.columns]
-    print("Columns to check2:", cols_to_check)
     print("df: " + str(df))
 
     if not cols_to_check:
         print("No columns to check after filtering.")
     else:
+        number_of_valid_cols = len(df.columns)
         # Drop columns with all missing values, excluding "Anomaly"
         print(type(cols_to_check))
         df.dropna(axis=0, how='all', subset=cols_to_check, inplace=True) # i don't know why this works since axis=0 is supposed to be deleting rows and axis=1 to delete columns. However axis=1 crashes for some reason
                                                                          # and axis=0 works and removes only the 0 columns so I guess I'll just leave it here for now if it doesnt cause any issues
+        if number_of_valid_cols != len(df.columns):
+            from utils import SensorFileColumnsContainsOnlyZeroesError
+            print("Sensor file contains NaN. Check for malfunction in " + str(file_path))
+            raise SensorFileColumnsContainsOnlyZeroesError()
+
         # Remove columns that only contain one and the same value, excluding "Anomaly"
         for col in cols_to_check:
             if df[col].nunique() == 1:
                 df.drop(columns=[col], inplace=True)
 
+        try:
+            if number_of_valid_cols != len(df.columns):
+                from utils import SensorFileColumnsOnlyContainsSameValue
+                print("Sensor file contains NaN. Check for malfunction in ")
+                raise SensorFileColumnsOnlyContainsSameValue()
+        except SensorFileColumnsOnlyContainsSameValue as e:
+            print("A column in the sensor file contains only one and the same value. Check for malfunction in " + str(file_path))
+
+
     print("df after removing nan and 0 cols: " + str(df))
+
+    print("filepath: " + str(file_path))
+
     return df
 
 

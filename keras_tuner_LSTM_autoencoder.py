@@ -124,7 +124,7 @@ class LSTMAutoEncoder(tf.keras.Model):
 
         #print("All outputs: \n" + str(all_outputs))
         #reverse decoder output since it predicts target data in reverse
-        all_outputs = all_outputs[::-1]  #todo: I think this is correct now??? Not 100% sure
+        all_outputs = all_outputs[::-1]
         #print("Reversed outputs: \n" + str(all_outputs))
 
         decoder_outputs = tf.concat(all_outputs, axis=1)
@@ -278,12 +278,12 @@ def tune_lstm_autoencoder(time_steps, directories):
             project_name='lstm_autoencoder_tuning'
         )
 
-        early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
+        early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=40, restore_best_weights=True)
 
         print("before tuner search")
 
         tuner.search(x=[X_sN, np.flip(X_sN, axis=1)], y=X_sN,
-                     epochs=150,
+                     epochs=500,
                      batch_size=32,
                      validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1),
                      callbacks=[early_stopping],
