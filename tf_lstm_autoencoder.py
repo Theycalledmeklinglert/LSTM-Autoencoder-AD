@@ -211,7 +211,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
         if model_file_path is None:
             model = create_autoencoder(input_dim, time_steps, layer_dims, len(layer_dims), dropout)
             model.summary()
-            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30, restore_best_weights=True)
+            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=60, restore_best_weights=True)
 
             #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
             model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size,
@@ -256,7 +256,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
 
 
 
-        best_anomaly_threshold, best_fbeta = find_optimal_threshold(val_anomaly_scores, true_labels_list[2].flatten(), 0.8) #todo: optimal value of beta seems to be application knowledge
+        best_anomaly_threshold, best_fbeta = find_optimal_threshold(val_anomaly_scores, true_labels_list[2].flatten(), 0.9) #todo: optimal value of beta seems to be application knowledge
         print("Anomaly scores: \n" + str(val_anomaly_scores.tolist()))
         print("Best anomaly threshold: " + str(best_anomaly_threshold))
 
@@ -284,6 +284,11 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
         print("\n---------------------------------------------------------------------------------\n")
 
         plot_data_over_threshold(test_anomaly_scores, true_labels_list[3], best_anomaly_threshold, str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
+
+        X_vNAll_error_vecs = calculate_rec_error_vecs(model, data_with_time_diffs[1], scaler)
+        X_vNAll_anomaly_scores = compute_anomaly_score(X_vNAll_error_vecs, mu, sigma)
+
+        plot_data_over_threshold(X_vNAll_anomaly_scores, true_labels_list[1], best_anomaly_threshold, str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
 
         # X_tN_error_vecs = calculate_rec_error_vecs(model, X_tN, scaler)
         # anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
@@ -391,10 +396,19 @@ def compute_anomaly_score(error_vecs, mu, sigma):    #todo: Need to calculate an
 #todo: is supposed to use "from sklearn.metrics import precision_recall_curve, fbeta_score" but only uses "fbeta_scores". ChatGPT is currently down so look
 #todo: into it later
 def find_optimal_threshold(anomaly_scores, true_labels, beta):
-    precision, recall, thresholds = precision_recall_curve(true_labels, anomaly_scores)
-    fbeta_scores = (1 + beta ** 2) * (precision * recall) / (beta ** 2 * precision + recall)
+    precision, recall, thresholds = precision_recall_curve(y_true=true_labels, y_score=anomaly_scores)
+    fbeta_scores = (1 + beta ** 2) * (precision * recall) / ( (beta ** 2) * precision + recall)
+    fbeta_scores = np.nan_to_num(fbeta_scores, nan=-np.inf, posinf=-np.inf)
+
+    print("fbeta scores: \n" + str(fbeta_scores))
+    print("best fbeta: " + str(np.max(fbeta_scores)))
     best_index = np.argmax(fbeta_scores)
-    #print(str(thresholds))
+    if best_index >= len(thresholds):
+        best_index = len(thresholds) - 1
+
+    print("Thresholds: " + str(thresholds))
+    print("Best threshold: " + str(thresholds[best_index]))
+    print(str(thresholds))
     best_threshold = thresholds[best_index]
     best_fbeta = fbeta_scores[best_index]
 
@@ -502,5 +516,8 @@ def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name):
     # plt.legend(['Normal', 'Anomaly'], loc='upper left')
     plt.show()
 
+    plt.savefig(file_name + '.png')  # Save the plot to a file
+
     print("Number of elements above threshold: " + str(np.sum(anomaly_scores > threshold)))
+    print("Number of elements below threshold: " + str(np.sum(anomaly_scores <= threshold)))
 
