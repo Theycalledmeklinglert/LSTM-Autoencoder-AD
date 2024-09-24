@@ -442,17 +442,17 @@ def plot_data(data, file_name, contains_timestamps):
     print("Here: " + str(values.shape))
 
     # Create ACF plot of Difference
-    #if values.shape[1] > 1:
-    #    print("Hier könnte ihr ACF Plot stehen!")
-    #else:
-    for i in range(values.shape[1]):
-        series = values[:, i]
-        plt.figure(figsize=(10, 6))
-        plot_acf(series, lags=20, alpha=0.05)
-        plt.title('ACF of series ' + str(i) + " in " + file_name)
-        plt.xlabel('Lag')
-        plt.ylabel('Autocorrelation')
-        plt.show()
+    if values.shape[1] > 1:
+        print("Hier könnte ihr ACF Plot stehen!")
+    else:   #todo: move this into a proper function
+        for i in range(values.shape[1]):
+            series = values[:, i]
+            plt.figure(figsize=(10, 6))
+            plot_acf(series, lags=20, alpha=0.05)
+            plt.title('ACF of series ' + str(i) + " in " + file_name)
+            plt.xlabel('Lag')
+            plt.ylabel('Autocorrelation')
+            plt.show()
 
 
 
