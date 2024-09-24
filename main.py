@@ -75,11 +75,11 @@ if __name__ == '__main__':
     #todo: this was commented in:
     # try droput 0.001; try with remove_timestamps and without; try with higher timesteps
     #"./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage" | "./aufnahmen/csv/test data/autocross_unbekannter_kommunikationsfehler"
-    #test_lstm_autoencoder(20, [80], 0.0, 32, 500, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/autocross_unbekannter_kommunikationsfehler"], "can_interface-wheelspeed.csv", "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_80.keras")
+    test_lstm_autoencoder(40, [120], 0.000, 32, 300, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/autocross_unbekannter_kommunikationsfehler"], "can_interface-wheelspeed.csv") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps40_layers_60.keras")
     #test_lstm_autoencoder(20, [40], 0.0, 32, 500, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv", "./models/LSTM_autoencoder_decoder_can_interface-current_steering_angle_timesteps20_layers_40.keras")
-    #test_lstm_autoencoder(20, [30], 0.0, 64, 500, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "control-acceleration.csv") #, "./models/LSTM_autoencoder_decoder_control-acceleration_timesteps20_layers_80.keras")
+    #test_lstm_autoencoder(20, [60], 0.0, 64, 500, False, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "control-acceleration.csv", "./models/LSTM_autoencoder_decoder_control-acceleration_timesteps20_layers_60.keras")
 
-    plot_point_anomaly()
+    #plot_point_anomaly()
     #plot_collective_anomaly_similar()
     #plot_clusters_with_noise()
     #plot_contextual_anomaly()

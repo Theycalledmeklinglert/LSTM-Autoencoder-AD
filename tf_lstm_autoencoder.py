@@ -8,7 +8,7 @@ from matplotlib.lines import Line2D
 from scipy.linalg import inv
 from sklearn.metrics import precision_recall_curve
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler
+from sklearn.preprocessing import MaxAbsScaler, MinMaxScaler, StandardScaler, QuantileTransformer
 #from tensorflow import keras
 from tensorflow.keras.layers import Input, LSTM, Dense
 from tensorflow.keras.optimizers import Adam
@@ -164,9 +164,10 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
 
 def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, remove_timestamps, directories,
                           single_sensor_name=None, model_file_path=None):
-    scaler = MinMaxScaler(feature_range=(0, 1))  #Scales the data to a fixed range, typically [0, 1].
-    #scaler = StandardScaler()           #Scales the data to have a mean of 0 and a standard deviation of 1.
-    #scaler = MaxAbsScaler()  #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
+    #scaler = MinMaxScaler(feature_range=(-1, 1))  #Scales the data to a fixed range, typically [0, 1].
+    #scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
+    scaler = MaxAbsScaler()                         #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance so far
+    #scaler = QuantileTransformer(output_distribution='normal')
     #scaler = None
 
     all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
@@ -200,8 +201,8 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
         X_sN = data_with_time_diffs[0]
 
         # TODO: shuffle=True is entirely experimental. X_val is used for MLE and Fbeta so I do not think it matters but im not sure
-        X_vN1, X_vN2, X_vN1_labels, X_vN2_labels = train_test_split(data_with_time_diffs[1], true_labels_list[1],
-                                                                    test_size=0.50, shuffle=True)
+        #X_vN1, X_vN2, X_vN1_labels, X_vN2_labels = train_test_split(data_with_time_diffs[1], true_labels_list[1], test_size=0.50, shuffle=False)
+        X_vN1 = data_with_time_diffs[1]
         X_vNA = data_with_time_diffs[2]
         X_tN = data_with_time_diffs[3]
         true_labels_list = transform_true_labels_to_window_size(true_labels_list)
@@ -212,7 +213,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, r
         if model_file_path is None:
             model = create_autoencoder(input_dim, time_steps, layer_dims, len(layer_dims), dropout)
             model.summary()
-            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=60,
+            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30,
                                            restore_best_weights=True)
 
             #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
@@ -483,41 +484,62 @@ def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name):
     # plt.show()
 
     # Plotting
-    plt.figure(figsize=(12, 6))
-    for i, (score, label) in enumerate(zip(anomaly_scores, true_labels)):
-        if label == 1:
-            if score >= threshold:
-                color = 'red'
+    for k in range(2):
+        plt.figure(figsize=(12, 6))
+        for i, (score, label) in enumerate(zip(anomaly_scores, true_labels)):
+            if label == 1:
+                if score >= threshold:
+                    color = 'red'
+                else:
+                    color = 'yellow'
+                marker = 'x'
             else:
-                color = 'yellow'
-            marker = 'x'
+                if score >= threshold:
+                    color = 'purple'
+                else:
+                    color = 'blue'
+                marker = 'o'
+            plt.scatter(i, score, color=color, marker=marker, s=20, label='Anomaly' if label == 1 else 'Normal')    #todo: s = 100 before
+
+        # if threshold > anomaly_scores.max():
+        #     plt.ylim(0, threshold + 10)
+        # else:
+        #     if threshold * 100.0 < anomaly_scores.max():
+        #         print("!!!!anomaly score way above threshold so downscaled!!!!")
+        #         plt.ylim(0, threshold + 100)
+        #     else:
+        #         plt.ylim(0, anomaly_scores.max() + 100)
+
+        if k == 0:
+            plt.ylim(0, threshold + 500)
         else:
-            color = 'blue'
-            marker = 'o'
-        plt.scatter(i, score, color=color, marker=marker, s=100, label='Anomaly' if label == 1 else 'Normal')
+            plt.ylim(0, anomaly_scores.max())
 
-    if threshold > anomaly_scores.max():
-        plt.ylim(0, threshold)
-    else:
-        plt.ylim(0, anomaly_scores.max())
 
-    #plt.ylim(0, threshold * 4)
 
-    legend_elements = [
-        Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
-        Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
-    ]
+        #plt.ylim(0, threshold * 4)
 
-    plt.axhline(y=threshold, color='red', linestyle='--', label='Anomaly Threshold',
-                linewidth=2)  # Red dotted line for the threshold
-    plt.legend(handles=legend_elements, loc='upper left')
-    plt.title('Anomaly Scores with True Labels of' + file_name)
-    plt.xlabel('Index')
-    plt.ylabel('Anomaly Score')
-    # plt.legend(['Normal', 'Anomaly'], loc='upper left')
-    plt.show()
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
+            Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
+        ]
 
-    plt.savefig(file_name + '.png')  # Save the plot to a file
+        plt.axhline(y=threshold, color='red', linestyle='--', label='Anomaly Threshold',
+                    linewidth=2)  # Red dotted line for the threshold
+
+        plt.text(-0.05 * len(anomaly_scores), threshold, f'{threshold}', va='center', ha='right', color='red',
+                 fontsize=12, fontweight='bold')
+
+        plt.legend(handles=legend_elements, loc='upper left')
+        plt.title('Anomaly Scores with True Labels of' + file_name)
+        plt.xlabel('Index')
+        plt.ylabel('Anomaly Score')
+        # plt.legend(['Normal', 'Anomaly'], loc='upper left')
+
+
+        plt.savefig(file_name + str(k) + '.png')  # Save the plot to a file
+
+        plt.show()
 
     print("Number of elements above threshold: " + str(np.sum(anomaly_scores > threshold)))
     print("Number of elements below threshold: " + str(np.sum(anomaly_scores <= threshold)))
