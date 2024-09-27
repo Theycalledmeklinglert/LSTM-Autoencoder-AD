@@ -95,34 +95,6 @@ def stacked_LSTM_predict_and_calculate_error(model, X_tN, Y_tN, future_steps, it
     print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
 
 
-def get_matching_file_pairs_from_directories(directories, file_name=None):
-    # Ensure there are at least two directories to compare
-    if len(directories) < 2:
-        raise ValueError("At least two directories are required.")
-
-    if file_name:
-        # If a specific file name is provided, check its existence in all directories
-        for directory in directories:
-            if file_name not in os.listdir(directory):
-                return []  # If the file is not found in any directory, return an empty list
-        # Collect the full paths of the matching file
-        matching_files = [[os.path.join(directory, file_name) for directory in directories]]
-    else:
-        # List all files in the first directory
-        common_files = set(os.listdir(directories[0]))
-
-        # Find the intersection of files across all directories
-        for directory in directories[1:]:
-            common_files.intersection_update(os.listdir(directory))
-
-        # Collect the full paths of matching files from each directory
-        matching_files = []
-        for file in common_files:
-            file_paths = [os.path.join(directory, file) for directory in directories]
-            matching_files.append(file_paths)
-
-    return matching_files
-
 
 def add_anomaly_column_to_csv_files(directories):
     for directory in directories:
@@ -140,6 +112,7 @@ def add_anomaly_column_to_csv_files(directories):
                 # Save the updated CSV file back to the same location
                 df.to_csv(file_path, index=False)
                 print(f"Updated {file_path}")
+
 
 class DataFrameContainsNaNError(Exception):
     """Exception raised when the DataFrame contains NaN values."""

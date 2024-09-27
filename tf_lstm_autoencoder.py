@@ -17,9 +17,8 @@ from keras import Loss
 
 from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
     split_data_sequence_into_datasets, reverse_normalization, csv_file_to_nparr, \
-    transform_true_labels_to_window_size, get_normalized_data_and_labels
-from utils import autoencoder_predict_and_calculate_error, \
-    get_matching_file_pairs_from_directories
+    transform_true_labels_to_window_size, get_normalized_data_and_labels, get_matching_file_pairs_from_directories
+from utils import autoencoder_predict_and_calculate_error
 
 
 @keras.saving.register_keras_serializable(package="MyLayers")

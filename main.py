@@ -9,7 +9,8 @@ from tensorflow import keras
 from anomaly_and_CD_injection import add_anomalies_and_drift
 from auto_arima import run_auto_arima
 from data_processing import csv_file_to_nparr, \
-    old_directory_csv_files_to_dataframe_to_numpyArray, read_file_from_bagpy_to_csv, plot_data
+    old_directory_csv_files_to_dataframe_to_numpyArray, read_file_from_bagpy_to_csv, plot_data_integrated, \
+    plot_data_standalone
 from exampleGraphs.example_plot_generator import plot_contextual_anomaly, \
     plot_collective_anomaly_similar, plot_point_anomaly
 from exampleGraphs.normal_vs_noisy_data import plot_normal_vs_noisy_data, plot_scatter_normal_vs_noisy, \
@@ -32,14 +33,6 @@ if __name__ == '__main__':
 
     print(tf.__version__)
     print(keras.__version__)
-
-    wineind = pm.datasets.load_wineind()
-
-    print(type(wineind))
-
-    y = load_sunspots(True)
-    print(y.head())
-    print(type(y))
 
     #run_auto_arima(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run"], "can_interface-current_steering_angle.csv") # ,"can_interface-wheelspeed.csv")
 
@@ -74,8 +67,11 @@ if __name__ == '__main__':
 
     #todo: this was commented in:
     # try droput 0.001; try with remove_timestamps and without; try with higher timesteps
+
+    plot_data_standalone(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
+
     #"./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage" | "./aufnahmen/csv/test data/autocross_unbekannter_kommunikationsfehler"
-    test_lstm_autoencoder(40, [120], 0.000, 32, 300, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/autocross_unbekannter_kommunikationsfehler"], "can_interface-wheelspeed.csv") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps40_layers_60.keras")
+    #test_lstm_autoencoder(40, [120], 0.000, 32, 300, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/autocross_unbekannter_kommunikationsfehler"], "can_interface-wheelspeed.csv") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps40_layers_60.keras")
     #test_lstm_autoencoder(20, [40], 0.0, 32, 500, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv", "./models/LSTM_autoencoder_decoder_can_interface-current_steering_angle_timesteps20_layers_40.keras")
     #test_lstm_autoencoder(20, [60], 0.0, 64, 500, False, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "control-acceleration.csv", "./models/LSTM_autoencoder_decoder_control-acceleration_timesteps20_layers_60.keras")
 
@@ -90,7 +86,7 @@ if __name__ == '__main__':
     #df = clean_csv("C:\\Users\\Luca\\PycharmProjects\AnoamlydetectionInFormulaStudent\\aufnahmen\csv\\autocross_valid_16_05_23\\diagnostics.csv")
     #print_unique_values(df, "status")
 
-    #read_file_from_bagpy_to_csv("./aufnahmen/error_zusammenstellung/error_zusammenstellung/acceleration_fahwerk_nicht_perfekt_eingestellt.bag")
+    #read_file_from_bagpy_to_csv("./aufnahmen/aufnahmen2/skidpad_valid_fast2_17_47_28.bag")
     #read_file_from_bagpy_to_csv("./aufnahmen/error_zusammenstellung/error_zusammenstellung/autocross_unbekannter_kommunikationsfehler.bag")
 
     #error_vecs = np.random.rand(300, 100, 5)  # 300 samples, 100 timesteps, 5 features each

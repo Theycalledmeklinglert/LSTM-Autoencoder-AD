@@ -15,8 +15,9 @@ from tensorflow.keras import Model
 from kerastuner import HyperModel
 
 from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
-    split_data_sequence_into_datasets, reverse_normalization, csv_file_to_nparr
-from utils import autoencoder_predict_and_calculate_error, get_matching_file_pairs_from_directories
+    split_data_sequence_into_datasets, reverse_normalization, csv_file_to_nparr, \
+    get_matching_file_pairs_from_directories
+from utils import autoencoder_predict_and_calculate_error
 
 
 @keras.saving.register_keras_serializable(package="MyLayers")

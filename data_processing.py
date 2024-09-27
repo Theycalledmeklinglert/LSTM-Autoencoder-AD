@@ -21,12 +21,11 @@ def get_normalized_data_and_labels(file_pair, scaler, remove_timestamps):
     print("Now training model on: " + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
 
     for single_file in file_pair:
-        data, true_labels = csv_file_to_nparr(single_file, remove_timestamps) # timestamps are scaled to relative timestamps
+        data, true_labels = csv_file_to_nparr(single_file, remove_timestamps) # timestamps are transformed to relative timestamps
         if data is None:
             break
 
-        #data = np.diff(data)    #EXPERIMENTAL; not recommended for LSTM autoenc
-        plot_data(data, single_file, not remove_timestamps)
+        plot_data_integrated(data, single_file, not remove_timestamps)
 
         print("unnormalized_data_with_time_diffs: \n" + str(data))
         normalized_data = normalize_data(data, scaler)
@@ -90,11 +89,6 @@ def reshape_data_for_autoencoder_lstm(data_list, window_size, window_step):
 
 
 def split_data_sequence_into_datasets(arr, train_ratio, val1_ratio, val2_ratio, test_ratio):
-    # train_ratio = 0.7
-    # val1_ratio = 0.1  #TODO: should be 0.2; haven't implemented early_stopping using val1 yet
-    # val2_ratio = 0.1  #TODO: temp bandaid while early_stopping is not implemented
-    # test_ratio = 0.1
-
     assert (train_ratio * 10 + val1_ratio * 10 + val2_ratio * 10 + test_ratio * 10) == 10  # due to float round error
 
     n_total = len(arr)
@@ -346,6 +340,35 @@ def get_csv_file_paths(directory):
     return csv_files
 
 
+def get_matching_file_pairs_from_directories(directories, file_name=None):
+    # Ensure there are at least two directories to compare
+    if len(directories) < 2:
+        raise ValueError("At least two directories are required.")
+
+    if file_name:
+        # If a specific file name is provided, check its existence in all directories
+        for directory in directories:
+            if file_name not in os.listdir(directory):
+                return []  # If the file is not found in any directory, return an empty list
+        # Collect the full paths of the matching file
+        matching_files = [[os.path.join(directory, file_name) for directory in directories]]
+    else:
+        # List all files in the first directory
+        common_files = set(os.listdir(directories[0]))
+
+        # Find the intersection of files across all directories
+        for directory in directories[1:]:
+            common_files.intersection_update(os.listdir(directory))
+
+        # Collect the full paths of matching files from each directory
+        matching_files = []
+        for file in common_files:
+            file_paths = [os.path.join(directory, file) for directory in directories]
+            matching_files.append(file_paths)
+
+    return matching_files
+
+
 def print_unique_values(df, column_name):
     if column_name in df.columns:
         unique_values = df[column_name].unique()
@@ -412,7 +435,7 @@ def read_file_from_bagpy_to_csv(path):
     data = pd.read_csv(csvfiles[2])
 
 
-def plot_data(data, file_name, contains_timestamps):
+def plot_data_integrated(data, file_name, contains_timestamps):
     if contains_timestamps:
         timestamps = data[:, 0]
         values = data[:, 1:]
@@ -437,22 +460,33 @@ def plot_data(data, file_name, contains_timestamps):
     plt.grid(True)
     plt.show()
 
+
+def plot_data_standalone(directories, single_sensor_name):
+    all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
+    for file_pair in all_file_pairs:
+        for single_file in file_pair:
+            data, true_labels = csv_file_to_nparr(single_file, True)
+            plot_data_integrated(data, single_file, False)
+
+
+def plot_acf(data, file_name, contains_timestamps):
     #diff_series = np.diff(values)
+    #print("Here: " + str(values.shape))
+    if contains_timestamps:
+        values = data[:, 1:]
+    else:
+        values = data
 
-    print("Here: " + str(values.shape))
-
-    # Create ACF plot of Difference
-    if values.shape[1] > 1:
-        print("Hier könnte ihr ACF Plot stehen!")
-    else:   #todo: move this into a proper function
-        for i in range(values.shape[1]):
-            series = values[:, i]
-            plt.figure(figsize=(10, 6))
-            plot_acf(series, lags=20, alpha=0.05)
-            plt.title('ACF of series ' + str(i) + " in " + file_name)
-            plt.xlabel('Lag')
-            plt.ylabel('Autocorrelation')
-            plt.show()
+    # Create ACF plot
+    print("Hier könnte ihr ACF Plot stehen!")
+    for i in range(values.shape[1]):
+        series = values[:, i]
+        plt.figure(figsize=(10, 6))
+        plot_acf(series, lags=20, alpha=0.05)
+        plt.title('ACF of series ' + str(i) + " in " + file_name)
+        plt.xlabel('Lag')
+        plt.ylabel('Autocorrelation')
+        plt.show()
 
 
 
