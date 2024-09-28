@@ -10,7 +10,7 @@ from anomaly_and_CD_injection import add_anomalies_and_drift
 from auto_arima import run_auto_arima
 from data_processing import csv_file_to_nparr, \
     old_directory_csv_files_to_dataframe_to_numpyArray, read_file_from_bagpy_to_csv, plot_data_integrated, \
-    plot_data_standalone
+    plot_data_standalone, plot_acf, plot_acf_standalone
 from exampleGraphs.example_plot_generator import plot_contextual_anomaly, \
     plot_collective_anomaly_similar, plot_point_anomaly
 from exampleGraphs.normal_vs_noisy_data import plot_normal_vs_noisy_data, plot_scatter_normal_vs_noisy, \
@@ -68,7 +68,8 @@ if __name__ == '__main__':
     #todo: this was commented in:
     # try droput 0.001; try with remove_timestamps and without; try with higher timesteps
 
-    plot_data_standalone(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
+    plot_acf_standalone(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "control-acceleration.csv")
+    #plot_data_standalone(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
 
     #"./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage" | "./aufnahmen/csv/test data/autocross_unbekannter_kommunikationsfehler"
     #test_lstm_autoencoder(40, [120], 0.000, 32, 300, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/autocross_unbekannter_kommunikationsfehler"], "can_interface-wheelspeed.csv") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps40_layers_60.keras")

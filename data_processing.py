@@ -469,24 +469,26 @@ def plot_data_standalone(directories, single_sensor_name):
             plot_data_integrated(data, single_file, False)
 
 
-def plot_acf(data, file_name, contains_timestamps):
+def plot_acf_standalone(directories, single_sensor_name):
     #diff_series = np.diff(values)
     #print("Here: " + str(values.shape))
-    if contains_timestamps:
-        values = data[:, 1:]
-    else:
-        values = data
 
-    # Create ACF plot
-    print("Hier könnte ihr ACF Plot stehen!")
-    for i in range(values.shape[1]):
-        series = values[:, i]
-        plt.figure(figsize=(10, 6))
-        plot_acf(series, lags=20, alpha=0.05)
-        plt.title('ACF of series ' + str(i) + " in " + file_name)
-        plt.xlabel('Lag')
-        plt.ylabel('Autocorrelation')
-        plt.show()
+    all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
+    for file_pair in all_file_pairs:
+        for single_file in file_pair:
+            data, true_labels = csv_file_to_nparr(single_file, True)
+            values = data
+
+            # Create ACF plot
+            print("Hier könnte ihr ACF Plot stehen!")
+            for i in range(values.shape[1]):
+                series = values[:, i]
+                plt.figure(figsize=(10, 6))
+                plot_acf(series, lags=20, alpha=0.05)
+                plt.title('ACF of series ' + str(i) + " in " + single_file)
+                plt.xlabel('Lag')
+                plt.ylabel('Autocorrelation')
+                plt.show()
 
 
 
