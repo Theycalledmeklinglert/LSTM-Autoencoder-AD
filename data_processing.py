@@ -453,13 +453,14 @@ def plot_data_integrated(data, file_name, contains_timestamps):
         for i in range(values.shape[1]):
             plt.plot(timestamps, values[:, i], label=f'Series {i + 1}')
 
+    file_name = shorten_file_name(file_name)
     plt.xlabel('Time (s)')
     plt.ylabel('Value')
     plt.title('Plot of ' + file_name)
     plt.legend()
     plt.grid(True)
+    plt.savefig("./exampleGraphs/normalPlots/" + file_name + ".png", format='png', dpi=200)
     plt.show()
-
 
 def plot_data_standalone(directories, single_sensor_name):
     all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
@@ -478,6 +479,7 @@ def plot_acf_standalone(directories, single_sensor_name):
         for single_file in file_pair:
             data, true_labels = csv_file_to_nparr(single_file, True)
             values = data
+            file_name = shorten_file_name(single_file)
 
             # Create ACF plot
             print("Hier könnte ihr ACF Plot stehen!")
@@ -485,11 +487,15 @@ def plot_acf_standalone(directories, single_sensor_name):
                 series = values[:, i]
                 plt.figure(figsize=(10, 6))
                 plot_acf(series, lags=20, alpha=0.05)
-                plt.title('ACF of series ' + str(i) + " in " + single_file)
+                plt.title('ACF of series ' + str(i) + " in " + file_name)
                 plt.xlabel('Lag')
                 plt.ylabel('Autocorrelation')
+                plt.savefig("./exampleGraphs/ACFPlots/" + file_name + ".png", format='png', dpi=200)
                 plt.show()
 
+
+def shorten_file_name(file_name):
+    return file_name[file_name.rfind("/") + 1:].rstrip(".csv").replace("\\", "_")
 
 
     # series = data[:, 1]

@@ -69,7 +69,7 @@ if __name__ == '__main__':
     # try droput 0.001; try with remove_timestamps and without; try with higher timesteps
 
     plot_acf_standalone(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "control-acceleration.csv")
-    #plot_data_standalone(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
+    plot_data_standalone(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
 
     #"./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage" | "./aufnahmen/csv/test data/autocross_unbekannter_kommunikationsfehler"
     #test_lstm_autoencoder(40, [120], 0.000, 32, 300, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/autocross_unbekannter_kommunikationsfehler"], "can_interface-wheelspeed.csv") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps40_layers_60.keras")

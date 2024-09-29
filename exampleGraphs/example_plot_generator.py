@@ -146,5 +146,5 @@ def plot_point_anomaly():
     # plt.ylim(-5, 6)
     plt.tight_layout()
     plt.savefig("./exampleGraphs/point_anomaly.png", format='png',
-                dpi=300)  # You can adjust the format and dpi as needed
+                dpi=300)
     plt.show()
