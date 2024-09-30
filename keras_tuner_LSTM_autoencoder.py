@@ -329,17 +329,6 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     print("Error vecs: \n" + str(error_vecs))
     return error_vecs
 
-    #todo:
-    #      finish evaluation of anomaly score.
-    #      //add true_labels to all data
-    #      implement overlapping window separation of data
-    #      find optimal hyperparameters for each sensor
-    #      find a way to create authentic anomalous data and test
-    #      find and implement next algorithm
-    #      write eMail to Schleif
-
-    #todo: -----------------------------> Try using KerasTuner   <-----------------------------
-
 
 def estimate_normal_error_distribution(error_vecs):
     # MLE for the mean (µ)

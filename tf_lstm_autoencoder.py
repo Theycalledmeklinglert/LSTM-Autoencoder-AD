@@ -76,10 +76,7 @@ class LSTMAutoEncoder(tf.keras.Model):
         #print("This may be huge: " + str(decoder_inputs.shape))
         #print("This may be huge2: " + str(encoder_inputs))
 
-        encoder_states = [tf.zeros((tf.shape(encoder_inputs)[0], self.layer_dims[0])),
-                          tf.zeros((tf.shape(encoder_inputs)[0], self.layer_dims[0]))]
-        encoder_states_are_empty = True
-        #encoder_states = [None, None]
+        #encoder_states = [tf.zeros((tf.shape(encoder_inputs)[0], self.layer_dims[0])), tf.zeros((tf.shape(encoder_inputs)[0], self.layer_dims[0]))]
 
         #I'm still not sure if this is correct. The previous function looked like this:
         #    # for lstm_layer in self.encoder_lstm[:-1]:   #all but last layer
@@ -87,41 +84,65 @@ class LSTMAutoEncoder(tf.keras.Model):
         #         # encoder_outputs, state_h, state_c = self.encoder_lstm[-1](x)  # output of last layer
 
         #Should I pass the states inbetween layers or keep each layer's state in its corresponding layer and then only pass the states of the last layer to the decoder?
+
+        encoder_states_empty = True
+        encoder_states = [None, None]
         for t in range(self.time_steps):
             x = encoder_inputs[:, t:t + 1, :]  # Select one time step
+            #print("here3: " + str(x.shape))
             for lstm_layer in self.encoder_lstm:
-                if encoder_states_are_empty:
-                    x, state_h, state_c = lstm_layer(x)
-                    encoder_states_are_empty = False
-                else:
-                    x, state_h, state_c = lstm_layer(x, initial_state=encoder_states)
+                #if encoder_states_empty:
+                #    x, state_h, state_c = lstm_layer(x)
+                #    encoder_states_empty = False
+                #else:
+                x, state_h, state_c = lstm_layer(x) # todo: REMOVED; EXPERIMENTAL!!!, initial_state=encoder_states)
                 encoder_states = [state_h, state_c]
 
-        encoder_states = [state_h, state_c]
-        # Use the first value of the reversed sequence as initial input for the decoder
-
+        #encoder_states = [state_h, state_c]
         all_outputs = []
-        inputs = decoder_inputs[:, 0:1, :]  #last entry in time-series
-        for t in range(self.time_steps):
+
+        #todo: EXPERIMANTAL!!!!!!
+        if training:
+            dec_input = decoder_inputs[:, 0:1, :]   # Use first value of the reversed sequence as initial input for the decoder
+        else:
+            #print("here: " + str(decoder_inputs[:, 0:1, :].shape))
+            #dec_input = self.decoder_dense(state_h)
+            dec_input = tf.expand_dims(self.decoder_dense(encoder_states[0]), axis=1) # todo: changed state_h for encoder_state[0] EPERIMENTAL!!! # use last state of encoder as decoder input make predict first prediction of sequence
+            #print("here2: " + str(dec_input.shape))
+
+        all_outputs.append(dec_input)
+
+        for t in range(1, self.time_steps):
+            #print("iteration: " + str(t))
+
             for lstm_layer in self.decoder_lstm:
-                decoder_outputs, state_h, state_c = lstm_layer(inputs, initial_state=encoder_states)
-                inputs = decoder_outputs
-            outputs = self.decoder_dense(decoder_outputs)
-            all_outputs.append(outputs)
-            if training:
-                inputs = decoder_inputs[:, t:t + 1, :]  # Use the ground truth as the next input
-            else:
-                inputs = outputs  # Use the output as the next input
-            encoder_states = [state_h, state_c]
+                dec_output, state_h, state_c = lstm_layer(dec_input, initial_state=encoder_states)
+                #dec_output = self.decoder_dense(dec_output)
+                dec_output = tf.expand_dims(self.decoder_dense(state_h), axis=1)
+
+                #todo: Test this
+                if training:
+                    dec_input = decoder_inputs[:, 0:1, :]
+                else:
+                    dec_input = dec_output
+
+                encoder_states = [state_h, state_c]  # todo: not sure if state_c should be passed
+                all_outputs.append(dec_output)
+            #outputs = self.decoder_dense(state_h)
+
+            #if training:
+            #    inputs = decoder_inputs[:, t:t + 1, :]  # Use the ground truth as the next input
+            #else:
+            #    inputs = outputs  # Use the output as the next input
 
         #print("All outputs: \n" + str(all_outputs))
 
         #reverse decoder output since decoder predicts target data in reverse
-        all_outputs = all_outputs[::-1]  #todo: I think this is correct now??? Not 100% sure
+        all_outputs = all_outputs[::-1]
         #print("Reversed outputs: \n" + str(all_outputs))
 
-        decoder_outputs = tf.concat(all_outputs, axis=1)
-        return decoder_outputs
+        dec_output = tf.concat(all_outputs, axis=1)
+        return dec_output
 
     def train_step(self, data):
         encoder_inputs, decoder_inputs = data[0]
@@ -137,15 +158,15 @@ class LSTMAutoEncoder(tf.keras.Model):
 
         return {m.name: m.result() for m in self.metrics}
 
-    def test_step(self, data):
-        encoder_inputs, decoder_inputs = data[0]  # Unpacking encoder and decoder inputs
-        target = data[1]
-
-        predictions = self([encoder_inputs, decoder_inputs], training=False)
-        loss = self.compiled_loss(target, predictions, regularization_losses=self.losses)
-        self.compiled_metrics.update_state(target, predictions)
-
-        return {m.name: m.result() for m in self.metrics}
+    # def test_step(self, data):
+    #     encoder_inputs, decoder_inputs = data[0]  # Unpacking encoder and decoder inputs
+    #     target = data[1]
+    #
+    #     predictions = self([encoder_inputs, decoder_inputs], training=False)
+    #     loss = self.compiled_loss(target, predictions, regularization_losses=self.losses)
+    #     self.compiled_metrics.update_state(target, predictions)
+    #
+    #     return {m.name: m.result() for m in self.metrics}
 
 
 def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
@@ -155,15 +176,47 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     autoencoder = LSTMAutoEncoder(input_dim, time_steps, layer_dims, num_layers, dropout)
     outputs = autoencoder([encoder_inputs, decoder_inputs])
     model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
-    model.compile(optimizer=Adam(), loss=CustomL2Loss(), metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy'] ; for prints: ", run_eagerly=True";
+    #todo: Added clipnorm=1.0; experimental!!!
+    model.compile(optimizer=Adam(clipnorm=1.0), loss=CustomL2Loss(), metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy'] ; for prints: ", run_eagerly=True";
     return model
+
+
+class CustomL2Loss(Loss):
+    def get_config(self):
+        base_config = super().get_config()
+        return base_config
+
+    def call(self, y_true, y_pred):
+        #print("CustomL2Loss y_true: " + str(y_true.shape))
+        #print("CustomL2Loss y_pred: " + str(y_pred.shape))
+
+        diff = y_true - y_pred
+        squared_diff = tf.square(diff + 1e-10) #may halp with over/underflow
+
+        # tf.print("y_true: " + str(y_true.numpy()))
+        # tf.print("y_pred: " + str(y_pred.numpy()))
+        # tf.print("squared_diff: " + str(squared_diff.numpy()))
+
+        return tf.reduce_mean(tf.reduce_sum(squared_diff, axis=-1))
+
+
+        #print("y_true: \n" + str(y_true))
+        #print("y_pred: \n" + str(y_pred))
+        #diff = y_true - y_pred
+        #l2_norm = tf.norm(diff, ord='euclidean', axis=-1, )
+        #print("diff: \n" + str(diff))
+        #print("l2_norm: \n" + str(l2_norm))
+        #print("l2_norm after reduce_sum: \n" + str(tf.reduce_sum(l2_norm)))
+
+        #return tf.reduce_sum(l2_norm)   #todo: reduce_sum or reduce_mean?
+        #return tf.reduce_mean(l2_norm)
 
 
 def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, beta, calc_anom_score_flag, remove_timestamps, directories,
                           single_sensor_name=None, model_file_path=None):
     scaler = MinMaxScaler(feature_range=(0, 1))  #Scales the data to a fixed range, typically [0, 1].
     #scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
-    #scaler = MaxAbsScaler()                         #Scales each feature by its maximum absolute value, so that each feature is in the range [-1, 1]. #todo: best performance for wheelspeed; bad for steering_angle
+    #scaler = MaxAbsScaler()                         #Scales each feature by its maximum absolute value, so that each feature is in the range [0, 1] or [-1, 0] or [-1, 1]
     #scaler = QuantileTransformer(output_distribution='normal')
     #scaler = None
 
@@ -171,7 +224,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, b
     print("all_file_pairs: " + str(all_file_pairs))
 
     for file_pair in all_file_pairs:
-        data_with_time_diffs, true_labels_list = get_normalized_data_and_labels(file_pair, scaler, remove_timestamps)
+        data_with_time_diffs, true_labels_list = get_normalized_data_and_labels(file_pair, scaler, 10, remove_timestamps)
         #if list is empty due to excluded csv file
         if not data_with_time_diffs:
             continue
@@ -214,7 +267,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, b
         if model_file_path is None:
             model = create_autoencoder(input_dim, time_steps, layer_dims, len(layer_dims), dropout)
             model.summary()
-            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=30,
+            early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=20,
                                            restore_best_weights=True)
 
             #if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
@@ -229,13 +282,12 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, b
             model = load_model(model_file_path, custom_objects={"LSTMAutoEncoder": LSTMAutoEncoder}, compile=True)
 
         X_vN_error_vecs = np.asarray(calculate_rec_error_vecs(model, data_with_time_diffs[1], scaler))
-        #flattened_X_vN_error_vecs = X_vN_error_vecs.reshape(X_vN_error_vecs.shape[0], X_vN_error_vecs.shape[1] * X_vN_error_vecs.shape[2])
-        print(X_vN_error_vecs[0])
-        #print(flattened_X_vN_error_vecs[0])
+        #print(X_vN_error_vecs[0:10])
 
         print("started calculating of mu and sigma")
         mu, sigma = calculate_mle_mu_sigma(X_vN_error_vecs) #todo: CHANGED!!!
-        print("calculated mu and sigma")
+        print("mu: " + str(mu))
+        print("sigma: " + str(sigma))
         X_vNA_error_vecs = calculate_rec_error_vecs(model, X_vNA, scaler)
         X_vNA_anomaly_scores = compute_anomaly_score(X_vNA_error_vecs, mu, sigma)
 
@@ -251,13 +303,12 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, b
             best_anomaly_threshold = read_threshold_from_file(model_name.replace("./models/", ""))
             print("read anomaly threshold from file")
 
-        print("Anomaly scores: \n" + str(X_vNA_anomaly_scores.tolist()))
+        #print("Anomaly scores: \n" + str(X_vNA_anomaly_scores.tolist()))
         print("Best anomaly threshold: " + str(best_anomaly_threshold))
 
         X_tN_error_vecs = calculate_rec_error_vecs(model, X_tN, scaler)
         X_tN_anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
 
-        X_vN_error_vecs = calculate_rec_error_vecs(model, data_with_time_diffs[1], scaler)
         X_vN_anomaly_scores = compute_anomaly_score(X_vN_error_vecs, mu, sigma)
 
         calculate_and_plot_detection_rate("X_vN", file_pair[1], X_vN_anomaly_scores, true_labels_list[1], best_anomaly_threshold, time_steps)
@@ -265,44 +316,20 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, b
         calculate_and_plot_detection_rate("X_vNA", file_pair[2], X_vNA_anomaly_scores, true_labels_list[2], best_anomaly_threshold, time_steps)
 
 
-class CustomL2Loss(Loss):
-    def get_config(self):
-        base_config = super().get_config()
-        return base_config
-
-    def call(self, y_true, y_pred):
-        diff = y_true - y_pred
-        squared_diff = tf.square(diff)
-
-        # tf.print("y_true: " + str(y_true.numpy()))
-        # tf.print("y_pred: " + str(y_pred.numpy()))
-        # tf.print("squared_diff: " + str(squared_diff.numpy()))
-
-        return tf.reduce_mean(tf.reduce_sum(squared_diff, axis=-1))
-
-
-        #print("y_true: \n" + str(y_true))
-        #print("y_pred: \n" + str(y_pred))
-        #diff = y_true - y_pred
-        #l2_norm = tf.norm(diff, ord='euclidean', axis=-1, )
-        #print("diff: \n" + str(diff))
-        #print("l2_norm: \n" + str(l2_norm))
-        #print("l2_norm after reduce_sum: \n" + str(tf.reduce_sum(l2_norm)))
-
-        #return tf.reduce_sum(l2_norm)   #todo: reduce_sum or reduce_mean?
-        #return tf.reduce_mean(l2_norm)
-
-
-def calculate_rec_error_vecs(model, X_vN1, scaler):
+def calculate_rec_error_vecs(model, reshpaed_input, scaler):
     error_vecs = []
-    for i in range(len(X_vN1)):
-        current_sequence = X_vN1[i].reshape((1, X_vN1[i].shape[0], X_vN1[i].shape[1]))
+    for i in range(len(reshpaed_input)):
+        #print("shape before reshape: " + str(reshpaed_input[i].shape))
+        current_sequence = reshpaed_input[i].reshape((1, reshpaed_input[i].shape[0], reshpaed_input[i].shape[1]))
+        #print("shape after reshape: " + str(current_sequence.shape))
+
         predicted_sequence = model.predict([current_sequence, np.flip(current_sequence, axis=1)], verbose=0)
+
         current_sequence = reverse_normalization(np.squeeze(current_sequence, axis=0), scaler)
         predicted_sequence = reverse_normalization(np.squeeze(predicted_sequence, axis=0), scaler)
 
-        # print("chosen seq: " + str(current_sequence))
-        # print("predicted seq: " + str(predicted_sequence))
+        #print("chosen seq: " + str(current_sequence))
+        #print("predicted seq: " + str(predicted_sequence))
         # print("difference: " + str(np.subtract(current_sequence, predicted_sequence)))
         error_vecs.append(np.absolute(np.subtract(current_sequence, predicted_sequence)))  #todo: old: took np.absolute()out because i don't think it is useful here
     return np.asarray(error_vecs)
@@ -509,10 +536,18 @@ def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name, 
         window_labels_slice = true_labels[i:i + time_steps]
 
         if np.any(window_labels_slice == 1):
-            window_anomaly_scores.append(np.max(window_scores))
+            #window_anomaly_scores.append(np.max(window_scores))
+            if np.mean(window_scores > threshold) > 0.4:
+                window_anomaly_scores.append(np.max(window_scores))
+            else:
+                window_anomaly_scores.append(np.mean(window_scores))
             window_labels.append(1)
         else:
-            window_anomaly_scores.append(np.max(window_scores))
+            # Check if more than 30% of the anomaly scores in window are higher than threshold
+            if np.mean(window_scores > threshold) > 0.4:
+                window_anomaly_scores.append(np.max(window_scores))
+            else:
+                window_anomaly_scores.append(np.mean(window_scores))
             window_labels.append(0)
 
     for k in range(2):

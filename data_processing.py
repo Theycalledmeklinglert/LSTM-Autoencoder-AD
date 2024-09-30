@@ -15,13 +15,13 @@ from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.stats.diagnostic import acorr_ljungbox
 
 
-def get_normalized_data_and_labels(file_pair, scaler, remove_timestamps):
+def get_normalized_data_and_labels(file_pair, scaler, factor, remove_timestamps):
     data_with_time_diffs = []
     true_labels_list = []  # specify whether a point is classified as anomaly
     print("Now training model on: " + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
 
     for single_file in file_pair:
-        data, true_labels = csv_file_to_nparr(single_file, remove_timestamps) # timestamps are transformed to relative timestamps
+        data, true_labels = csv_file_to_nparr(single_file, remove_timestamps, factor) # timestamps are transformed to relative timestamps
         if data is None:
             break
 
@@ -182,7 +182,7 @@ def convert_timestamp_to_relative_time_diff(df):
     return df
 
 
-def csv_file_to_nparr(file_path, remove_timestamps):
+def csv_file_to_nparr(file_path, remove_timestamps, factor):
     print("Getting data from: " + str(file_path))
 
     offset = 0
@@ -208,7 +208,8 @@ def csv_file_to_nparr(file_path, remove_timestamps):
             if column == "Anomaly":
                 true_labels[row_index] = row[column].astype('int')  # 0 or 1; 1=anomaly
             else:
-                samples[row_index, col_index] = row[column]
+                samples[row_index, col_index] = row[column] * factor
+                #print("changed from: " + str(row[column]) + " to: " + str(row[column] * 10))
             # print("row_index: " + str(row_index))
             # print("column: " + str(column) + " + col_index: " + str(col_index))
             # print("grabbed: " + str(row[column]))
