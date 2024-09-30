@@ -38,17 +38,17 @@ def get_normalized_data_and_labels(file_pair, scaler, remove_timestamps):
     return data_with_time_diffs, true_labels_list
 
 
-def transform_true_labels_to_window_size(true_labels_list):
-    windowed_true_labels = []
-    for true_labels in true_labels_list:
-        cur_window = []
-        for labels_of_window in true_labels:
-            if 1 in labels_of_window:
-                cur_window.append(1)
-            else:
-                cur_window.append(0)
-        windowed_true_labels.append(np.asarray(cur_window))
-    return windowed_true_labels
+# def transform_true_labels_to_window_size(true_labels_list):
+#     windowed_true_labels = []
+#     for true_labels in true_labels_list:
+#         cur_window = []
+#         for labels_of_window in true_labels:
+#             if 1 in labels_of_window:
+#                 cur_window.append(1)
+#             else:
+#                 cur_window.append(0)
+#         windowed_true_labels.append(np.asarray(cur_window))
+#     return windowed_true_labels
 
 
 def reshape_data_for_autoencoder_lstm(data_list, window_size, window_step):

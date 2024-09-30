@@ -341,15 +341,6 @@ def calculate_rec_error_vecs(model, X_vN1, scaler):
     #todo: -----------------------------> Try using KerasTuner   <-----------------------------
 
 
-#the data arrays will have null elements due to the sensors having different measuring intervalls!
-# possible solutions:
-#       1. delete every entry of the data array that contains an empty cell ---> THIS DOESNT FKING WORK BECAUSE I WILL LOSE LIKE 9/10th OF THE DATA THAT HAVE SHORTER MEASURING INTERVALLS AND THE VALUES WONT EVEN REALLY
-#          BE CORRELATED
-#       2. find sensor with least data entries; downsample all other sensor data accordingly before adding them together
-#       ----> I think 1. and 2. are equivalent aaaaaaaaaaaaaaaaaaaahhhhhh
-#       3. average empty cells out or sth, idk that sounds retarded AND complicated, my favorite
-#       3. Kill myself
-
 def estimate_normal_error_distribution(error_vecs):
     # MLE for the mean (µ)
     mu = np.mean(error_vecs, axis=0)
@@ -358,7 +349,6 @@ def estimate_normal_error_distribution(error_vecs):
     return mu, sigma
 
 
-#todo: sigma is a matrix here. I'm not sure if this is correct but try it for now
 def compute_anomaly_score(error, mu, sigma):
     diff = error - mu
     inv_sigma = inv(sigma)  #todo: is this correct?
@@ -366,8 +356,6 @@ def compute_anomaly_score(error, mu, sigma):
     return score
 
 
-#todo: is supposed to use "from sklearn.metrics import precision_recall_curve, fbeta_score" but only uses "fbeta_scores". ChatGPT is currently down so look
-#todo: into it later
 def find_optimal_threshold(anomaly_scores, true_labels, beta=1.0):
     precision, recall, thresholds = precision_recall_curve(true_labels, anomaly_scores)
     fbeta_scores = (1 + beta ** 2) * (precision * recall) / (beta ** 2 * precision + recall)
