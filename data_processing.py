@@ -22,6 +22,13 @@ def get_normalized_data_and_labels(file_pair, scaler, factor, remove_timestamps)
 
     for single_file in file_pair:
         data, true_labels = csv_file_to_nparr(single_file, remove_timestamps, factor) # timestamps are transformed to relative timestamps
+
+
+        #TODO: CHANGED FOR TESTING!!!!!!!
+        data = data[:, :-3]
+
+
+
         if data is None:
             break
 
@@ -347,12 +354,12 @@ def get_matching_file_pairs_from_directories(directories, file_name=None):
         raise ValueError("At least two directories are required.")
 
     if file_name:
-        # If a specific file name is provided, check its existence in all directories
         for directory in directories:
             if file_name not in os.listdir(directory):
-                return []  # If the file is not found in any directory, return an empty list
-        # Collect the full paths of the matching file
+                return []
+
         matching_files = [[os.path.join(directory, file_name) for directory in directories]]
+        print(str(matching_files))
     else:
         # List all files in the first directory
         common_files = set(os.listdir(directories[0]))
@@ -448,11 +455,11 @@ def plot_data_integrated(data, file_name, contains_timestamps):
     plt.figure(figsize=(10, 6))
     if values.shape[1] == 1:
         # If there's only one column of values
-        plt.plot(timestamps, values, label='Series 1')
+        plt.plot(timestamps, values, label='Feature 1')
     else:
         # If there are multiple columns of values
         for i in range(values.shape[1]):
-            plt.plot(timestamps, values[:, i], label=f'Series {i + 1}')
+            plt.plot(timestamps, values[:, i], label=f'Feature {i + 1}')
 
     file_name = shorten_file_name(file_name)
     plt.xlabel('Time (s)')
