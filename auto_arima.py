@@ -81,7 +81,6 @@ def run_auto_arima(directories, specific_sensor):
 
     #for col in test_df_0.columns:
 
-
         # data_with_time_diffs, true_labels_list = get_normalized_data_and_labels(file_pair, scaler, remove_timestamps=False)
         # #plot_data(data_with_time_diffs[0])
         # #if list is empty due to excluded csv file

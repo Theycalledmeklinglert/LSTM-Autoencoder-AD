@@ -1,13 +1,16 @@
 import os
 import random
-
+import torch
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from sklearn.preprocessing import MinMaxScaler
 
-from data_processing import reverse_normalization
+from data_processing import reverse_normalization, get_matching_file_pairs_from_directories, \
+    get_normalized_data_and_labels, reshape_data_for_autoencoder_lstm
 
-# test
+
+
 def autoencoder_predict_and_calculate_error(model, X_tN, labels, future_steps, iterations, scaler):
     normal_err_vecs = []
     anomaly_err_vecs = []

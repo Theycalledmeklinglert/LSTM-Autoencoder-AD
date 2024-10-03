@@ -17,30 +17,26 @@ from statsmodels.stats.diagnostic import acorr_ljungbox
 
 def get_normalized_data_and_labels(file_pair, scaler, factor, remove_timestamps):
     data_with_time_diffs = []
-    true_labels_list = []  # specify whether a point is classified as anomaly
+    true_labels_list = []
     print("Now training model on: " + str(file_pair[0][file_pair[0].rfind("\\") + 1:].rstrip(".csv")))
 
     for single_file in file_pair:
         data, true_labels = csv_file_to_nparr(single_file, remove_timestamps, factor) # timestamps are transformed to relative timestamps
-
-
-        #TODO: CHANGED FOR TESTING!!!!!!!
-        data = data[:, :-3]
-
-
-
         if data is None:
             break
 
-        plot_data_integrated(data, single_file, not remove_timestamps)
+        print("here: " + str(data.shape))
 
+        data = data[:, -1:]
+
+        print("here: " + str(data.shape))
+
+        plot_data_integrated(data, single_file, not remove_timestamps)
         print("unnormalized_data_with_time_diffs: \n" + str(data))
         normalized_data = normalize_data(data, scaler)
         print("normalized_data_with_time_diffs: \n" + str(normalized_data))
         data_with_time_diffs.append(normalized_data)
-
         print("Anoamaly labels: \n" + str(true_labels))
-
         true_labels_list.append(true_labels)
     return data_with_time_diffs, true_labels_list
 
@@ -179,12 +175,10 @@ def convert_timestamp_to_relative_time_diff(df):
     # Subtract each value in "Time" columns from the first row's value
 
     for time_col in time_columns:
-        start_timestamp = df[time_col].iloc[0]
-        df[time_col] = df[time_col] - start_timestamp
-
-    # start_timestamp = data[0, 0]
-    # for i in range(0, len(data)):
-    #     data[i][0] = data[i][0] - start_timestamp
+        #start_timestamp = df[time_col].iloc[0]
+        #df[time_col] = df[time_col] - start_timestamp
+        # Replace the "Time" column with the row index
+        df[time_col] = df.index     #todo: Experimental
 
     return df
 
@@ -272,28 +266,26 @@ def old_directory_csv_files_to_dataframe_to_numpyArray(directory):
 
 
 # removes empty columns, columns containing only one and the same value through and through and columns that do not offer useful information
-def clean_csv(file_path, remove_timestamps=False):
+def clean_csv(file_path, remove_timestamps=False, nrows=None):
     # list of known incompatible csv files due to incompatible/incorrect formatting or files that are simply are not sensor data
     exceptions = [
         "slam-car_state", "slam-landmark_info", "slam-map",
-        "slam-state", "stereo_cone_perception-cones", "tf", "estimation-velocity", "lidar-cone_position_cloud", #todo: estimation-velocity is doable, just need to handle the matrices somehow
+        "slam-state", "stereo_cone_perception-cones", "tf", "estimation-velocity", "lidar-cone_position_cloud",
         "map_matching-driving_path", "sbg-gps_raw",
         "map_matching-reference_track", "diagnostics"
-        # todo: diagnostics is temporary here for now. might be useful to scan and process it separetly first and not include it in anomaly detection itself
-        # todo: also ask Sebastian if "map_matching-reference_track" is of any use for AD; for now it's out
-        # todo: "sbg-ekf_euler" also looks weird; not sure if useful
     ]
     if any(keyword in file_path for keyword in exceptions):
         print("Intentionally did not process: " + str(file_path))
         return
 
-    df = pd.read_csv(file_path)
+    df = pd.read_csv(file_path, nrows=nrows, ) #, header=None)
+
     columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'child_frame_id',
                          'twist.covariance',
                          'header.seq']  # ", 'header.seq'"
 
     if remove_timestamps:
-        columns_to_remove.append('Time')    #todo: test if removing this was good or bad:
+        columns_to_remove.append('Time')
 
     for col in columns_to_remove:
         if col in df.columns:
@@ -305,9 +297,9 @@ def clean_csv(file_path, remove_timestamps=False):
         raise DataFrameContainsNaNError()
 
     cols_to_check = [col for col in df.columns if col != "Anomaly"]
-    print("Columns in DataFrame:", df.columns.tolist())
-    print("Columns to check:", cols_to_check)
-    print("df: " + str(df))
+    #print("Columns in DataFrame:", df.columns.tolist())
+    #print("Columns to check:", cols_to_check)
+    #print("df: " + str(df))
 
     if not cols_to_check:
         print("No columns to check after filtering.")
@@ -336,9 +328,9 @@ def clean_csv(file_path, remove_timestamps=False):
             print("A column in the sensor file contains only one and the same value. Check for malfunction in " + str(file_path))
 
 
-    print("df after removing nan and 0 cols: " + str(df))
+    print("df after removing nan and 0 cols: \n" + str(df))
 
-    print("filepath: " + str(file_path))
+    #print("filepath: " + str(file_path))
 
     return df
 
