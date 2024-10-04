@@ -113,7 +113,7 @@ def read_Formul_Stud_csv_to_nmpy_arr(file_path, remove_timestamps, nrows):
     return df
 
 
-def get_data_as_single_batches_of_subseqs(time_steps, window_step, remove_timestamps, scaler=None, directories=None, single_sensor_name=None):
+def get_data_as_list_of_single_batches_of_subseqs(time_steps, window_step, remove_timestamps, scaler=None, directories=None, single_sensor_name=None):
     #scaler = MinMaxScaler(feature_range=(0, 1))  # Scales the data to a fixed range, typically [0, 1].
     # scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
     # scaler = MaxAbsScaler()                         #Scales each feature by its maximum absolute value, so that each feature is in the range [0, 1] or [-1, 0] or [-1, 1]

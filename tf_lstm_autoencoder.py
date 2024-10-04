@@ -5,6 +5,7 @@ from keras.src.callbacks import EarlyStopping
 from keras.src.layers import LSTM, Dense
 from keras.src.losses import CosineSimilarity
 from keras.src.optimizers import Adam, sgd
+from keras.src.regularizers import regularizers
 from keras.src.saving import load_model
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
@@ -38,30 +39,45 @@ class LSTMAutoEncoder(tf.keras.Model):
         self.decoder_dense = None
 
         # Encoder
-        #for i in layer_dims:
-        #    self.encoder_lstm.append(
-        #        LSTM(i, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
         self.encoder_lstm = LSTM(layer_dims, activation='relu', return_sequences=True, return_state=True, dropout=dropout)
-
-        # Decoder
-        # for i in reversed(layer_dims):
-        #     self.decoder_lstm.append(
-        #         LSTM(i, activation='relu', return_sequences=True, return_state=True, dropout=dropout))
+        #Decoder
         self.decoder_lstm = LSTM(layer_dims, activation='relu', return_sequences=True, return_state=True, dropout=dropout)
-
-        self.decoder_dense = Dense(input_dim)
+        #linear
+        self.decoder_dense = Dense(input_dim) #, kernel_regularizer=regularizers.L2(0.01))     #todo: the regularizer is EXPERIMENTAL;dont really know if its beneficial here
 
     def train_step(self, data):
         print("Iam in train_step")
         encoder_inputs, decoder_inputs = data[0]
         target = data[1]
 
+        # if encoder_inputs is None:
+        #     print("encoder_inputs is None!")
+        # else:
+        #     print("encoder_inputs shape:", tf.shape(encoder_inputs))
+        #
+        # if decoder_inputs is None:
+        #     print("decoder_inputs is None!")
+        # else:
+        #     print("decoder_inputs shape:", tf.shape(decoder_inputs))
+        #
+        # if target is None:
+        #     print("target is None!")
+        # else:
+        #     print("target shape:", tf.shape(target))
+
         with tf.GradientTape() as tape:
             predictions = self.call([encoder_inputs, decoder_inputs], is_training=True)
-            loss = self.compiled_loss(target, predictions, regularization_losses=self.losses)
+            loss = self.compiled_loss(target, predictions)
+            #loss = self.compute_loss(target, predictions)
+            #loss += tf.add_n(self.losses)
+            print("does this work?")
+            tf.print("does this work?")
+            if loss is None:
+                print("Loss is None!")
 
         gradients = tape.gradient(loss, self.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.trainable_variables))
+
         self.compiled_metrics.update_state(target, predictions)
 
         return {m.name: m.result() for m in self.metrics}
@@ -87,12 +103,15 @@ class LSTMAutoEncoder(tf.keras.Model):
         batch_size = tf.shape(encoder_inputs)[0]
         hidden_size = self.encoder_lstm.units
         encoder_states = [tf.zeros((batch_size, hidden_size)), tf.zeros((batch_size, hidden_size))]
-        for t in range(self.time_steps):
-            x = encoder_inputs[:, t:t + 1, :]  # Select one time step
-            x, state_h, state_c = self.encoder_lstm(x, initial_state=encoder_states)  # todo: REMOVED; EXPERIMENTAL!!!, initial_state=encoder_states)
-            encoder_states = [state_h, state_c]
+        # for t in range(self.time_steps):
+        #     x = encoder_inputs[:, t:t + 1, :]  # Select one time step
+        #     x, state_h, state_c = self.encoder_lstm(x) #, initial_state=encoder_states)  # todo: REMOVED; EXPERIMENTAL!!!, initial_state=encoder_states)
+        #     encoder_states = [state_h, state_c]
 
-        # encoder_states = [state_h, state_c]
+        x, state_h, state_c = self.encoder_lstm(encoder_inputs)
+        encoder_states = [state_h, state_c]
+
+
         all_outputs = []
         decoder_states = encoder_states
         if is_training:
@@ -109,7 +128,7 @@ class LSTMAutoEncoder(tf.keras.Model):
             #print("please end me")
             #print("state_h: " + str(state_h))
             #print("dec_output: " + str(dec_output))
-            # dec_output = self.decoder_dense(dec_output)
+            dec_output = self.decoder_dense(dec_output)
 
             if is_training:
                 dec_input = decoder_inputs[:, t:t + 1, :]  # Use ground truth as the next input #todo: try here
@@ -155,7 +174,7 @@ def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
     autoencoder.compile(optimizer=Adam(clipnorm=1.0), loss=CustomL2Loss(), metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy'] ; for prints: ", run_eagerly=True";
     #sgd = SGD(learning_rate=0.01, momentum=0.9)
     #autoencoder.compile(optimizer=sgd, loss='mean_squared_error', metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy']   # todo: CHANGED EXPERIMENTAL
-    # autoencoder.compile(optimizer=Adam(clipnorm=1.0), loss='mean_squared_error', metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy'] ; for prints: ", run_eagerly=True";
+    #autoencoder.compile(optimizer=Adam(clipnorm=1.0), loss='mean_squared_error', metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy'] ; for prints: ", run_eagerly=True";
     # autoencoder.compile(optimizer=Adam(clipnorm=1.0), loss=CosineSimilarity(axis=-1), metrics=['mean_squared_error'], run_eagerly=True)
     #autoencoder.compile(optimizer=Adam(clipnorm=1.0), loss=CosineSimilarity(axis=-1), metrics=['mean_squared_error'])  # , run_eagerly=True)
 
@@ -171,7 +190,9 @@ class CustomL2Loss(Loss):
 
     def call(self, y_true, y_pred):
         diff = y_true - y_pred
-        squared_diff = tf.square(diff + 1e-10)  # may halp with over/underflow #todo: !Changed
+        squared_diff = tf.square(diff + 1e-10)  # may help with over/underflow #todo: !Changed
+        return tf.reduce_mean(tf.reduce_sum(squared_diff, axis=-1), axis=-1)  #todo: !Changed
+
 
         # print("CustomL2Loss y_true: " + str(y_true.shape))
         # print("CustomL2Loss y_pred: " + str(y_pred.shape))
@@ -181,7 +202,6 @@ class CustomL2Loss(Loss):
         #res = tf.reduce_mean(tf.reduce_sum(squared_diff, axis=-1))
         #tf.print("final: " + str(res.numpy()))
 
-        return tf.reduce_mean(tf.reduce_sum(squared_diff, axis=-1))  #todo: !Changed
 
 
 def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, beta, calc_anom_score_flag,
@@ -245,6 +265,8 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, b
         if model_file_path is None:
             model = create_autoencoder(input_dim, time_steps, layer_dims, layer_dims, dropout)
 
+            print("pain: " + str(model.trainable_weights))
+
             #dummy_input = tf.random.normal([batch_size, time_steps, input_dim])
             #_ = model(dummy_input)  # This triggers the model to build
 
@@ -254,7 +276,10 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, b
             test = np.expand_dims(X_sN[0, :, :], axis=0)
             print("test shape: " + str(test.shape))
 
-            #model.fit([test, np.flip(test, axis=1)], test, epochs=1, batch_size=batch_size, validation_data=([test, np.flip(test, axis=1)], test), verbose=1, callbacks=[early_stopping])
+            model.fit([test, np.flip(test, axis=1)], test, epochs=1, batch_size=batch_size, validation_data=([test, np.flip(test, axis=1)], test), verbose=1, callbacks=[early_stopping])
+
+            print("pain2: " + str(model.trainable_weights))
+
 
             model.summary()
             # if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
@@ -331,8 +356,7 @@ def calculate_rec_error_vecs(model, reshaped_input, scaler):
         # print("chosen seq: " + str(current_sequence))
         # print("predicted seq: " + str(predicted_sequence))
         # print("difference: " + str(np.subtract(current_sequence, predicted_sequence)))
-        error_vecs.append(np.absolute(np.subtract(current_sequence,
-                                                  predicted_sequence)))  # todo: old: took np.absolute()out because i don't think it is useful here
+        error_vecs.append(np.absolute(np.subtract(current_sequence, predicted_sequence)))  # todo: old: took np.absolute() out because i don't think it is useful here
         rec_vecs.append((predicted_sequence))
     return np.asarray(error_vecs), np.asarray(rec_vecs)
 

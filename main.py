@@ -48,12 +48,8 @@ if __name__ == '__main__':
 
 
     #get_sample_time("./aufnahmen/csv/autocross_valid_16_05_23")
-
-    #test_lstm_autoencoder(10, [50, 50], 0.0, 32, 200, ["./aufnahmen/csv/csv test 1", "./aufnahmen/csv/csv test 2"]) #"C:\\Users\\Luca\\PycharmProjects\\AnoamlydetectionInFormulaStudent\\models\\LSTM_autoencoder_decoder_can_interface-wheelspeed_100_100.keras"
-
     #add_anomaly_column_to_csv_files(["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"])
 
-    #test_lstm_autoencoder(20, [60], 0.0, 32, 500, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "can_interface-wheelspeed.csv") # , "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_60.keras")
 
     #before_injection_for_plot, true_labels = csv_file_to_nparr('./aufnahmen/csv/anomalous data/normal_control-acceleration.csv', True)
 
@@ -65,32 +61,22 @@ if __name__ == '__main__':
     #plot_data(before_injection_for_plot, str("before_injection_for_plot"))
     #plot_data(after_injection_for_plot, str("after_injection_for_plot"))
 
-    #todo: this was commented in:
-    # try droput 0.001; try with remove_timestamps and without; try with higher timesteps
-
     #plot_acf_standalone(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "control-acceleration.csv")
     #plot_data_standalone(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
+    #plot_data_standalone(["./aufnahmen/steering_angle from different runs"], "can_interface-current_steering_angle.csv", sameSensorInOneFolder=True)
 
-    #todo:
-    # tried 150 previously; fit to the high variability part but skipped the long 0s anoamlies;
-    # 20/40 ts to 40/120 layer, batch=8/16 with 0.8/0.3 beta and MinMaxScaler(feature_range=(0, 1)) detected unbekannter_komm_fehler; still issues with tail end of data though
-    test_lstm_autoencoder(40, 60, 0.0, 32, 100, 0.8, True, False, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], "can_interface-wheelspeed.csv") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_50.keras") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_40.keras") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps100_layers_150.keras") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps40_layers_300.keras") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps40_layers_120.keras")
+    test_lstm_autoencoder(40, 60, 0.0, 32, 100, 0.8, True, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], "can_interface-wheelspeed.csv") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps40_layers_60.keras") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_50.keras") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_40.keras")
     #test_lstm_autoencoder(40, 80, 0.0, 8, 200, 1.0, True, True, ["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv") #
-    #test_lstm_autoencoder(20, 60, 0.0, 64, 500, 0.9,  True, False, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "control-acceleration.csv", "./models/LSTM_autoencoder_decoder_control-acceleration_timesteps20_layers_60.keras")
-    #test_lstm_autoencoder(20, 30, 0.0, 64, 500, 0.9,  True, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/autocross_valid2_17_23_44"], "estimation-velocity.csv") #, "./models/LSTM_autoencoder_decoder_control-acceleration_timesteps20_layers_30.keras")
 
     #plot_point_anomaly()
     #plot_collective_anomaly_similar()
     #plot_clusters_with_noise()
     #plot_contextual_anomaly()
 
-
-    #df = clean_csv("C:\\Users\\Luca\\PycharmProjects\AnoamlydetectionInFormulaStudent\\aufnahmen\csv\\autocross_valid_16_05_23\\diagnostics.csv")
     #print_unique_values(df, "status")
 
-    #read_file_from_bagpy_to_csv("./aufnahmen/aufnahmen2/skidpad_valid_fast3_17_58_41.bag")
+    #read_file_from_bagpy_to_csv("./aufnahmen/tmp/autocross_valid_run.bag")
     #read_file_from_bagpy_to_csv("./aufnahmen/error_zusammenstellung/error_zusammenstellung/autocross_unbekannter_kommunikationsfehler.bag")
-
 
 
     print_hi('PyCharm')

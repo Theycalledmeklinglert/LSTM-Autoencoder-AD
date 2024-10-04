@@ -10,7 +10,7 @@ from data_processing import clean_csv, convert_timestamp_to_relative_time_diff, 
 from torch_LSTM_autoenc import LSTMAutoEncoder
 from torch_preprocessing import preprocessing
 from torch_utils import EarlyStopping, ModelManagement, LossCheckpoint, FormulaStudentDataset, \
-    get_data_as_single_batches_of_subseqs, batched_tensor_to_numpy_and_invert_scaling, plot_time_series
+    get_data_as_list_of_single_batches_of_subseqs, batched_tensor_to_numpy_and_invert_scaling, plot_time_series
 
 
 name_model = 'lstm_model'
@@ -21,40 +21,42 @@ device = torch.device('cpu')
 #         load dataset              #
 # ----------------------------------#
 
-# train_seq = FormulaStudentDataset('./aufnahmen/csv/autocross_valid_16_05_23/can_interface-wheelspeed.csv', type='csv')
-#
-#
-# transformed_ts = preprocessing(train_seq.data, "mean-max-min", "2", size_window, step_window) #"mean-max-min-trend-kurtosis-max_diff_var-var_var-level_shift"
-# print(transformed_ts.shape)
-# print(str(transformed_ts))
-#
-# train_loader = DataLoader(train_seq, batch_size, shuffle=False)  #todo: turned shuffle off for now; it was true before
-#
-#
-# seq_length, size_data, nb_feature = train_seq.data.shape
-#
-#
-#
-# valid_seq = FormulaStudentDataset('./aufnahmen/csv/autocross_valid_run/can_interface-wheelspeed.csv', type='csv')
-# valid_loader = DataLoader(valid_seq, batch_size, shuffle=False)
-#
-# test_seq = FormulaStudentDataset('./aufnahmen/csv/anomalous data/can_interface-wheelspeed.csv', type='csv')
-# test_loader = DataLoader(test_seq, batch_size, shuffle=False)
+# directories=["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data",
+# "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"],
+# single_sensor_name="can_interface-wheelspeed.csv")
 
-step_window = 5
-size_window = 20
+#todo: probieren mehr Units zu nehmen
+#todo: probieren einfacheres periodische Sequenz zu nehmen
 
-scaler = MinMaxScaler(feature_range=(0, 1))
-#scaler = None
-#todo: try increase batch_size; increase window step; adding timestamp; try shuffling ;scaling; try changing hidden size;
-all_data = get_data_as_single_batches_of_subseqs(size_window, step_window, True, scaler=scaler,
-                                                 directories=["./aufnahmen/csv/autocross_valid_16_05_23",
-                                                              "./aufnahmen/csv/autocross_valid_run",
-                                                              "./aufnahmen/csv/anomalous data",
-                                                              "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"],
-                                                 single_sensor_name="can_interface-wheelspeed.csv")
-batch_size = 32
-train_seq = all_data[0][0]
+
+step_window = 0
+size_window = 40
+#scaler = MinMaxScaler(feature_range=(0, 1))
+#scaler = MinMaxScaler(feature_range=(0, 1))  # Scales the data to a fixed range, typically [0, 1].
+# scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
+# scaler = MaxAbsScaler()                         #Scales each feature by its maximum absolute value, so that each feature is in the range [0, 1] or [-1, 0] or [-1, 1]
+# scaler = QuantileTransformer(output_distribution='normal')
+scaler = None
+
+#todo:
+# try increase batch_size; increase window step; adding timestamp; try shuffling ;scaling; try changing hidden size;
+# maybe only one per batch but i dont think tis fixes the issue
+
+# all_data = get_data_as_single_batches_of_subseqs(size_window, step_window, True, scaler=scaler,
+#                                                  directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"],
+#                                                  single_sensor_name="can_interface-current_steering_angle.csv")
+# all_data = get_data_as_single_batches_of_subseqs(size_window, step_window, True, scaler=scaler,
+#                                                  directories=["./aufnahmen/csv/autocross_valid_16_05_23",
+#                                                               "./aufnahmen/csv/autocross_valid_run",
+#                                                               "./aufnahmen/csv/anomalous data",
+#                                                               "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], single_sensor_name="can_interface-wheelspeed.csv")
+
+all_data = get_data_as_list_of_single_batches_of_subseqs(size_window, step_window, True, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
+
+# ["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
+
+batch_size = 16
+train_seq = all_data[0][0]      # because get_data_as_single_batches_of_subseqs return [data_with_time_diffs, true_label_list]
 valid_seq = all_data[0][1]
 anomaly_seq = all_data[0][2]
 x_T_seq = all_data[0][3]
@@ -71,7 +73,7 @@ test_loader = DataLoader(x_T_seq, batch_size=batch_size, shuffle=False)         
 #         build model              #
 # ----------------------------------#
 
-model = LSTMAutoEncoder(num_layers=1, hidden_size=100, nb_feature=nb_feature, device=device)
+model = LSTMAutoEncoder(num_layers=1, hidden_size=50, nb_feature=nb_feature, device=device)
 model = model.to(device)
 # optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -85,12 +87,14 @@ loss_checkpoint_train = LossCheckpoint()
 loss_checkpoint_valid = LossCheckpoint()
 
 
-#todo: load data; seperate it into batches
-
 def train(epoch):
     model.train()
     train_loss = 0
+    model.is_training = True
     for id_batch, data in enumerate(train_loader):  #for i, sample in enumerate(X_sN):
+        # print("data: " + str(data))
+        # print("data_shape: " + str(data.shape))
+
         optimizer.zero_grad()
         # forward
         data = data.to(device).float()
@@ -110,6 +114,7 @@ def train(epoch):
     avg_loss = train_loss / len(train_loader)
     print('====> Epoch: {} Average loss: {:.6f}'.format(epoch, avg_loss))
     loss_checkpoint_train.losses.append(avg_loss)
+    model.is_training = False
 
 
 def evaluate(loader, validation=False, epoch=0):
@@ -134,14 +139,14 @@ def evaluate(loader, validation=False, epoch=0):
         return earlyStopping.check_training(avg_loss)
 
 
-def predict(loader, input_data, modell):
+def predict(loader, input_data):    #, model)
     eval_loss = 0
-    modell.eval()
-    predict = torch.zeros(size=input_data.shape, dtype=torch.float)
+    model.eval()
+    predictions = torch.zeros(size=input_data.shape, dtype=torch.float)
     with torch.no_grad():
         for id_batch, data in enumerate(loader):
-            data = data.to(device).float()  #todo: hier muss safe .float() hin
-            output = modell.forward(data)
+            data = data.to(device).float()
+            output = model.forward(data)
 
             # print('input_data shape: ', input_data.shape)
             # print('predict shape: ', predict.shape)
@@ -154,14 +159,14 @@ def predict(loader, input_data, modell):
             #todo: I THINK(!) i need to reverse the sequence here. This NEEDS to be tested!!
             output = torch.flip(output, dims=[1])
 
-            #predict[id_batch * data.shape[0]:(id_batch + 1) * data.shape[0], :, :] = output.reshape(data.shape[0], seq_length, -1)  #todo: this is probably supposed to reverse the sequence but i think the syntax is wrong
-            predict[id_batch * data.shape[0]:(id_batch + 1) * data.shape[0], :, :] = output
+            #predictions[id_batch * data.shape[0]:(id_batch + 1) * data.shape[0], :, :] = output.reshape(data.shape[0], seq_length, -1)
+            predictions[id_batch * data.shape[0]:(id_batch + 1) * data.shape[0], :, :] = output
             loss = criterion(data, output.to(device))
             eval_loss += loss.item()
 
     avg_loss = eval_loss / len(loader)
     print('====> Prediction Average loss: {:.6f}'.format(avg_loss))
-    return predict
+    return predictions
 
 
 if __name__ == '__main__':
@@ -171,7 +176,7 @@ if __name__ == '__main__':
     # print(transformed_ts.shape)
     # print(str(transformed_ts[0]))
 
-    for epoch in range(1, 20):
+    for epoch in range(1, 2):
         train(epoch)
         if evaluate(valid_loader, validation=True, epoch=epoch):
             break
@@ -179,7 +184,7 @@ if __name__ == '__main__':
         if earlyStopping.patience_count == 5:
             print('lr on plateau ', optimizer.param_groups[0]['lr'], ' -> ', optimizer.param_groups[0]['lr'] / 10)
             optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / 10
-    predictions = predict(train_loader, train_seq, model)
+    predictions = predict(train_loader, train_seq) #, model)
     print('shape of predictions: ', predictions.shape)
     print('predictions: \n' + str(predictions))
 
@@ -198,7 +203,7 @@ if __name__ == '__main__':
 
     plot_time_series(predictions_numpy, "X_sN")
 
-    predictions_anom = predict(anomaly_loader, anomaly_seq, model)
+    predictions_anom = predict(anomaly_loader, anomaly_seq) #, model)
     predictions_anom_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_anom, scaler)
     plot_time_series(predictions_anom_numpy, "X_vNA")
 

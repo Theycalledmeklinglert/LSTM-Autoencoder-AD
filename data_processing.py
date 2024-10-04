@@ -27,7 +27,7 @@ def get_normalized_data_and_labels(file_pair, scaler, factor, remove_timestamps)
 
         print("here: " + str(data.shape))
 
-        data = data[:, -1:]
+        data = data[:, :1]
 
         print("here: " + str(data.shape))
 
@@ -462,12 +462,19 @@ def plot_data_integrated(data, file_name, contains_timestamps):
     plt.savefig("./exampleGraphs/normalPlots/" + file_name + ".png", format='png', dpi=200)
     plt.show()
 
-def plot_data_standalone(directories, single_sensor_name):
-    all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
-    for file_pair in all_file_pairs:
-        for single_file in file_pair:
-            data, true_labels = csv_file_to_nparr(single_file, True)
-            plot_data_integrated(data, single_file, False)
+def plot_data_standalone(directories, single_sensor_name, sameSensorInOneFolder=False):
+    if not sameSensorInOneFolder:
+        all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
+        for file_pair in all_file_pairs:
+            for single_file in file_pair:
+                data, true_labels = csv_file_to_nparr(single_file, True, 1)
+                plot_data_integrated(data, single_file, False)
+    else:
+        for dirpath, _, files in os.walk(directories[0]):
+            for single_file in files:
+                data, true_labels = csv_file_to_nparr(os.path.join(dirpath, single_file), True, 1)
+                plot_data_integrated(data, single_file, False)
+
 
 
 def plot_acf_standalone(directories, single_sensor_name):
@@ -477,7 +484,7 @@ def plot_acf_standalone(directories, single_sensor_name):
     all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
     for file_pair in all_file_pairs:
         for single_file in file_pair:
-            data, true_labels = csv_file_to_nparr(single_file, True)
+            data, true_labels = csv_file_to_nparr(single_file, True, 1)
             values = data
             file_name = shorten_file_name(single_file)
 
@@ -486,7 +493,7 @@ def plot_acf_standalone(directories, single_sensor_name):
             for i in range(values.shape[1]):
                 series = values[:, i]
                 plt.figure(figsize=(10, 6))
-                plot_acf(series, lags=20, alpha=0.05)
+                plot_acf(series, lags=200, alpha=0.05)
                 plt.title('ACF of series ' + str(i) + " in " + file_name)
                 plt.xlabel('Lag')
                 plt.ylabel('Autocorrelation')

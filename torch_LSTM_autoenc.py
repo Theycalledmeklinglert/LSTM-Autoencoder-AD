@@ -2,24 +2,45 @@ import torch
 import torch.nn as nn
 
 
-# https://arxiv.org/pdf/1607.00148.pdf
 class LSTMAutoEncoder(nn.Module):
     def __init__(self, num_layers, hidden_size, nb_feature, dropout=0, device=torch.device('cpu')):
         super(LSTMAutoEncoder, self).__init__()
         self.device = device
         self.encoder = Encoder(num_layers, hidden_size, nb_feature, dropout, device)
         self.decoder = Decoder(num_layers, hidden_size, nb_feature, dropout, device)
+        self.is_training = None
 
     def forward(self, input_seq):
+
+        #print(f"input_seq shape: {input_seq.cpu().detach().numpy().shape}")
+        #print(f"input_seq: {input_seq.cpu().detach().numpy()}")
+
         output = torch.zeros(size=input_seq.shape, dtype=torch.float)
         hidden_cell = self.encoder(input_seq)                       # encoded hidden state of input seq
         input_decoder = input_seq[:, -1, :].view(input_seq.shape[0], 1, input_seq.shape[2]) #takes last timestamp of input seq and reshaped it into (batch_size, 1 (timestep), number_of_features)
-        for i in range(input_seq.shape[1] - 1, -1, -1):             #go through input seq backwards
+
+        #print(f"input_decoder shape: {input_decoder.cpu().detach().numpy().shape}")
+        #print(f"input_decoder: {input_decoder.cpu().detach().numpy()}")
+
+        for i in range(input_seq.shape[1] - 1, -1, -1):                                     #go through input seq backwards
             output_decoder, hidden_cell = self.decoder(input_decoder, hidden_cell)
-            input_decoder = output_decoder
+            #input_decoder = output_decoder
             output[:, i, :] = output_decoder[:, 0, :]       # likely selects the first (and only) time step from the decoder output for all batches and all features.
+
+            #print(f"output_decoder_shape: {output_decoder.cpu().detach().numpy().shape}")
+
+            if self.is_training:
+                input_decoder = input_seq[:, i, :].view(input_seq.shape[0], 1, input_seq.shape[2])  #this should
+                #print(f"acc_paper_input_decoder_shape: {input_decoder.cpu().detach().numpy().shape}")
+            else:
+                input_decoder = output_decoder
+
+            # Print the output_decoder for each loop iteration
+            #print(f"Iteration {i}, output_decoder: {output_decoder.cpu().detach().numpy()}")  # Move to CPU and detach from graph for printing
+
         return output
 
+#TODO: Fehlt hier nicht die Unterscheidung zwischen Training und Nicht training loop aus dem Paper?
 
 class Encoder(nn.Module):
     def __init__(self, num_layers, hidden_size, nb_feature, dropout=0, device=torch.device('cpu')):
