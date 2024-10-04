@@ -72,23 +72,49 @@ def reshape_data_for_autoencoder_lstm(data_list, window_size, window_step):
             window_end = window_start + window_size
             cur_window = data[window_start:window_end]
             temp.append(cur_window)
-
         windowed_data.append(numpy.array(temp))
-
-        # print("Reshaped data of single file into: " + str(windowed_data[0]))
-        # print("Reshaped data of single file into: " + str(windowed_data[1]))
-        # print("First single: " + str(windowed_data[0].shape))
-        # print("Second single: " + str(windowed_data[0].shape))
-        #
-        # for k in range(len(data_list[i])):
-        #     print("Length at " + str(k) + ": " + str(data_list[i][k].shape))
-        #     if k == len(data_list[i])-1:
-        #         print(str(data_list[i][k]))
-        #
-        # print("All: " + str(numpy.array(windowed_data).shape))
-        # print("Reshaped data for LSTM into: " + str(numpy.array(windowed_data)))
-
     return windowed_data
+
+
+def get_noShift_andShift_data_windows_for_lstm(data_list, window_size, window_step=0, shift_value=None):
+    '''
+    window_size and shift_value should be equal
+    shift_value = 0             --> normal windowed data
+    shift_value = window_size   --> shifted data windows; same index for non-shifted windows gets the follow up window from the shifted windows
+    '''
+    # Reshape X to fit LSTM input shape (samples, time steps, features)
+    if window_size < 1 or window_step < 0 or window_step >= window_size:
+        from utils import InvalidReshapeParamters
+        raise InvalidReshapeParamters()
+        return
+
+    if window_step > 0:
+        print("NOT IMPLEMENTED YET")
+        return
+    if window_step == 0:
+        window_step = window_size
+
+    all_no_shift_windows = []
+    all_shift_windows = []
+
+    for i in range(len(data_list)):
+        data = data_list[i]
+        not_shifted_windowed_data = []
+        shifted_windowed_data = []
+
+        for window_start in range(0, data.shape[0] - window_size - shift_value, window_step):
+            no_shift_window_end = window_start + window_size
+            no_shift_window = data[window_start:no_shift_window_end]
+
+            shift_window_end = no_shift_window_end + shift_value
+            shift_window = data[no_shift_window_end:shift_window_end]
+
+            not_shifted_windowed_data.append(no_shift_window)
+            shifted_windowed_data.append(shift_window)
+
+        all_no_shift_windows.append(numpy.array(not_shifted_windowed_data))
+        all_shift_windows.append(numpy.array(shifted_windowed_data))
+    return all_no_shift_windows, all_shift_windows
 
 
 def split_data_sequence_into_datasets(arr, train_ratio, val1_ratio, val2_ratio, test_ratio):

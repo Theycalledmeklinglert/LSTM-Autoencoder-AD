@@ -130,7 +130,7 @@ def test_stacked_LSTM(csv_path):
     model = Sequential()
     # todo: Experiment with different number of units in hidden layers
     #model.add(BatchNormalization())
-    model.add(LSTM(X_sN.shape[2], return_sequences=True, input_shape=(time_steps, X_sN.shape[2]), activation='tanh', recurrent_activation='sigmoid'))
+    model.add(LSTM(X_sN.shape[2], return_sequences=False, return_state=True, input_shape=(time_steps, X_sN.shape[2]), activation='tanh', recurrent_activation='sigmoid'))
     model.add(Dropout(0.2))
     #model.add(LSTM(50, return_sequences=True, activation='tanh', recurrent_activation='sigmoid'))
     #model.add(Dropout(0.2))

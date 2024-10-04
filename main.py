@@ -33,6 +33,7 @@ if __name__ == '__main__':
 
     print(tf.__version__)
     print(keras.__version__)
+    print(np.__version__)
 
     #run_auto_arima(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run"], "can_interface-current_steering_angle.csv") # ,"can_interface-wheelspeed.csv")
 
@@ -65,7 +66,7 @@ if __name__ == '__main__':
     #plot_data_standalone(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
     #plot_data_standalone(["./aufnahmen/steering_angle from different runs"], "can_interface-current_steering_angle.csv", sameSensorInOneFolder=True)
 
-    test_lstm_autoencoder(40, 60, 0.0, 32, 100, 0.8, True, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], "can_interface-wheelspeed.csv") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps40_layers_60.keras") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_50.keras") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_40.keras")
+    test_lstm_autoencoder(2, 20, 0.0, 1, 100, 0.8, True, True, ["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], "can_interface-current_steering_angle.csv") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps40_layers_60.keras") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_50.keras") #, "./models/LSTM_autoencoder_decoder_can_interface-wheelspeed_timesteps20_layers_40.keras")
     #test_lstm_autoencoder(40, 80, 0.0, 8, 200, 1.0, True, True, ["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv") #
 
     #plot_point_anomaly()

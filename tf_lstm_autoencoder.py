@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import tensorflow as tf
 import keras
@@ -24,6 +26,8 @@ from data_processing import reshape_data_for_autoencoder_lstm, normalize_data, \
     get_normalized_data_and_labels, get_matching_file_pairs_from_directories
 from utils import autoencoder_predict_and_calculate_error
 
+os.environ["KERAS_BACKEND"] = "tensorflow"
+
 
 @keras.saving.register_keras_serializable(package="MyLayers")
 class LSTMAutoEncoder(tf.keras.Model):
@@ -39,16 +43,24 @@ class LSTMAutoEncoder(tf.keras.Model):
         self.decoder_dense = None
 
         # Encoder
-        self.encoder_lstm = LSTM(layer_dims, activation='relu', return_sequences=True, return_state=True, dropout=dropout)
+        self.encoder_lstm = LSTM(layer_dims, activation='relu', return_sequences=False, return_state=True, dropout=dropout)
         #Decoder
         self.decoder_lstm = LSTM(layer_dims, activation='relu', return_sequences=True, return_state=True, dropout=dropout)
         #linear
-        self.decoder_dense = Dense(input_dim) #, kernel_regularizer=regularizers.L2(0.01))     #todo: the regularizer is EXPERIMENTAL;dont really know if its beneficial here
+        self.decoder_dense = Dense(input_dim, activation=None) #, kernel_regularizer=regularizers.L2(0.01))     #todo: the regularizer is EXPERIMENTAL;dont really know if its beneficial here
 
     def train_step(self, data):
-        print("Iam in train_step")
-        encoder_inputs, decoder_inputs = data[0]
+        #print("Iam in train_step")
+        #print("Shape of data in train_step: ", tf.shape(data))
+        input = data[0]
         target = data[1]
+
+        # tf.print("Shape of input in train_step:", tf.shape(input))
+        # tf.print("Shape of target in train_step:", tf.shape(target))
+        #
+        # # Print the actual content of the tensors
+        # tf.print("Content of input in train_step:", input)
+        # tf.print("Content of target in train_step:", target)
 
         # if encoder_inputs is None:
         #     print("encoder_inputs is None!")
@@ -66,12 +78,17 @@ class LSTMAutoEncoder(tf.keras.Model):
         #     print("target shape:", tf.shape(target))
 
         with tf.GradientTape() as tape:
-            predictions = self.call([encoder_inputs, decoder_inputs], is_training=True)
+            predictions = self.call(input, is_training=True)
+            #tf.print("Shape of predictions in train_step:", tf.shape(predictions))
+            #tf.print("Shape of target in train_step gradTape:", tf.shape(target))
             loss = self.compiled_loss(target, predictions)
+            tf.print("loss in train_step gradTape:", loss)
+            print("loss in train_step gradTape:", loss)
+
             #loss = self.compute_loss(target, predictions)
             #loss += tf.add_n(self.losses)
-            print("does this work?")
-            tf.print("does this work?")
+            #print("does this work?")
+            #tf.print("does this work?")
             if loss is None:
                 print("Loss is None!")
 
@@ -84,11 +101,10 @@ class LSTMAutoEncoder(tf.keras.Model):
 
     def test_step(self, data):
         print("Iam in train_step")
-
-        encoder_inputs, decoder_inputs = data[0]  # Unpacking encoder and decoder inputs
+        input = data[0]
         target = data[1]
 
-        predictions = self.call([encoder_inputs, decoder_inputs], is_training=False)
+        predictions = self.call(input, is_training=False)
         loss = self.compiled_loss(target, predictions, regularization_losses=self.losses)
         self.compiled_metrics.update_state(target, predictions)
 
@@ -97,20 +113,20 @@ class LSTMAutoEncoder(tf.keras.Model):
     def call(self, inputs, is_training=False):
         print("Training argument is " + str(is_training))
 
-        encoder_inputs, decoder_inputs = inputs
-        #encoder_states_empty = True
-        #encoder_states = [None, None]
+        encoder_inputs = inputs
+        decoder_inputs = tf.reverse(inputs, axis=[1])
+
+        #tf.print("Shape of encoder_inputs in call:", tf.shape(inputs))
+        #tf.print("Shape of decoder_inputs in call:", tf.shape(decoder_inputs))
+
         batch_size = tf.shape(encoder_inputs)[0]
         hidden_size = self.encoder_lstm.units
         encoder_states = [tf.zeros((batch_size, hidden_size)), tf.zeros((batch_size, hidden_size))]
-        # for t in range(self.time_steps):
-        #     x = encoder_inputs[:, t:t + 1, :]  # Select one time step
-        #     x, state_h, state_c = self.encoder_lstm(x) #, initial_state=encoder_states)  # todo: REMOVED; EXPERIMENTAL!!!, initial_state=encoder_states)
-        #     encoder_states = [state_h, state_c]
 
-        x, state_h, state_c = self.encoder_lstm(encoder_inputs)
+        #for j in range(tf.shape(inputs)):  #todo: look at this again
+
+        x, state_h, state_c = self.encoder_lstm(encoder_inputs, encoder_states)
         encoder_states = [state_h, state_c]
-
 
         all_outputs = []
         decoder_states = encoder_states
@@ -123,22 +139,31 @@ class LSTMAutoEncoder(tf.keras.Model):
         for t in range(1, self.time_steps):
             # print("iteration: " + str(t))
             dec_output, state_h, state_c = self.decoder_lstm(dec_input, initial_state=decoder_states)
-            decoder_states = [state_h, state_c]                                  # todo: not sure if state_c should be passed
-            #dec_output = tf.expand_dims(self.decoder_dense(state_h), axis=1)
+            #decoder_states = [state_h, state_c]                                  # todo: not sure if state_c should be passed
             #print("please end me")
             #print("state_h: " + str(state_h))
             #print("dec_output: " + str(dec_output))
+
+            #dec_output = tf.expand_dims(self.decoder_dense(state_h), axis=1)
             dec_output = self.decoder_dense(dec_output)
 
-            if is_training:
-                dec_input = decoder_inputs[:, t:t + 1, :]  # Use ground truth as the next input #todo: try here
-            else:
-                dec_input = dec_output
-            all_outputs.append(dec_output)
+            #tf.print("Shape of dec_output at timestep", t, ":", tf.shape(dec_output))
+
+            dec_input = dec_output
+            all_outputs.append(dec_output)  #todo: list of (batch_size, timesteps, features); Only one subsequence for entire batch; wrong for sure
+
+            # if is_training:
+            #     dec_input = decoder_inputs[:, t:t + 1, :]  # Use ground truth as the next input
+            # else:
+            #     dec_input = dec_output
 
         # reverse decoder output since decoder predicts target data in reverse
         all_outputs = all_outputs[::-1]
         dec_output = tf.concat(all_outputs, axis=1)
+
+        #tf.print("Shape of dec_output in call at end:", tf.shape(dec_output))
+        #tf.print("Shape of decoder_inputs in train_step:", tf.shape(decoder_inputs))
+
         return dec_output
 
     def get_config(self):
@@ -164,21 +189,25 @@ class LSTMAutoEncoder(tf.keras.Model):
 
 
 def create_autoencoder(input_dim, time_steps, layer_dims, num_layers, dropout):
-    keras.saving.get_custom_objects().clear()
-    encoder_inputs = Input(shape=(time_steps, input_dim))
-    decoder_inputs = Input(shape=(time_steps, input_dim))
+    #keras.saving.get_custom_objects().clear()
+    #encoder_inputs = Input(shape=(time_steps, input_dim))
+    #decoder_inputs = Input(shape=(time_steps, input_dim))
     autoencoder = LSTMAutoEncoder(input_dim, time_steps, layer_dims, num_layers, dropout)
     # outputs = autoencoder([encoder_inputs, decoder_inputs])
     # model = Model(inputs=[encoder_inputs, decoder_inputs], outputs=outputs)
-    # todo: Added clipnorm=1.0; experimental!!!
-    autoencoder.compile(optimizer=Adam(clipnorm=1.0), loss=CustomL2Loss(), metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy'] ; for prints: ", run_eagerly=True";
+    # todo: try "rmsprop" optimizer
+
+    autoencoder.compile(optimizer=Adam(clipnorm=1.0), loss='mean_squared_error', metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy'] ; for prints: ", clipnorm=1.0 run_eagerly=True";
+    autoencoder.build(input_shape=[(None, time_steps, input_dim), (None, time_steps, input_dim)])
+
+    return autoencoder
+
     #sgd = SGD(learning_rate=0.01, momentum=0.9)
-    #autoencoder.compile(optimizer=sgd, loss='mean_squared_error', metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy']   # todo: CHANGED EXPERIMENTAL
+    #autoencoder.compile(optimizer=sgd, loss='mean_squared_error', metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy']
     #autoencoder.compile(optimizer=Adam(clipnorm=1.0), loss='mean_squared_error', metrics=['mean_squared_error'])  # CustomL2Loss() ; metrics=['accuracy'] ; for prints: ", run_eagerly=True";
     # autoencoder.compile(optimizer=Adam(clipnorm=1.0), loss=CosineSimilarity(axis=-1), metrics=['mean_squared_error'], run_eagerly=True)
     #autoencoder.compile(optimizer=Adam(clipnorm=1.0), loss=CosineSimilarity(axis=-1), metrics=['mean_squared_error'])  # , run_eagerly=True)
 
-    return autoencoder
 
 
 
@@ -207,11 +236,11 @@ class CustomL2Loss(Loss):
 def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, beta, calc_anom_score_flag,
                           remove_timestamps, directories,
                           single_sensor_name=None, model_file_path=None):
-    scaler = MinMaxScaler(feature_range=(0, 1))  # Scales the data to a fixed range, typically [0, 1].
-    # scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
+    #scaler = MinMaxScaler(feature_range=(0, 1))  # Scales the data to a fixed range, typically [0, 1].
+    #scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
     # scaler = MaxAbsScaler()                         #Scales each feature by its maximum absolute value, so that each feature is in the range [0, 1] or [-1, 0] or [-1, 1]
     # scaler = QuantileTransformer(output_distribution='normal')
-    #scaler = None
+    scaler = None
 
     all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
     print("all_file_pairs: " + str(all_file_pairs))
@@ -228,8 +257,7 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, b
 
         print("now reshaping")
 
-        data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps,
-                                                                 0)  #TODO: Consider WINDOW STEP
+        data_with_time_diffs = reshape_data_for_autoencoder_lstm(data_with_time_diffs, time_steps,0)  #TODO: Consider WINDOW STEP
         true_labels_list = reshape_data_for_autoencoder_lstm(true_labels_list, time_steps, 0)
 
         [print("reshaped data shape: \n" + str(data.shape)) for data in data_with_time_diffs]
@@ -266,25 +294,29 @@ def test_lstm_autoencoder(time_steps, layer_dims, dropout, batch_size, epochs, b
             model = create_autoencoder(input_dim, time_steps, layer_dims, layer_dims, dropout)
 
             print("pain: " + str(model.trainable_weights))
+            print("pain2: " + str(model.variables))
 
-            #dummy_input = tf.random.normal([batch_size, time_steps, input_dim])
-            #_ = model(dummy_input)  # This triggers the model to build
+            dummy_input = tf.random.normal([batch_size, time_steps, input_dim])
+            _ = model(dummy_input)  # This triggers the model to build
+
+            print("pain3: " + str(model.trainable_weights))
+            print("pain4: " + str(model.variables))
 
             early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.00001, patience=10,
                                            restore_best_weights=True)
 
-            test = np.expand_dims(X_sN[0, :, :], axis=0)
-            print("test shape: " + str(test.shape))
+            #test = np.expand_dims(X_sN[0, :, :], axis=0)
+            #print("test shape: " + str(test.shape))
 
-            model.fit([test, np.flip(test, axis=1)], test, epochs=1, batch_size=batch_size, validation_data=([test, np.flip(test, axis=1)], test), verbose=1, callbacks=[early_stopping])
+            #model.fit([test, np.flip(test, axis=1)], test, epochs=1, batch_size=batch_size, validation_data=([test, np.flip(test, axis=1)], test), verbose=1, callbacks=[early_stopping])
 
-            print("pain2: " + str(model.trainable_weights))
+            #print("pain2: " + str(model.trainable_weights))
 
 
             model.summary()
             # if X_sN doesnt get flipped in create_autoencoder because tensorflow hates me then I need to add it here!!!
-            model.fit([X_sN, np.flip(X_sN, axis=1)], X_sN, epochs=epochs, batch_size=batch_size,
-                      validation_data=([X_vN1, np.flip(X_vN1, axis=1)], X_vN1), verbose=1, callbacks=[early_stopping])
+            model.fit(X_sN, X_sN, epochs=epochs, batch_size=batch_size, validation_data=(X_vN1, X_vN1), verbose=1, callbacks=[early_stopping], shuffle=False)
+            print("pain5: " + str(model.variables))
 
             model.summary()
 
@@ -348,7 +380,7 @@ def calculate_rec_error_vecs(model, reshaped_input, scaler):
         current_sequence = reshaped_input[i].reshape((1, reshaped_input[i].shape[0], reshaped_input[i].shape[1]))
         # print("shape after reshape: " + str(current_sequence.shape))
 
-        predicted_sequence = model.predict([current_sequence, np.flip(current_sequence, axis=1)], verbose=0)
+        predicted_sequence = model.predict(current_sequence, verbose=0)
 
         current_sequence = reverse_normalization(np.squeeze(current_sequence, axis=0), scaler)
         predicted_sequence = reverse_normalization(np.squeeze(predicted_sequence, axis=0), scaler)

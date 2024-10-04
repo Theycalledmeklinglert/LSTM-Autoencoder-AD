@@ -53,13 +53,12 @@ def run_auto_arima(directories, specific_sensor):
     #scaled = scaler.fit_transform(test_df_1.iloc[:, 0].to_numpy().reshape(-1, 1)).flatten()
     #print("scaled: \n" + str(scaled))
 
-    #diff = np.diff(scaled)
-    data_for_display = test_df_1.iloc[:, 0].to_numpy().reshape(-1, 1)
-    first_order_diffed = np.diff(data_for_display.flatten()).reshape(-1, 1)
-    data_for_fit = data_for_display.flatten()
+    data_for_display = test_df_1.iloc[:, 0].to_numpy()                                                  #.reshape(-1, 1)
+    first_order_diffed = np.diff(data_for_display)                                                      #.flatten())    .reshape(-1, 1)
+    #data_for_fit = data_for_display.flatten()
     tsdisplay(data_for_display, title= "autocross_valid_run", lag_max=200)
     tsdisplay(first_order_diffed, title="first_order_diffed autocross_valid_run", lag_max=10)
-    second_order_diffed = np.diff(first_order_diffed.flatten()).reshape(-1, 1)
+    second_order_diffed = np.diff(first_order_diffed)                                                   #.flatten()).reshape(-1, 1)
     tsdisplay(second_order_diffed, title="2nd order first_order_diffed autocross_valid_run", lag_max=10)
 
     adf_test = ADFTest(alpha=0.05)
@@ -78,16 +77,16 @@ def run_auto_arima(directories, specific_sensor):
     # tsdisplay(y_train_bc, lag_max=100)
 
     #todo: period=2000
-    decomposition = seasonal_decompose(data_for_display.flatten(), model='additive', period=5000)
+    decomposition = seasonal_decompose(data_for_display.flatten(), model='additive', period=3000)
     decomposition.plot()
     plt.show()
+    # decomposition = seasonal_decompose(data_for_display.flatten(), model='multiplicative', period=3000)
+    # decomposition.plot()
+    # plt.show()
 
     # Create a date range at 10ms intervals starting from an arbitrary time (e.g., '2022-01-01 00:00:00')
-    test_df_1.drop(columns=['Time'], inplace=True)
-    timestamps = pd.date_range(start='2022-01-01', periods=num_samples, freq=sampling_interval)
-
-    return
-
+    #test_df_1.drop(columns=['Time'], inplace=True)
+    #timestamps = pd.date_range(start='2022-01-01', periods=num_samples, freq=sampling_interval)
 
 
     scaler = PowerTransformer(method='yeo-johnson')
@@ -97,17 +96,25 @@ def run_auto_arima(directories, specific_sensor):
     # can try maxiter=10 or 20 to increase speed but lose robustness
     # try d=None; data has no autocorrelation at d=1 but autoArima uses other methods than just ADF and ACF and may have a better result
     #TODO: Best model config so far: ARIMA(5,1,2)(0,0,0)[0]     / after longer fit: ARIMA(5,1,1)(0,0,0)[0]
-    with StepwiseContext(max_dur=600):
+    # with StepwiseContext(max_dur=600):
+    #
+    #     fit1 = pm.auto_arima(data_for_fit, m=1, trace=True, suppress_warnings=True, seasonal=True, stepwise=True)
+    # print(fit1.summary())
+    #
+    # with open('arima.pkl', 'wb') as pkl:
+    #     pickle.dump(fit1, pkl)
 
-        fit1 = pm.auto_arima(data_for_fit, m=1, trace=True, suppress_warnings=True, seasonal=True, stepwise=True)
-    print(fit1.summary())
+    manual_order = (5, 1, 2)  # Example: p=2, d=1, q=1
 
-    with open('arima.pkl', 'wb') as pkl:
-        pickle.dump(fit1, pkl)
+    #seasonal_order = (1, 1, 1, 12)
+    model = pm.ARIMA(order=manual_order)                #, seasonal_order=seasonal_order)
+    model.fit(data_for_display)
+    forecasts, conf_int = model.predict(n_periods=data_for_display.size, return_conf_int=True)
+    #forecasts, conf_int = fit1.predict(n_periods=data_for_fit.size, return_conf_int=True)   #Todo: Try plotting confidence intervals over forecast and against true data for AD
 
-    forecasts, conf_int = fit1.predict(n_periods=data_for_fit.size, return_conf_int=True)   # Try plotting confidence intervals over forecast and against true data
+    plot_forecasts(data_for_display, forecasts, "steer angle orig data + forecast")
 
-    plot_forecasts(data_for_fit, forecasts, "Test for wheelspeed")
+    plot_forecasts(first_order_diffed, forecasts, "steer angle diff data + forecast")
 
     #for col in test_df_0.columns:
 
@@ -128,8 +135,6 @@ def run_auto_arima(directories, specific_sensor):
 
 def plot_forecasts(y_train, forecasts, title, figsize=(8, 12)):
     y_test = y_train    #todo: i bullshitted this
-
-
     x = np.arange(y_train.shape[0] + forecasts.shape[0])
 
     fig, axes = plt.subplots(2, 1, sharex=False, figsize=figsize)
@@ -137,7 +142,7 @@ def plot_forecasts(y_train, forecasts, title, figsize=(8, 12)):
     # Plot the forecasts
     axes[0].plot(x[:y_train.shape[0]], y_train, c='b')
     axes[0].plot(x[y_train.shape[0]:], forecasts, c='g')
-    axes[0].set_xlabel(f'Sunspots (RMSE={np.sqrt(mse(y_test, forecasts)):.3f})')
+    #axes[0].set_xlabel(f'y_train (RMSE={np.sqrt(mse(y_test, forecasts)):.3f})')
     axes[0].set_title(title)
 
     # Plot the residuals

@@ -1,6 +1,6 @@
 import torch
 import torch.optim as optim
-from sklearn.preprocessing import MinMaxScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler
 from torch.utils.data import DataLoader
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,8 +10,8 @@ from data_processing import clean_csv, convert_timestamp_to_relative_time_diff, 
 from torch_LSTM_autoenc import LSTMAutoEncoder
 from torch_preprocessing import preprocessing
 from torch_utils import EarlyStopping, ModelManagement, LossCheckpoint, FormulaStudentDataset, \
-    get_data_as_list_of_single_batches_of_subseqs, batched_tensor_to_numpy_and_invert_scaling, plot_time_series
-
+    get_data_as_list_of_single_batches_of_subseqs, batched_tensor_to_numpy_and_invert_scaling, plot_time_series, \
+    get_data_as_shifted_batches_seqs
 
 name_model = 'lstm_model'
 path_model = './models/'
@@ -30,10 +30,10 @@ device = torch.device('cpu')
 
 
 step_window = 0
-size_window = 40
+size_window = 20
 #scaler = MinMaxScaler(feature_range=(0, 1))
 #scaler = MinMaxScaler(feature_range=(0, 1))  # Scales the data to a fixed range, typically [0, 1].
-# scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
+#scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
 # scaler = MaxAbsScaler()                         #Scales each feature by its maximum absolute value, so that each feature is in the range [0, 1] or [-1, 0] or [-1, 1]
 # scaler = QuantileTransformer(output_distribution='normal')
 scaler = None
@@ -51,18 +51,41 @@ scaler = None
 #                                                               "./aufnahmen/csv/anomalous data",
 #                                                               "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], single_sensor_name="can_interface-wheelspeed.csv")
 
-all_data = get_data_as_list_of_single_batches_of_subseqs(size_window, step_window, True, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
+shift_value = size_window
+not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, shift_value=shift_value, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28/short_ts_for_lstm", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41/short_ts_for_lstm", "./aufnahmen/csv/anomalous data/short_ts_for_lstm", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
 
-# ["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
+howMuchIsThis = not_shifted_data_winds[0]
+test = not_shifted_data_winds[0][0]
+test_shifted = shifted_data_winds[0][0]
+test2 = not_shifted_data_winds[0][1]
+test_shifted2 = shifted_data_winds[0][1]
+
 
 batch_size = 16
-train_seq = all_data[0][0]      # because get_data_as_single_batches_of_subseqs return [data_with_time_diffs, true_label_list]
-valid_seq = all_data[0][1]
-anomaly_seq = all_data[0][2]
-x_T_seq = all_data[0][3]
+train_seq = not_shifted_data_winds[0]#[0][0]      # because get_data_as_single_batches_of_subseqs return [data_with_time_diffs, true_label_list]
+train_true_seq = shifted_data_winds[0]
+valid_seq = not_shifted_data_winds[1]#[0][1]
+valid_true_seq = shifted_data_winds[1]
+anomaly_seq = not_shifted_data_winds[2]#[0][2]
+anomaly_true_seq = shifted_data_winds[2]
+x_T_seq = not_shifted_data_winds[3]#[0][3]
+x_T_true_seq = shifted_data_winds[3]
 
-seq_length, size_data, nb_feature = train_seq.data.shape
+print("test _train_seq: ", train_seq[0])
 print('train_seq shape:', train_seq.shape)
+
+seq_length, size_data, nb_feature = train_seq.data[0].shape
+
+
+# all_data = get_data_as_list_of_single_batches_of_subseqs(size_window, step_window, True, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28/short_ts_for_lstm", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41/short_ts_for_lstm", "./aufnahmen/csv/anomalous data/short_ts_for_lstm", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
+# #["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
+# batch_size = 16
+# train_seq = all_data[0][0]      # because get_data_as_single_batches_of_subseqs return [data_with_time_diffs, true_label_list]
+# valid_seq = all_data[0][1]
+# anomaly_seq = all_data[0][2]
+# x_T_seq = all_data[0][3]
+# seq_length, size_data, nb_feature = train_seq.data.shape
+# print('train_seq shape:', train_seq.shape)
 
 train_loader = DataLoader(train_seq, batch_size=batch_size, shuffle=False)      # shuffle needs to be off;
 valid_loader = DataLoader(valid_seq, batch_size=batch_size, shuffle=False)       # shuffle needs to be off;
@@ -73,7 +96,7 @@ test_loader = DataLoader(x_T_seq, batch_size=batch_size, shuffle=False)         
 #         build model              #
 # ----------------------------------#
 
-model = LSTMAutoEncoder(num_layers=1, hidden_size=50, nb_feature=nb_feature, device=device)
+model = LSTMAutoEncoder(num_layers=1, hidden_size=100, nb_feature=nb_feature, dropout=0.6, device=device)
 model = model.to(device)
 # optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -91,14 +114,18 @@ def train(epoch):
     model.train()
     train_loss = 0
     model.is_training = True
-    for id_batch, data in enumerate(train_loader):  #for i, sample in enumerate(X_sN):
+
+    #for (id_batch, train_data), (_, y_true_data) in zip(enumerate(train_loader), enumerate(y_true_loader)):
+    for id_batch, data in enumerate(train_loader):
         # print("data: " + str(data))
         # print("data_shape: " + str(data.shape))
 
         optimizer.zero_grad()
         # forward
-        data = data.to(device).float()
+        data = data.to(device).float()  #todo: maybe a for loop to iterator over each example in batch here?
         output = model.forward(data)
+        output = torch.flip(output, dims=[1])   #todo: ?
+
         loss = criterion(data, output.to(device))
         # backward
         loss.backward()
@@ -176,22 +203,19 @@ if __name__ == '__main__':
     # print(transformed_ts.shape)
     # print(str(transformed_ts[0]))
 
-    for epoch in range(1, 2):
+    for epoch in range(1, 100):
         train(epoch)
         if evaluate(valid_loader, validation=True, epoch=epoch):
             break
         # Lr on plateau
-        if earlyStopping.patience_count == 5:
+        if earlyStopping.patience_count == 20:
             print('lr on plateau ', optimizer.param_groups[0]['lr'], ' -> ', optimizer.param_groups[0]['lr'] / 10)
             optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / 10
     predictions = predict(train_loader, train_seq) #, model)
     print('shape of predictions: ', predictions.shape)
     print('predictions: \n' + str(predictions))
 
-    #predictions_numpy = predictions.reshape(-1, predictions.shape[-1]).cpu().numpy()
-    #predictions_original_scale = scaler.inverse_transform(predictions_numpy)
     input_data_numpy = train_seq
-    #input_data_numpy = reverse_normalization(input_data_numpy, scaler)
     input_data_numpy = batched_tensor_to_numpy_and_invert_scaling(input_data_numpy, scaler)
     print('numpy shape of input: ', input_data_numpy.shape)
     print('Original scaled tensor input: \n', train_seq)
