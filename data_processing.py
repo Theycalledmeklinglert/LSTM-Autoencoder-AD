@@ -304,7 +304,7 @@ def clean_csv(file_path, remove_timestamps=False, nrows=None):
         print("Intentionally did not process: " + str(file_path))
         return
 
-    df = pd.read_csv(file_path, nrows=nrows, ) #, header=None)
+    df = pd.read_csv(file_path, nrows=nrows) #, header=None)
 
     columns_to_remove = ['header.stamp.secs', 'header.stamp.nsecs', 'header.frame_id', 'child_frame_id',
                          'twist.covariance',

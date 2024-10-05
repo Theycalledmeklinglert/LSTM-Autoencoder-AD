@@ -30,13 +30,13 @@ device = torch.device('cpu')
 
 
 step_window = 0
-size_window = 20
+size_window = 300
 #scaler = MinMaxScaler(feature_range=(0, 1))
 #scaler = MinMaxScaler(feature_range=(0, 1))  # Scales the data to a fixed range, typically [0, 1].
-#scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
+scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
 # scaler = MaxAbsScaler()                         #Scales each feature by its maximum absolute value, so that each feature is in the range [0, 1] or [-1, 0] or [-1, 1]
 # scaler = QuantileTransformer(output_distribution='normal')
-scaler = None
+#scaler = None
 
 #todo:
 # try increase batch_size; increase window step; adding timestamp; try shuffling ;scaling; try changing hidden size;
@@ -51,8 +51,8 @@ scaler = None
 #                                                               "./aufnahmen/csv/anomalous data",
 #                                                               "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], single_sensor_name="can_interface-wheelspeed.csv")
 
-shift_value = size_window
-not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, shift_value=shift_value, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28/short_ts_for_lstm", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41/short_ts_for_lstm", "./aufnahmen/csv/anomalous data/short_ts_for_lstm", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
+shift_value = size_window       #todo: could try modifying ratio of size window/shift value and stuff
+not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, shift_value=shift_value, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
 
 howMuchIsThis = not_shifted_data_winds[0]
 test = not_shifted_data_winds[0][0]
@@ -74,8 +74,8 @@ x_T_true_seq = shifted_data_winds[3]
 print("test _train_seq: ", train_seq[0])
 print('train_seq shape:', train_seq.shape)
 
-seq_length, size_data, nb_feature = train_seq.data[0].shape
-
+#seq_length, size_data, nb_feature = train_seq.data[0].shape
+size_data, nb_feature = not_shifted_data_winds[0][0].shape
 
 # all_data = get_data_as_list_of_single_batches_of_subseqs(size_window, step_window, True, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28/short_ts_for_lstm", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41/short_ts_for_lstm", "./aufnahmen/csv/anomalous data/short_ts_for_lstm", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
 # #["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], "can_interface-current_steering_angle.csv")
@@ -88,22 +88,26 @@ seq_length, size_data, nb_feature = train_seq.data[0].shape
 # print('train_seq shape:', train_seq.shape)
 
 train_loader = DataLoader(train_seq, batch_size=batch_size, shuffle=False)      # shuffle needs to be off;
+true_train_loader = DataLoader(train_true_seq, batch_size=batch_size, shuffle=False)
 valid_loader = DataLoader(valid_seq, batch_size=batch_size, shuffle=False)       # shuffle needs to be off;
+true_valid_loader = DataLoader(valid_true_seq, batch_size=batch_size, shuffle=False)
 anomaly_loader = DataLoader(anomaly_seq, batch_size=batch_size, shuffle=False)  # shuffle needs to be off;
+true_anomaly_loader = DataLoader(anomaly_true_seq, batch_size=batch_size, shuffle=False)
 test_loader = DataLoader(x_T_seq, batch_size=batch_size, shuffle=False)         # shuffle needs to be off;
+true_test_loader = DataLoader(x_T_true_seq, batch_size=batch_size, shuffle=False)
 
 # ----------------------------------#
 #         build model              #
 # ----------------------------------#
 
-model = LSTMAutoEncoder(num_layers=1, hidden_size=100, nb_feature=nb_feature, dropout=0.6, device=device)
+model = LSTMAutoEncoder(num_layers=1, hidden_size=100, nb_feature=nb_feature, dropout=0.4, device=device)
 model = model.to(device)
 # optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 # loss
 criterion = torch.nn.MSELoss()
 # Callbacks
-earlyStopping = EarlyStopping(patience=5)
+earlyStopping = EarlyStopping(patience=20)
 model_management = ModelManagement(path_model, name_model)
 # Plot
 loss_checkpoint_train = LossCheckpoint()
@@ -115,18 +119,20 @@ def train(epoch):
     train_loss = 0
     model.is_training = True
 
-    #for (id_batch, train_data), (_, y_true_data) in zip(enumerate(train_loader), enumerate(y_true_loader)):
-    for id_batch, data in enumerate(train_loader):
+    #for id_batch, data in enumerate(train_loader):
+    for (id_batch, train_data), (_, y_true_data) in zip(enumerate(train_loader), enumerate(true_train_loader)):
         # print("data: " + str(data))
         # print("data_shape: " + str(data.shape))
 
         optimizer.zero_grad()
         # forward
-        data = data.to(device).float()  #todo: maybe a for loop to iterator over each example in batch here?
-        output = model.forward(data)
+        train_data = train_data.to(device).float()  #todo: maybe a for loop to iterator over each example in batch here?
+        output = model.forward(train_data)
         output = torch.flip(output, dims=[1])   #todo: ?
 
-        loss = criterion(data, output.to(device))
+        #loss = criterion(data, output.to(device))
+        loss = criterion(output.to(device), y_true_data.to(device).float())
+
         # backward
         loss.backward()
         train_loss += loss.item()
@@ -144,14 +150,19 @@ def train(epoch):
     model.is_training = False
 
 
-def evaluate(loader, validation=False, epoch=0):
+def evaluate(loader, true_loader, validation=False, epoch=0):
     model.eval()
     eval_loss = 0
     with torch.no_grad():
-        for id_batch, data in enumerate(loader):
-            data = data.to(device).float()
-            output = model.forward(data)
-            loss = criterion(data, output.to(device))
+
+        #for id_batch, data in enumerate(loader):
+        for (id_batch, input_data), (_, true_data) in zip(enumerate(loader), enumerate(true_loader)):
+            input_data = input_data.to(device).float()
+            output = model.forward(input_data)
+
+            output = torch.flip(output, dims=[1])   #todo: ?
+
+            loss = criterion(output.to(device), true_data.to(device).float())
             eval_loss += loss.item()
         print('\r', 'Eval [{}/{} ({:.0f}%)] \tLoss: {:.6f})]'.format(
             id_batch + 1, len(loader),
@@ -166,12 +177,14 @@ def evaluate(loader, validation=False, epoch=0):
         return earlyStopping.check_training(avg_loss)
 
 
-def predict(loader, input_data):    #, model)
+def predict(loader, true_loader, input_data):    #, model)
     eval_loss = 0
     model.eval()
     predictions = torch.zeros(size=input_data.shape, dtype=torch.float)
     with torch.no_grad():
-        for id_batch, data in enumerate(loader):
+        #for id_batch, data in enumerate(loader):
+        for (id_batch, data), (_, true_data) in zip(enumerate(loader), enumerate(true_loader)):
+
             data = data.to(device).float()
             output = model.forward(data)
 
@@ -184,11 +197,11 @@ def predict(loader, input_data):    #, model)
             # print('data shape: ', data.shape)
 
             #todo: I THINK(!) i need to reverse the sequence here. This NEEDS to be tested!!
-            output = torch.flip(output, dims=[1])
+            output = torch.flip(output, dims=[1])       #todo: ?
 
             #predictions[id_batch * data.shape[0]:(id_batch + 1) * data.shape[0], :, :] = output.reshape(data.shape[0], seq_length, -1)
             predictions[id_batch * data.shape[0]:(id_batch + 1) * data.shape[0], :, :] = output
-            loss = criterion(data, output.to(device))
+            loss = criterion(output.to(device), true_data.to(device).float())
             eval_loss += loss.item()
 
     avg_loss = eval_loss / len(loader)
@@ -205,29 +218,52 @@ if __name__ == '__main__':
 
     for epoch in range(1, 100):
         train(epoch)
-        if evaluate(valid_loader, validation=True, epoch=epoch):
+        if evaluate(valid_loader, true_valid_loader, validation=True, epoch=epoch):
             break
         # Lr on plateau
         if earlyStopping.patience_count == 20:
             print('lr on plateau ', optimizer.param_groups[0]['lr'], ' -> ', optimizer.param_groups[0]['lr'] / 10)
             optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / 10
-    predictions = predict(train_loader, train_seq) #, model)
-    print('shape of predictions: ', predictions.shape)
-    print('predictions: \n' + str(predictions))
+    predictions_train = predict(train_loader, true_train_loader, train_seq) #, model)
+    print('shape of predictions: ', predictions_train.shape)
+    print('predictions: \n' + str(predictions_train))
 
-    input_data_numpy = train_seq
-    input_data_numpy = batched_tensor_to_numpy_and_invert_scaling(input_data_numpy, scaler)
-    print('numpy shape of input: ', input_data_numpy.shape)
+    train_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(train_seq, scaler)
+    print('numpy shape of input: ', train_seq_numpy.shape)
     print('Original scaled tensor input: \n', train_seq)
-    print('Reverse scaled numpy input: \n' + str(input_data_numpy))
+    print('Reverse scaled numpy input: \n' + str(train_seq_numpy))
 
-    predictions_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions, scaler)
-    print('numpy shape of predictions: ', predictions_numpy.shape)
-    print('Reverse scaled numpy predictions: \n' + str(predictions_numpy))
+    predictions_train_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_train, scaler)
+    print('numpy shape of predictions: ', predictions_train_numpy.shape)
+    print('Reverse scaled numpy predictions: \n' + str(predictions_train_numpy))
 
-    plot_time_series(predictions_numpy, "X_sN")
+    plot_time_series(predictions_train_numpy, "Predicted time Series for: X_sN")
 
-    predictions_anom = predict(anomaly_loader, anomaly_seq) #, model)
+    predictions_anom = predict(anomaly_loader, true_anomaly_loader, anomaly_seq) #, model)
     predictions_anom_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_anom, scaler)
-    plot_time_series(predictions_anom_numpy, "X_vNA")
+    plot_time_series(predictions_anom_numpy, "Predicted time Series for: X_vNA")
 
+    predictions_val = predict(valid_loader, true_valid_loader, valid_seq)  # , model)
+    predictions_val_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_val, scaler)
+    plot_time_series(predictions_val_numpy, "Predicted time Series for: X_vN")
+
+    print('Original shape of predictions before reshape: ', predictions_anom.shape)
+    print('numpy shape of predictions after reshape: ', predictions_anom_numpy.shape)
+    print('Original scaled tensor input: \n', anomaly_seq.shape)
+
+
+    anomaly_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(anomaly_true_seq, scaler)         #anomaly_seq
+    error_vecs_anom = np.absolute(np.subtract(predictions_anom_numpy, anomaly_seq_numpy))
+    plot_time_series(error_vecs_anom, "Pred Error X_vNA")
+
+    valid_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(valid_true_seq, scaler)             #valid_seq
+    predictions_val_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_val, scaler)
+    error_vecs_val = np.absolute(np.subtract(predictions_val_numpy, valid_seq_numpy))
+    plot_time_series(error_vecs_val, "Pred Error X_vN")
+
+    train_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(train_true_seq, scaler)             #train_seq
+    error_vecs_train = np.absolute(np.subtract(predictions_train_numpy, train_seq_numpy))
+    plot_time_series(error_vecs_train, "Pred Error X_sN")
+
+
+    #TODO: Probably need to compare them to the shifted values!

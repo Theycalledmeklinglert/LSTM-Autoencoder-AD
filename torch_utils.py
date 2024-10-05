@@ -194,7 +194,7 @@ def plot_time_series(data, title):
     for i in range(num_features):
         plt.plot(time_axis, data[:, i], label=f'Feature {i + 1}')
 
-    plt.title("Predicted time Series for: " + title)
+    plt.title(title)
     plt.xlabel("Time")
     plt.ylabel("Feature Value")
     plt.legend()

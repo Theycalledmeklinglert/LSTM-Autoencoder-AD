@@ -65,6 +65,7 @@ class Encoder(nn.Module):
 
         self.lstm = nn.LSTM(input_size=nb_feature, hidden_size=hidden_size,
                             num_layers=num_layers, batch_first=True, dropout=dropout, bias=True)
+        self.initialize_hidden = True
 
     def initHidden(self, batch_size):
          self.hidden_cell = (
@@ -73,11 +74,11 @@ class Encoder(nn.Module):
          )
 
     def forward(self, input_seq):
-        self.initHidden(input_seq.shape[0]) #todo: i think this is indeed correct
-        # if self.bruh:
-        #     self.initHidden(input_seq.shape[0])
-        #     #self.bruh = False
+        # if self.initialize_hidden:
+        #     self.initHidden(input_seq.shape[0]) #todo: i think this is indeed correct
+        #     self.initialize_hidden = False
 
+        self.initHidden(input_seq.shape[0])
         _, self.hidden_cell = self.lstm(input_seq, self.hidden_cell)   # , self.hidden_cell)
         return self.hidden_cell
 
