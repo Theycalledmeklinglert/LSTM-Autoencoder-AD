@@ -11,7 +11,8 @@ from torch_LSTM_autoenc import LSTMAutoEncoder
 from torch_preprocessing import preprocessing
 from torch_utils import EarlyStopping, ModelManagement, LossCheckpoint, FormulaStudentDataset, \
     get_data_as_list_of_single_batches_of_subseqs, batched_tensor_to_numpy_and_invert_scaling, plot_time_series, \
-    get_data_as_shifted_batches_seqs
+    get_data_as_shifted_batches_seqs, calculate_mle_mu_sigma, compute_anomaly_score, find_optimal_threshold, \
+    plot_data_over_threshold
 
 name_model = 'lstm_model'
 path_model = './models/'
@@ -25,8 +26,9 @@ device = torch.device('cpu')
 # "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"],
 # single_sensor_name="can_interface-wheelspeed.csv")
 
-#todo: probieren mehr Units zu nehmen
-#todo: probieren einfacheres periodische Sequenz zu nehmen
+#todo:
+# steering angle: step_window = 0;size_window = 300;batch_size = 16;hidden_size=100;scaler = StandardScaler();dropout = 0.4 (auch wenn das nichts macht glaube ich)
+
 
 
 step_window = 0
@@ -52,7 +54,10 @@ scaler = StandardScaler()                      #Scales the data to have a mean o
 #                                                               "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], single_sensor_name="can_interface-wheelspeed.csv")
 
 shift_value = size_window       #todo: could try modifying ratio of size window/shift value and stuff
-not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, shift_value=shift_value, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
+#not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, shift_value=shift_value, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
+
+not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, shift_value=shift_value, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], single_sensor_name="can_interface-wheelspeed.csv")
+
 
 howMuchIsThis = not_shifted_data_winds[0]
 test = not_shifted_data_winds[0][0]
@@ -60,16 +65,30 @@ test_shifted = shifted_data_winds[0][0]
 test2 = not_shifted_data_winds[0][1]
 test_shifted2 = shifted_data_winds[0][1]
 
+test_shifted_true_labels = shifted_true_winds[0][0]
+test_not_shifted_true_labels = not_shifted_true_winds[0][0]
+
 
 batch_size = 16
 train_seq = not_shifted_data_winds[0]#[0][0]      # because get_data_as_single_batches_of_subseqs return [data_with_time_diffs, true_label_list]
+train_seq_true_labels = not_shifted_true_winds[0]
 train_true_seq = shifted_data_winds[0]
+train_true_seq_true_labels = shifted_true_winds[0]
+
 valid_seq = not_shifted_data_winds[1]#[0][1]
+valid_seq_true_labels = not_shifted_true_winds[1]
 valid_true_seq = shifted_data_winds[1]
+valid_true_seq_true_labels = shifted_true_winds[1]
+
 anomaly_seq = not_shifted_data_winds[2]#[0][2]
+anomaly_seq_true_labels = not_shifted_true_winds[2]
 anomaly_true_seq = shifted_data_winds[2]
+anomaly_true_seq_true_labels = shifted_true_winds[2]
+
 x_T_seq = not_shifted_data_winds[3]#[0][3]
+x_T_seq_true_labels = not_shifted_true_winds[3]
 x_T_true_seq = shifted_data_winds[3]
+x_T_true_seq_true_labels = shifted_true_winds[3]
 
 print("test _train_seq: ", train_seq[0])
 print('train_seq shape:', train_seq.shape)
@@ -126,7 +145,7 @@ def train(epoch):
 
         optimizer.zero_grad()
         # forward
-        train_data = train_data.to(device).float()  #todo: maybe a for loop to iterator over each example in batch here?
+        train_data = train_data.to(device).float()
         output = model.forward(train_data)
         output = torch.flip(output, dims=[1])   #todo: ?
 
@@ -252,18 +271,37 @@ if __name__ == '__main__':
     print('Original scaled tensor input: \n', anomaly_seq.shape)
 
 
-    anomaly_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(anomaly_true_seq, scaler)         #anomaly_seq
-    error_vecs_anom = np.absolute(np.subtract(predictions_anom_numpy, anomaly_seq_numpy))
+    anomaly_true_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(anomaly_true_seq, scaler)         #anomaly_seq
+    error_vecs_anom = np.absolute(np.subtract(predictions_anom_numpy, anomaly_true_seq_numpy))
     plot_time_series(error_vecs_anom, "Pred Error X_vNA")
 
-    valid_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(valid_true_seq, scaler)             #valid_seq
+    valid_true_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(valid_true_seq, scaler)             #valid_seq
     predictions_val_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_val, scaler)
-    error_vecs_val = np.absolute(np.subtract(predictions_val_numpy, valid_seq_numpy))
+    error_vecs_val = np.absolute(np.subtract(predictions_val_numpy, valid_true_seq_numpy))
     plot_time_series(error_vecs_val, "Pred Error X_vN")
 
-    train_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(train_true_seq, scaler)             #train_seq
-    error_vecs_train = np.absolute(np.subtract(predictions_train_numpy, train_seq_numpy))
+    train_true_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(train_true_seq, scaler)             #train_seq
+    error_vecs_train = np.absolute(np.subtract(predictions_train_numpy, train_true_seq_numpy))
     plot_time_series(error_vecs_train, "Pred Error X_sN")
 
+    mu, sigma = calculate_mle_mu_sigma(error_vecs_val)
+    anom_anomaly_scores = compute_anomaly_score(error_vecs_anom, mu, sigma)
 
-    #TODO: Probably need to compare them to the shifted values!
+
+    #TODO: I'm not completely sure if should take the shifted or the unshifted true values?
+    # Am I scaling the fking true labels by accident?
+
+    anomaly_true_seq_true_labels_numpy = batched_tensor_to_numpy_and_invert_scaling(anomaly_true_seq_true_labels, scaler)
+    print('true labels numpy: ', anomaly_true_seq_true_labels_numpy)
+    print('anom_anomaly_scores: ', anom_anomaly_scores)
+
+
+    best_anomaly_threshold, best_fbeta = find_optimal_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, 0.9)
+    print("Best anomaly threshold: " + str(best_anomaly_threshold))
+
+    #X_tN_anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
+    X_vN_anomaly_scores = compute_anomaly_score(error_vecs_val, mu, sigma)
+
+    plot_data_over_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vNA")
+
+    model_management.save_best_model()

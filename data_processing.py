@@ -31,12 +31,13 @@ def get_normalized_data_and_labels(file_pair, scaler, factor, remove_timestamps)
 
         print("here: " + str(data.shape))
 
-        plot_data_integrated(data, single_file, not remove_timestamps)
+        plot_data_integrated(data, "Unscaled" + single_file, not remove_timestamps)
         print("unnormalized_data_with_time_diffs: \n" + str(data))
         normalized_data = normalize_data(data, scaler)
+        #plot_data_integrated(normalized_data, "Scaled" + single_file, not remove_timestamps)
         print("normalized_data_with_time_diffs: \n" + str(normalized_data))
         data_with_time_diffs.append(normalized_data)
-        print("Anoamaly labels: \n" + str(true_labels))
+        print("Anomaly labels: \n" + str(true_labels))
         true_labels_list.append(true_labels)
     return data_with_time_diffs, true_labels_list
 

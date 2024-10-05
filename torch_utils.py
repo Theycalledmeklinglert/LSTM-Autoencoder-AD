@@ -1,6 +1,8 @@
 import torch
 import matplotlib.pyplot as plt
 import pandas as pd
+from matplotlib.lines import Line2D
+from sklearn.metrics import precision_recall_curve
 from torch.utils.data import Dataset
 import numpy as np
 
@@ -200,3 +202,163 @@ def plot_time_series(data, title):
     plt.legend()
     plt.grid(True)
     plt.show()
+
+
+def calculate_mle_mu_sigma(error_vecs):
+    mu = np.mean(error_vecs, axis=0)
+    sigma = None
+    if error_vecs.shape[1] == 1:
+        sigma = np.var(error_vecs)  # variance for 1D vectors
+    else:
+        sigma = np.cov(error_vecs, rowvar=False)  # Covariance matrix for mD vectors
+
+    return mu, sigma
+
+
+def compute_anomaly_score(error_vecs, mu, sigma):
+    print("error_vecs shape: " + str(error_vecs.shape))
+    scores_of_seq = None
+
+    if error_vecs.shape[1] == 1:
+        # scores_of_window.append(np.square(data_point - mu) / sigma) #z_score for univariate data -->doesnt work
+        scores_of_seq = np.sqrt(np.square(np.subtract(error_vecs, mu)))     #todo: this might need improvement
+    else:
+        # Mahalanobis distance for multivariate data
+        inv_cov_matr = np.linalg.inv(sigma)
+        diff = error_vecs - mu
+        #score = np.dot(np.dot(diff, inv_cov_matr), diff.T) #todo: old one for data point one
+        # print("score manually: " + str(score))
+        # score = mahalanobis(data_point, mu, inv_cov_matr)
+        scores_of_seq = np.einsum('ij,jk,ik->i', diff, inv_cov_matr, diff)
+
+    return scores_of_seq
+
+
+def find_optimal_threshold(anomaly_scores, true_labels, beta):
+    anomaly_scores = anomaly_scores.flatten()
+    true_labels = np.squeeze(true_labels).flatten()
+
+    print("anomaly_scores shape: " + str(anomaly_scores.shape))
+    print("true_labels shape: " + str(true_labels.shape))
+
+    true_labels = np.where(true_labels > 0.5, 1, 0)
+
+    precision, recall, thresholds = precision_recall_curve(y_true=true_labels, y_score=anomaly_scores)
+    fbeta_scores = (1 + beta ** 2) * (precision * recall) / ((beta ** 2) * precision + recall)
+    fbeta_scores = np.nan_to_num(fbeta_scores, nan=-np.inf, posinf=-np.inf)
+
+    print("fbeta scores: \n" + str(fbeta_scores))
+    print("best fbeta: " + str(np.max(fbeta_scores)))
+    best_index = np.argmax(fbeta_scores)
+    if best_index >= len(thresholds):
+        best_index = len(thresholds) - 1
+
+    print("Thresholds: " + str(thresholds))
+    print("Best threshold: " + str(thresholds[best_index]))
+    print(str(thresholds))
+    best_threshold = thresholds[best_index]
+    best_fbeta = fbeta_scores[best_index]
+
+    plt.figure()
+    plt.plot(thresholds, precision[:-1], 'b-', label='Precision')
+    plt.plot(thresholds, recall[:-1], 'g-', label='Recall')
+    plt.xlabel('Threshold')
+    plt.ylabel('Precision/Recall')
+    plt.legend(loc='best')
+    plt.title('Precision-Recall Curve')
+    plt.show()
+
+    return best_threshold, best_fbeta
+
+
+def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name):
+    """
+    Plots the data points under the threshold as blue dots, the ones over the threshold as red crosses,
+    and the threshold itself as a red dotted line.
+
+    Parameters:
+    - anomaly_scores: 1D numpy array (scores) of anomaly scores
+    - true_labels: 1D numpy array (labels) of true labels (1 for anomaly, 0 for normal)
+    - threshold: A scalar value representing the threshold
+    - file_name: Name of the file to save the plot
+    """
+
+    #true_labels = np.squeeze(true_labels).flatten()
+    #anomaly_scores = anomaly_scores.flatten()
+
+    if anomaly_scores.shape != true_labels.shape:
+        print("Anomaly scores shape is not equal to true labels shape")
+        return
+
+    # window_anomaly_scores = []
+    # window_labels = []
+    #
+    # for i in range(0, len(anomaly_scores), time_steps):
+    #     window_scores = anomaly_scores[i:i + time_steps]
+    #     window_labels_slice = true_labels[i:i + time_steps]
+    #
+    #     if np.any(window_labels_slice == 1):
+    #         # window_anomaly_scores.append(np.max(window_scores))
+    #         # if np.mean(window_scores > threshold) > 0.4:
+    #         #    window_anomaly_scores.append(np.max(window_scores))
+    #         # else:
+    #         #    window_anomaly_scores.append(np.mean(window_scores))
+    #         window_anomaly_scores.append(np.max(window_scores))
+    #         window_labels.append(1)
+    #     else:
+    #         # Check if more than 30% of the anomaly scores in window are higher than threshold
+    #         # if np.mean(window_scores > threshold) > 0.4:
+    #         #     window_anomaly_scores.append(np.max(window_scores))
+    #         # else:
+    #         #     window_anomaly_scores.append(np.mean(window_scores))
+    #         if np.any(window_scores > threshold):
+    #             window_anomaly_scores.append(np.max(window_scores))
+    #         else:
+    #             window_anomaly_scores.append(np.mean(window_scores))
+    #         window_labels.append(0)
+
+    for k in range(2):
+        plt.figure(figsize=(12, 6))
+
+        for idx, (score, label) in enumerate(zip(anomaly_scores, true_labels)):
+            if label == 1:  # True anomaly (window)
+                if score >= threshold:
+                    color = 'red'  # Anomalous window above threshold
+                else:
+                    color = 'yellow'  # Anomalous window below threshold
+                marker = 'x'
+            else:  # Normal window
+                if score >= threshold:
+                    color = 'purple'  # Normal window above threshold
+                else:
+                    color = 'blue'  # Normal window below threshold
+                marker = 'o'
+
+            plt.scatter(idx, score, color=color, marker=marker, s=20, label='Anomaly' if label == 1 else 'Normal')
+
+        if k == 0:
+            plt.ylim(0, threshold * 1.1)
+        else:
+            plt.ylim(0, max(anomaly_scores) * 1.1)
+
+        legend_elements = [
+            Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
+            Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
+        ]
+
+        plt.axhline(y=threshold, color='red', linestyle='--', label='Anomaly Threshold', linewidth=2)
+
+        plt.text(-0.05 * len(anomaly_scores), threshold, f'{threshold}', va='center', ha='right', color='red',
+                 fontsize=12, fontweight='bold')
+
+        plt.legend(handles=legend_elements, loc='upper left')
+        plt.title('Anomaly Scores with True Labels of ' + file_name)
+        plt.xlabel('Window Index')
+        plt.ylabel('Anomaly Score')
+
+        plt.savefig(file_name + str(k) + '.png')
+        plt.show()
+
+    print("Number of windows above threshold: " + str(np.sum(np.array(anomaly_scores) > threshold)))
+    print("Number of windows below threshold: " + str(np.sum(np.array(anomaly_scores) <= threshold)))
+
