@@ -136,7 +136,7 @@ def get_data_as_list_of_single_batches_of_subseqs(time_steps, window_step, remov
         return [data_with_time_diffs, true_labels_list]
 
 
-def get_data_as_shifted_batches_seqs(time_steps, remove_timestamps, shift_value, window_step=0, scaler=None, directories=None, single_sensor_name=None):
+def get_data_as_shifted_batches_seqs(time_steps, remove_timestamps, window_step=0, scaler=None, directories=None, single_sensor_name=None):
     all_file_pairs = get_matching_file_pairs_from_directories(directories, single_sensor_name)
     print("all_file_pairs: " + str(all_file_pairs))
     for file_pair in all_file_pairs:
@@ -148,8 +148,8 @@ def get_data_as_shifted_batches_seqs(time_steps, remove_timestamps, shift_value,
             continue
 
         print("now reshaping and shifting")
-        no_shift_data_with_time_diffs, shift_data_with_time_diffs = get_noShift_andShift_data_windows_for_lstm(data_with_time_diffs, time_steps, window_step, shift_value)
-        no_shift_true_labels_list, shift_true_labels_list = get_noShift_andShift_data_windows_for_lstm(true_labels_list, time_steps, window_step, shift_value)
+        no_shift_data_with_time_diffs, shift_data_with_time_diffs = get_noShift_andShift_data_windows_for_lstm(data_with_time_diffs, time_steps, window_step)
+        no_shift_true_labels_list, shift_true_labels_list = get_noShift_andShift_data_windows_for_lstm(true_labels_list, time_steps, window_step)
         [print("reshaped and shifted data shape: \n" + str(data.shape)) for data in data_with_time_diffs]
         print("reshaped and shifted true label list shape: \n" + str(true_labels_list[2].shape))
 
@@ -241,7 +241,7 @@ def find_optimal_threshold(anomaly_scores, true_labels, beta):
     print("anomaly_scores shape: " + str(anomaly_scores.shape))
     print("true_labels shape: " + str(true_labels.shape))
 
-    true_labels = np.where(true_labels > 0.5, 1, 0)
+    #true_labels = np.where(true_labels > 0.5, 1, 0)
 
     precision, recall, thresholds = precision_recall_curve(y_true=true_labels, y_score=anomaly_scores)
     fbeta_scores = (1 + beta ** 2) * (precision * recall) / ((beta ** 2) * precision + recall)
@@ -271,20 +271,22 @@ def find_optimal_threshold(anomaly_scores, true_labels, beta):
     return best_threshold, best_fbeta
 
 
-def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name):
+def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name, time_steps):
     """
     Plots the data points under the threshold as blue dots, the ones over the threshold as red crosses,
     and the threshold itself as a red dotted line.
 
     Parameters:
-    - anomaly_scores: 1D numpy array (scores) of anomaly scores
-    - true_labels: 1D numpy array (labels) of true labels (1 for anomaly, 0 for normal)
+    - anomaly_scores: 2D numpy array (sequences x time steps) of anomaly scores
+    - true_labels: 3D numpy array (sequences x time steps x 1) of true labels (1 for anomaly, 0 for normal)
     - threshold: A scalar value representing the threshold
     - file_name: Name of the file to save the plot
     """
 
-    #true_labels = np.squeeze(true_labels).flatten()
-    #anomaly_scores = anomaly_scores.flatten()
+    true_labels = np.squeeze(true_labels).flatten()
+    anomaly_scores = anomaly_scores.flatten()
+
+    print('true labels in plot_data_over_threshold: \n', true_labels)
 
     if anomaly_scores.shape != true_labels.shape:
         print("Anomaly scores shape is not equal to true labels shape")
@@ -320,21 +322,46 @@ def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name):
     for k in range(2):
         plt.figure(figsize=(12, 6))
 
-        for idx, (score, label) in enumerate(zip(anomaly_scores, true_labels)):
-            if label == 1:  # True anomaly (window)
-                if score >= threshold:
-                    color = 'red'  # Anomalous window above threshold
-                else:
-                    color = 'yellow'  # Anomalous window below threshold
-                marker = 'x'
-            else:  # Normal window
-                if score >= threshold:
-                    color = 'purple'  # Normal window above threshold
-                else:
-                    color = 'blue'  # Normal window below threshold
-                marker = 'o'
+        # for idx, (score, label) in enumerate(zip(window_anomaly_scores, window_labels)):
+        #     if label == 1:  # True anomaly (window)
+        #         if score >= threshold:
+        #             color = 'red'  # Anomalous window above threshold
+        #         else:
+        #             color = 'yellow'  # Anomalous window below threshold
+        #         marker = 'x'
+        #     else:  # Normal window
+        #         if score >= threshold:
+        #             color = 'purple'  # Normal window above threshold
+        #         else:
+        #             color = 'blue'  # Normal window below threshold
+        #         marker = 'o'
+        #
+        #     plt.scatter(idx, score, color=color, marker=marker, s=20, label='Anomaly' if label == 1 else 'Normal')
 
-            plt.scatter(idx, score, color=color, marker=marker, s=20, label='Anomaly' if label == 1 else 'Normal')
+        anomalous_above = {'x': [], 'y': []}
+        anomalous_below = {'x': [], 'y': []}
+        normal_above = {'x': [], 'y': []}
+        normal_below = {'x': [], 'y': []}
+        for idx, (score, label) in enumerate(zip(anomaly_scores, true_labels)):
+            if label == 1:  # True anomaly
+                if score >= threshold:
+                    anomalous_above['x'].append(idx)
+                    anomalous_above['y'].append(score)
+                else:
+                    anomalous_below['x'].append(idx)
+                    anomalous_below['y'].append(score)
+            else:  # Normal
+                if score >= threshold:
+                    normal_above['x'].append(idx)
+                    normal_above['y'].append(score)
+                else:
+                    normal_below['x'].append(idx)
+                    normal_below['y'].append(score)
+
+        plt.scatter(anomalous_above['x'], anomalous_above['y'], color='red', marker='x', s=20, label='Anomaly')
+        plt.scatter(anomalous_below['x'], anomalous_below['y'], color='yellow', marker='x', s=20)
+        plt.scatter(normal_above['x'], normal_above['y'], color='purple', marker='o', s=20, label='Normal')
+        plt.scatter(normal_below['x'], normal_below['y'], color='blue', marker='o', s=20)
 
         if k == 0:
             plt.ylim(0, threshold * 1.1)
@@ -361,4 +388,3 @@ def plot_data_over_threshold(anomaly_scores, true_labels, threshold, file_name):
 
     print("Number of windows above threshold: " + str(np.sum(np.array(anomaly_scores) > threshold)))
     print("Number of windows below threshold: " + str(np.sum(np.array(anomaly_scores) <= threshold)))
-

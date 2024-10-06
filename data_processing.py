@@ -77,23 +77,18 @@ def reshape_data_for_autoencoder_lstm(data_list, window_size, window_step):
     return windowed_data
 
 
-def get_noShift_andShift_data_windows_for_lstm(data_list, window_size, window_step=0, shift_value=None):
+def get_noShift_andShift_data_windows_for_lstm(data_list, window_size, window_step=None): #, shift_value=None):
     '''
     window_size and shift_value should be equal
-    shift_value = 0             --> normal windowed data
-    shift_value = window_size   --> shifted data windows; same index for non-shifted windows gets the follow up window from the shifted windows
+    window_step = 0             --> shifted and not shifted windows are the same
+    window_step = window_size   --> shifted data not shifted windows have no overlap
+    in general window_step < window_size
     '''
     # Reshape X to fit LSTM input shape (samples, time steps, features)
     if window_size < 1 or window_step < 0 or window_step >= window_size:
         from utils import InvalidReshapeParamters
         raise InvalidReshapeParamters()
         return
-
-    if window_step > 0:
-        print("NOT IMPLEMENTED YET")
-        return
-    if window_step == 0:
-        window_step = window_size
 
     all_no_shift_windows = []
     all_shift_windows = []
@@ -103,12 +98,13 @@ def get_noShift_andShift_data_windows_for_lstm(data_list, window_size, window_st
         not_shifted_windowed_data = []
         shifted_windowed_data = []
 
-        for window_start in range(0, data.shape[0] - window_size - shift_value, window_step):
+        for window_start in range(0, data.shape[0] - window_size * 2, window_size):   #todo: pain, suffering, agony, torment, stark discomfort
             no_shift_window_end = window_start + window_size
             no_shift_window = data[window_start:no_shift_window_end]
 
-            shift_window_end = no_shift_window_end + shift_value
-            shift_window = data[no_shift_window_end:shift_window_end]
+            shift_window_start = no_shift_window_end - window_step
+            shift_window_end = shift_window_start + window_size
+            shift_window = data[shift_window_start:shift_window_end]
 
             not_shifted_windowed_data.append(no_shift_window)
             shifted_windowed_data.append(shift_window)

@@ -1,157 +1,257 @@
-import csv
-
 import numpy as np
+# from keras.models import Sequential
+# from keras.layers import LSTM, Input, Dropout
+# from keras.layers import Dense
+# from keras.layers import RepeatVector
+# from keras.layers import TimeDistributed
+import pandas as pd
 from keras import Sequential
-from keras.src.callbacks import Callback, EarlyStopping
-from keras.src.layers import LSTM, Dense, Dropout
+from keras.src.layers import LSTM, Dropout, RepeatVector, TimeDistributed, Dense
+from matplotlib import pyplot as plt
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, MaxAbsScaler, RobustScaler
+#from keras.models import Model
+import seaborn as sns
 
-from data_processing import old_directory_csv_files_to_dataframe_to_numpyArray, \
-    convert_timestamp_to_relative_time_diff
+from data_processing import clean_csv
 
-
-def generate_test_array(start=0, end=1000, sequence_length=5):
-    sequences = []
-    for i in range(start, end + 1, sequence_length):
-        sequence = list(range(i, i + sequence_length))
-        sequences.append(sequence)
-    return np.array(sequences)
+if __name__ == '__main__':
 
 
-#TODO: I think this works correctly? ----> bruh
-#TODO: THIS IS A HUGE POSSIBLE SOURCE OF ERROR!! THIS HAS HAS HAS TO WORK CORRECTLY!!!!!!
-def create_XY_data_sequences(data, time_steps, future_steps):
-    X, Y = [], []
-    i = 0
-    while (i*time_steps + time_steps + future_steps) < len(data):
-    #for i in range(len(data) - time_steps - future_steps + 1):
-        x_data_low = i*time_steps
-        x_data_high = i*time_steps + time_steps
-        y_data_low = x_data_high
-        y_data_high = y_data_low + future_steps
-        X.append(data[x_data_low:x_data_high, :])
-        Y.append(data[y_data_low:y_data_high, :])
-        i = i+1
+    #dataframe = pd.read_csv('data/GE.csv')
+    #df = dataframe[['Date', 'Close']]
+    #df['Date'] = pd.to_datetime(df['Date'])
 
-    print("Created X sequence: " + str(np.array(X)))
-    print("\n")
-    print("Created Y sequence: " + str(np.array(Y)))
-    return np.array(X), np.array(Y)
+    df0 = clean_csv("./aufnahmen/csv/skidpad_valid_fast2_17_47_28/can_interface-current_steering_angle.csv", False)
+    df1 = clean_csv("./aufnahmen/csv/anomalous data/can_interface-current_steering_angle.csv", False)
 
-def write_XY_to_csv(X, Y, filename, row_offset=3):
-    # Determine the shape of the new array
-    total_rows = X.shape[0] + row_offset
-    x_cols = X.shape[1] * X.shape[2]
-    y_cols = Y.shape[1] * Y.shape[2]
-    total_cols = x_cols + y_cols
+    df0.drop(columns=["Anomaly"], inplace=True)
+    print(df0.head())
+    sns.lineplot(x=df0['Time'], y=df0['data'])
+    plt.title('Orig Train')
+    plt.show()
+    df1.drop(columns=["Anomaly"], inplace=True)
+    print(df1.head())
+    sns.lineplot(x=df1['Time'], y=df1['data'])
+    plt.title('Orig Test')
+    plt.show()
 
-    # Create an empty array with the desired shape
-    combined_data = np.empty((total_rows, total_cols))
-    combined_data[:] = np.nan  # Fill with NaN to handle the empty rows
+    print("Start train data date is: ", df0['Time'].min())
+    print("End train data date is: ", df0['Time'].max())
 
-    # Flatten X and Y to fit into the combined array
-    X_flat = X.reshape(X.shape[0], -1)
-    Y_flat = Y.reshape(Y.shape[0], -1)
-
-    # Place X into the combined array starting from row_offset
-    combined_data[row_offset:row_offset + X_flat.shape[0], :X_flat.shape[1]] = X_flat
-
-    # Place Y into the combined array starting from row_offset
-    combined_data[row_offset:row_offset + Y_flat.shape[0], X_flat.shape[1]:] = Y_flat
-
-    # Write the combined array to a CSV file
-    with open(filename, 'w', newline='') as f:
-        writer = csv.writer(f)
-        # Create headers
-        headers = [f"X{i+1}" for i in range(X_flat.shape[1])] + [f"Y{i+1}" for i in range(Y_flat.shape[1])]
-        writer.writerow(headers)
-        writer.writerows(combined_data)
+    # Change train data from Mid 2017 to 2019.... seems to be a jump early 2017
+    #train, test = df.loc[df['Date'] <= '2003-12-31'], df.loc[df['Date'] > '2003-12-31'] #todo: original. Uses trainX to predict last part of itself (testX)
+    train, test = df0, df1          #todo: original. Uses trainX to predict last part of itself (testX)
 
 
-class AccuracyThresholdCallback(Callback):
-    def __init__(self, threshold):
-        super(AccuracyThresholdCallback, self).__init__()
-        self.threshold = threshold
+    train['data'] = train['data'].diff().fillna(0)          #todo: EXPERIMENTAL
+    test['data'] = test['data'].diff().fillna(0)            #todo: EXPERIMENTAL
 
-    def on_epoch_end(self, epoch, logs=None):
-        logs = logs or {}
-        accuracy = logs.get('accuracy')
-        if accuracy is not None and accuracy > self.threshold:
-            print(f"\nEpoch {epoch + 1}: accuracy {accuracy} exceeded threshold {self.threshold}, stopping training.")
-            self.model.stop_training = True
+    sns.lineplot(x=train['Time'], y=train['data'])
+    plt.title('Diffed Train')
+    plt.show()
+    print(df1.head())
+    sns.lineplot(x=test['Time'], y=test['data'])
+    plt.title('Diffed Test')
+    plt.show()
+
+    print("train: ", train)
+    print("test: ", test)
+
+    # Convert pandas dataframe to numpy array
+    # dataset = dataframe.values
+    # dataset = dataset.astype('float32') #COnvert values to float
+
+    # LSTM uses sigmoid and tanh that are sensitive to magnitude so values need to be normalized
+    # normalize the dataset
+    # scaler = MinMaxScaler() #Also try QuantileTransformer
+    scaler = StandardScaler()           #todo: MaxAbsScaler() might be smart for large val ranges at end of the series'
+    #scaler = MaxAbsScaler()
+    #scaler = RobustScaler()
+    # todo: could also try robust scaler
 
 
-def test_stacked_LSTM(csv_path):
-    #data = generate_test_array()
-    time_steps = 1  # Use the 3 most recent value
-    future_steps = 3  # Predict the next 3 values
-    accuracy_threshold = 0.90
-    accuracy_threshold_callback = AccuracyThresholdCallback(threshold=accuracy_threshold)
+    scaler = scaler.fit(train[['data']])
 
-    data = old_directory_csv_files_to_dataframe_to_numpyArray(csv_path)
-    print(data.shape)
+    train['data'] = scaler.transform(train[['data']]) #todo: NOTE that he doesnt use fit_transform as "Time" is still in df
+    test['data'] = scaler.transform(test[['data']])
 
-    #TODO: I need to standardize scaling somehow. for steering angle i.e. data can approximately go from -100 to 100 while time is very large
-    # todo:experimental
-    # todo:experimental
+    print("scaled train: ", train)
+    print("scaled test: ", test)
 
-    # feature_1 = data[:, 0].reshape(-1, 1)  # The large-scale feature
-    # feature_2 = data[:, 1].reshape(-1, 1)  # The smaller-scale feature
-    # scaler = StandardScaler()
-    # normalized_feature_1 = scaler.fit_transform(feature_1)
-    # normalized_feature_2 = scaler.fit_transform(feature_2)
-    #
-    # data = np.hstack((normalized_feature_1, normalized_feature_2))
+    # As required for LSTM networks, we require to reshape an input data into n_samples x timesteps x n_features.
+    # In this example, the n_features is 2. We will make timesteps = 3.
+    # With this, the resultant n_samples is 5 (as the input data has 9 rows).
 
-    #Todo: Test with this
-    #data_with_time_diffs = convert_timestamp_to_absolute_time_diff(data)
-    data_with_time_diffs = convert_timestamp_to_relative_time_diff(data)
+    seq_size = 30  # Number of time steps to look back
 
-    print(str(data_with_time_diffs))
 
-    print("HERE FUCK: " + str(data))
+    # Larger sequences (look further back) may improve forecasting.
 
-    return
 
-    X, Y = create_XY_data_sequences(data, time_steps, future_steps)
+    def to_sequences(x, y, seq_size=1):
+        x_values = []
+        y_values = []
 
-    print("X: " + str(X))
-    print("Y: " + str(Y))
-    X_sN, X_vN2, X_tN = split_data_sequence_into_datasets(X)
-    Y_sN, Y_vN2, Y_tN = split_data_sequence_into_datasets(Y)
-    X_sN = reshape_data_for_LSTM(X_sN, time_steps)
-    X_vN2 = reshape_data_for_LSTM(X_vN2, time_steps)
-    X_tN = reshape_data_for_LSTM(X_tN, time_steps)
+        for i in range(len(x) - seq_size):
+            # print(i)
+            x_values.append(x.iloc[i:(i + seq_size)].values)
+            y_values.append(y.iloc[i + seq_size])
 
-    Y_sN = reshape_data_for_LSTM(Y_sN, future_steps)  #used to be time_steps
-    Y_vN2 = reshape_data_for_LSTM(Y_vN2, future_steps)
-    Y_tN = reshape_data_for_LSTM(Y_tN, future_steps)
-    check_shapes_after_reshape(X_sN, X_vN2, X_tN, Y_sN, Y_vN2, Y_tN)
+        return np.array(x_values), np.array(y_values)
+
+
+    trainX, trainY = to_sequences(train[['data']], train['data'], seq_size)   #todo: double [[]] to return dataframe instead of sequence
+    testX, testY = to_sequences(test[['data']], test['data'], seq_size)
+
+    # define Autoencoder model
+    # Input shape would be seq_size, 1 - 1 beacuse we have 1 feature.
+    # seq_size = trainX.shape[1]
 
     model = Sequential()
-    # todo: Experiment with different number of units in hidden layers
-    #model.add(BatchNormalization())
-    model.add(LSTM(X_sN.shape[2], return_sequences=False, return_state=True, input_shape=(time_steps, X_sN.shape[2]), activation='tanh', recurrent_activation='sigmoid'))
-    model.add(Dropout(0.2))
-    #model.add(LSTM(50, return_sequences=True, activation='tanh', recurrent_activation='sigmoid'))
-    #model.add(Dropout(0.2))
-    model.add(LSTM(units=X_sN.shape[2]*time_steps, activation='tanh', recurrent_activation='sigmoid'))  # Third LSTM layer, does not return sequences
-    model.add(Dropout(0.2))
-    #todo: not sure if sigmoid is useful here #activation='sigmoid'
-    model.add(Dense(future_steps * X_sN.shape[2], activation='sigmoid'))  # Output layer for regression (use appropriate activation for classification tasks)
-    model.compile(optimizer='adam', loss='mse', metrics=['accuracy'])  # Use 'binary_crossentropy' for binary classification #standard: mse
+    model.add(LSTM(128, activation='relu', input_shape=(trainX.shape[1], trainX.shape[2]), return_sequences=True))
+    model.add(LSTM(64, activation='relu', return_sequences=False))
+
+    model.add(Dropout(rate=0.2))
+
+    model.add(RepeatVector(trainX.shape[1]))
+    model.add(LSTM(64, activation='relu', return_sequences=True))
+    model.add(LSTM(128, activation='relu', return_sequences=True))
+
+    model.add(Dropout(rate=0.2))
+
+    model.add(TimeDistributed(Dense(trainX.shape[2])))
+
+    # model.compile(optimizer='adam', loss='mse')
+    # model.summary()
+
+    # Try another model
+    # model = Sequential()
+    # model.add(LSTM(128, input_shape=(trainX.shape[1], trainX.shape[2])))    #todo: went from 128 to 256
+    # model.add(Dropout(rate=0.2))
+    # model.add(RepeatVector(trainX.shape[1]))
+    # model.add(LSTM(128, return_sequences=True))
+    # model.add(Dropout(rate=0.2))
+    # model.add(TimeDistributed(Dense(trainX.shape[2])))                           #todo: went from 128 to 256
+
+    #model.compile(optimizer='adam', loss='mae')         #loss='mean_squared_error'
+    model.compile(optimizer='adam', loss='mean_squared_error')
+
+    #todo: try adding val data as separate series: validation_data=(X_vN1, X_vN1)
+
     model.summary()
-    #early_stopping_callback = EarlyStopping(monitor='val_loss', patience=40, restore_best_weights=True, mode='min', min_delta=0.001)
-    #lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=5, min_lr=1e-6)
-    # todo: check what the 2nd reshape here does? -->The target data Y needs to be reshaped to match the expected output shape of the model, which is (samples, future_steps * features).
 
-    print(str(Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])).shape))
-    print(str(Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2]))))
+    # fit model
+    #todo: note "validation_split=0.1" and batch_size; shuffle is true per default
+    history = model.fit(trainX, trainY, epochs=20, batch_size=4, validation_split=0.1, shuffle=False ,verbose=1)  #todo: probably need trainX istead of trainY
+    #todo: changed trainY to trainX
 
-    early_stopping = EarlyStopping(monitor='val_loss', min_delta=0.001, patience=10, restore_best_weights=True)
-    model.fit(X_sN, Y_sN.reshape((Y_sN.shape[0], future_steps * Y_sN.shape[2])), epochs=2000, batch_size=32, validation_data=(X_vN2, Y_vN2.reshape(Y_vN2.shape[0], future_steps*Y_vN2.shape[2])), verbose=1, callbacks=[early_stopping])
-    model.save('./models/stacked_LSTM.keras')
+    model.save("./models/fuckingSimpleLSTMAutoenc" + ".keras")
 
-    #m (=input data dimensions) input units; dxl (d = features to be predicted, number of time steps to be predicted into future) output units
-    stacked_LSTM_predict_and_calculate_error(model, X_tN, Y_tN, future_steps, 10)
+    plt.plot(history.history['loss'], label='Training loss')
+    plt.plot(history.history['val_loss'], label='Validation loss')
+    plt.legend()
+    plt.show()
+
+    # model.evaluate(testX, testY)
+
+    ###########################
+    # Anomaly is where reconstruction error is large.
+    # We can define this value beyond which we call anomaly.
+    # Let us look at MAE in training prediction
+
+    trainPredict = model.predict(trainX)
+    trainMAE = np.mean(np.abs(trainPredict - trainX), axis=1)
+    plt.hist(trainMAE, bins=30)
+    plt.show()
+
+    max_trainMAE = 0.3  # or Define 90% value of max as threshold.
 
 
+    testPredict = model.predict(testX)
+    testMAE = np.mean(np.abs(testPredict - testX), axis=1)
+    plt.hist(testMAE, bins=30)
+    plt.show()
+
+    # Capture all details in a DataFrame for easy plotting
+    anomaly_df = pd.DataFrame(test[seq_size:])
+    anomaly_df['testMAE'] = testMAE
+    anomaly_df['max_trainMAE'] = max_trainMAE
+    anomaly_df['anomaly'] = anomaly_df['testMAE'] > anomaly_df['max_trainMAE']
+    anomaly_df['data'] = test[seq_size:]['data']
+
+    # Plot testMAE vs max_trainMAE
+    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['testMAE'])
+    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['max_trainMAE'])
+    plt.title('Test MAE')
+    plt.show()
+
+    #testPredict = model.predict(testX)
+    testMSE = np.mean(np.square(testPredict - testX), axis=1)
+    plt.hist(testMSE, bins=30)
+    plt.show()
+
+    # Capture all details in a DataFrame for easy plotting
+    anomaly_df = pd.DataFrame(test[seq_size:])
+    anomaly_df['testMSE'] = testMSE
+    anomaly_df['max_trainMAE'] = max_trainMAE
+    anomaly_df['anomaly'] = anomaly_df['testMSE'] > anomaly_df['max_trainMAE']  #todo: im mixing max_trainMAE with MSE so this might need to be adapted
+    anomaly_df['data'] = test[seq_size:]['data']
+
+    # Plot testMSE vs max_trainMAE
+    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['testMSE'])
+    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['max_trainMAE'])
+    plt.title('Test MSE')
+    plt.show()
+
+
+
+    #todo: do Train data stats here
+
+    trainPredict = model.predict(trainX)
+    trainMAE = np.mean(np.abs(trainPredict - trainX), axis=1)
+    plt.hist(trainMAE, bins=30)
+    plt.show()
+
+    anomaly_df = pd.DataFrame(train[seq_size:])
+    anomaly_df['trainMAE'] = trainMAE
+    anomaly_df['max_trainMAE'] = max_trainMAE
+    anomaly_df['anomaly'] = anomaly_df['trainMAE'] > anomaly_df['max_trainMAE']
+    anomaly_df['data'] = test[seq_size:]['data']
+
+    # Plot testMAE vs max_trainMAE
+    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['trainMAE'])
+    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['max_trainMAE'])
+    plt.title('Train MAE')
+    plt.show()
+
+    # testPredict = model.predict(testX)
+    trainMSE = np.mean(np.square(trainPredict - trainX), axis=1)
+    plt.hist(trainMSE, bins=30)
+    plt.show()
+
+    # Capture all details in a DataFrame for easy plotting
+    anomaly_df = pd.DataFrame(train[seq_size:])
+    anomaly_df['trainMSE'] = trainMSE
+    anomaly_df['max_trainMAE'] = max_trainMAE
+    anomaly_df['anomaly'] = anomaly_df['trainMSE'] > anomaly_df['max_trainMAE']  # todo: im mixing max_trainMAE with MSE so this might need to be adapted
+    anomaly_df['data'] = test[seq_size:]['data']
+
+    # Plot testMSE vs max_trainMAE
+    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['trainMSE'])
+    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['max_trainMAE'])
+    plt.title('Train MSE')
+    plt.show()
+
+
+
+
+    anomalies = anomaly_df.loc[anomaly_df['anomaly'] == True]
+
+    # Plot anomalies
+    # sns.lineplot(x=anomaly_df['Time'], y=scaler.inverse_transform(anomaly_df['data']))
+    # sns.scatterplot(x=anomalies['Time'], y=scaler.inverse_transform(anomalies['data']), color='r')
+
+    sns.lineplot(x=anomaly_df['Time'], y=scaler.inverse_transform(anomaly_df['data']).values.reshape(-1, 1).flatten())
+    sns.scatterplot(x=anomalies['Time'], y=scaler.inverse_transform(anomalies['data'].values.reshape(-1, 1).flatten()), color='r')
+
+    plt.show()
