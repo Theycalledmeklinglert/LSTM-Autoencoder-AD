@@ -9,7 +9,7 @@ from sklearn.preprocessing import MinMaxScaler
 
 from data_processing import old_directory_csv_files_to_dataframe_to_numpyArray, \
     convert_timestamp_to_absolute_time_diff, convert_timestamp_to_relative_time_diff, reshape_data_for_autoencoder_lstm
-from stacked_lstm import split_data_sequence_into_datasets
+from simpleLSTMAutoencoder import split_data_sequence_into_datasets
 from utils import autoencoder_predict_and_calculate_error, CustomL2Loss
 from sklearn.model_selection import GridSearchCV
 

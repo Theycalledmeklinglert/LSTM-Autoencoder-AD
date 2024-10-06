@@ -7,12 +7,43 @@ import numpy as np
 import pandas as pd
 from keras import Sequential
 from keras.src.layers import LSTM, Dropout, RepeatVector, TimeDistributed, Dense
+from keras.src.saving import load_model
 from matplotlib import pyplot as plt
-from sklearn.preprocessing import MinMaxScaler, StandardScaler, MaxAbsScaler, RobustScaler
+from sklearn.preprocessing import MinMaxScaler, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer
 #from keras.models import Model
 import seaborn as sns
 
 from data_processing import clean_csv
+
+
+def get_LSTM_Autoencder(file_path=None):
+    if file_path is not None:
+        model = load_model(file_path, compile=True)
+
+    else:
+        model = Sequential()
+        model.add(LSTM(128, activation='relu', input_shape=(trainX.shape[1], trainX.shape[2]), return_sequences=True))
+        model.add(LSTM(64, activation='relu', return_sequences=False))
+        model.add(Dropout(rate=0.2))
+        model.add(RepeatVector(trainX.shape[1]))
+        model.add(LSTM(64, activation='relu', return_sequences=True))
+        model.add(LSTM(128, activation='relu', return_sequences=True))
+        model.add(Dropout(rate=0.2))
+        model.add(TimeDistributed(Dense(trainX.shape[2])))
+
+        # model.compile(optimizer='adam', loss='mse')
+        # model.summary()
+
+        # Try another model
+        # model = Sequential()
+        # model.add(LSTM(128, input_shape=(trainX.shape[1], trainX.shape[2])))    #todo: went from 128 to 256
+        # model.add(Dropout(rate=0.2))
+        # model.add(RepeatVector(trainX.shape[1]))
+        # model.add(LSTM(128, return_sequences=True))                        #todo: went from 128 to 256
+        # model.add(Dropout(rate=0.2))
+        # model.add(TimeDistributed(Dense(trainX.shape[2])))                           #todo: went from 128 to 256
+
+    return model
 
 if __name__ == '__main__':
 
@@ -21,17 +52,25 @@ if __name__ == '__main__':
     #df = dataframe[['Date', 'Close']]
     #df['Date'] = pd.to_datetime(df['Date'])
 
-    df0 = clean_csv("./aufnahmen/csv/skidpad_valid_fast2_17_47_28/can_interface-current_steering_angle.csv", False)
-    df1 = clean_csv("./aufnahmen/csv/anomalous data/can_interface-current_steering_angle.csv", False)
+    # df0 = clean_csv("./aufnahmen/csv/skidpad_valid_fast2_17_47_28/can_interface-current_steering_angle.csv", False)
+    # df1 = clean_csv("./aufnahmen/csv/anomalous data/can_interface-current_steering_angle.csv", False)
 
-    df0.drop(columns=["Anomaly"], inplace=True)
+    df0 = clean_csv("./aufnahmen/csv/autocross_valid_run/can_interface-wheelspeed.csv", False)
+    df1 = clean_csv("./aufnahmen/csv/anomalous data/can_interface-wheelspeed.csv", False)
+
+    df0.drop(columns=["Anomaly", "FR.data", "RL.data", "RR.data"], inplace=True)
+    df1.drop(columns=["Anomaly", "FR.data", "RL.data", "RR.data"], inplace=True)
+
+    attr_1_col_name = df0.columns[1]
+
+    #df0.drop(columns=["Anomaly"], inplace=True)
     print(df0.head())
-    sns.lineplot(x=df0['Time'], y=df0['data'])
+    sns.lineplot(x=df0['Time'], y=df0[attr_1_col_name])
     plt.title('Orig Train')
     plt.show()
-    df1.drop(columns=["Anomaly"], inplace=True)
+    #df1.drop(columns=["Anomaly"], inplace=True)
     print(df1.head())
-    sns.lineplot(x=df1['Time'], y=df1['data'])
+    sns.lineplot(x=df1['Time'], y=df1[attr_1_col_name])
     plt.title('Orig Test')
     plt.show()
 
@@ -42,38 +81,33 @@ if __name__ == '__main__':
     #train, test = df.loc[df['Date'] <= '2003-12-31'], df.loc[df['Date'] > '2003-12-31'] #todo: original. Uses trainX to predict last part of itself (testX)
     train, test = df0, df1          #todo: original. Uses trainX to predict last part of itself (testX)
 
+    train[attr_1_col_name] = train[attr_1_col_name].diff().fillna(0)          #todo: EXPERIMENTAL
+    test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)            #todo: EXPERIMENTAL
 
-    train['data'] = train['data'].diff().fillna(0)          #todo: EXPERIMENTAL
-    test['data'] = test['data'].diff().fillna(0)            #todo: EXPERIMENTAL
-
-    sns.lineplot(x=train['Time'], y=train['data'])
+    sns.lineplot(x=train['Time'], y=train[attr_1_col_name])
     plt.title('Diffed Train')
     plt.show()
     print(df1.head())
-    sns.lineplot(x=test['Time'], y=test['data'])
+    sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
     plt.title('Diffed Test')
     plt.show()
 
     print("train: ", train)
     print("test: ", test)
 
-    # Convert pandas dataframe to numpy array
-    # dataset = dataframe.values
-    # dataset = dataset.astype('float32') #COnvert values to float
-
-    # LSTM uses sigmoid and tanh that are sensitive to magnitude so values need to be normalized
-    # normalize the dataset
-    # scaler = MinMaxScaler() #Also try QuantileTransformer
+    # LSTM use sigmoid and tanh that are sensitive to magnitude so values need to be normalized
+    # scaler = MinMaxScaler()
     scaler = StandardScaler()           #todo: MaxAbsScaler() might be smart for large val ranges at end of the series'
     #scaler = MaxAbsScaler()
     #scaler = RobustScaler()
-    # todo: could also try robust scaler
+    #scaler = QuantileTransformer()
 
 
-    scaler = scaler.fit(train[['data']])
 
-    train['data'] = scaler.transform(train[['data']]) #todo: NOTE that he doesnt use fit_transform as "Time" is still in df
-    test['data'] = scaler.transform(test[['data']])
+    scaler = scaler.fit(train[[attr_1_col_name]])
+
+    train[attr_1_col_name] = scaler.transform(train[[attr_1_col_name]]) #todo: NOTE that he doesnt use fit_transform as "Time" is still in df
+    test[attr_1_col_name] = scaler.transform(test[[attr_1_col_name]])
 
     print("scaled train: ", train)
     print("scaled test: ", test)
@@ -87,7 +121,6 @@ if __name__ == '__main__':
 
     # Larger sequences (look further back) may improve forecasting.
 
-
     def to_sequences(x, y, seq_size=1):
         x_values = []
         y_values = []
@@ -100,39 +133,14 @@ if __name__ == '__main__':
         return np.array(x_values), np.array(y_values)
 
 
-    trainX, trainY = to_sequences(train[['data']], train['data'], seq_size)   #todo: double [[]] to return dataframe instead of sequence
-    testX, testY = to_sequences(test[['data']], test['data'], seq_size)
+    trainX, trainY = to_sequences(train[[attr_1_col_name]], train[attr_1_col_name], seq_size)   #todo: double [[]] to return dataframe instead of sequence
+    testX, testY = to_sequences(test[[attr_1_col_name]], test[attr_1_col_name], seq_size)
 
     # define Autoencoder model
-    # Input shape would be seq_size, 1 - 1 beacuse we have 1 feature.
-    # seq_size = trainX.shape[1]
+    # Input shape is seq_size, nb_features
+    # batch_size = trainX.shape[0] (Keras handles this), seq_size = trainX.shape[1], nb_features = trainX.shape[2]
 
-    model = Sequential()
-    model.add(LSTM(128, activation='relu', input_shape=(trainX.shape[1], trainX.shape[2]), return_sequences=True))
-    model.add(LSTM(64, activation='relu', return_sequences=False))
-
-    model.add(Dropout(rate=0.2))
-
-    model.add(RepeatVector(trainX.shape[1]))
-    model.add(LSTM(64, activation='relu', return_sequences=True))
-    model.add(LSTM(128, activation='relu', return_sequences=True))
-
-    model.add(Dropout(rate=0.2))
-
-    model.add(TimeDistributed(Dense(trainX.shape[2])))
-
-    # model.compile(optimizer='adam', loss='mse')
-    # model.summary()
-
-    # Try another model
-    # model = Sequential()
-    # model.add(LSTM(128, input_shape=(trainX.shape[1], trainX.shape[2])))    #todo: went from 128 to 256
-    # model.add(Dropout(rate=0.2))
-    # model.add(RepeatVector(trainX.shape[1]))
-    # model.add(LSTM(128, return_sequences=True))
-    # model.add(Dropout(rate=0.2))
-    # model.add(TimeDistributed(Dense(trainX.shape[2])))                           #todo: went from 128 to 256
-
+    model = get_LSTM_Autoencder()
     #model.compile(optimizer='adam', loss='mae')         #loss='mean_squared_error'
     model.compile(optimizer='adam', loss='mean_squared_error')
 
@@ -141,8 +149,10 @@ if __name__ == '__main__':
     model.summary()
 
     # fit model
-    #todo: note "validation_split=0.1" and batch_size; shuffle is true per default
-    history = model.fit(trainX, trainY, epochs=20, batch_size=4, validation_split=0.1, shuffle=False ,verbose=1)  #todo: probably need trainX istead of trainY
+    #todo:
+    # note "validation_split=0.1" and batch_size; shuffle is true per default
+    # batch_size = 32 too large; 4 works well
+    history = model.fit(trainX, trainY, epochs=20, batch_size=4, validation_split=0.1, shuffle=False, verbose=1)  #todo: probably need trainX istead of trainY
     #todo: changed trainY to trainX
 
     model.save("./models/fuckingSimpleLSTMAutoenc" + ".keras")
@@ -177,7 +187,7 @@ if __name__ == '__main__':
     anomaly_df['testMAE'] = testMAE
     anomaly_df['max_trainMAE'] = max_trainMAE
     anomaly_df['anomaly'] = anomaly_df['testMAE'] > anomaly_df['max_trainMAE']
-    anomaly_df['data'] = test[seq_size:]['data']
+    anomaly_df[attr_1_col_name] = test[seq_size:][attr_1_col_name]
 
     # Plot testMAE vs max_trainMAE
     sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['testMAE'])
@@ -195,7 +205,7 @@ if __name__ == '__main__':
     anomaly_df['testMSE'] = testMSE
     anomaly_df['max_trainMAE'] = max_trainMAE
     anomaly_df['anomaly'] = anomaly_df['testMSE'] > anomaly_df['max_trainMAE']  #todo: im mixing max_trainMAE with MSE so this might need to be adapted
-    anomaly_df['data'] = test[seq_size:]['data']
+    anomaly_df[attr_1_col_name] = test[seq_size:][attr_1_col_name]
 
     # Plot testMSE vs max_trainMAE
     sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['testMSE'])
@@ -216,7 +226,7 @@ if __name__ == '__main__':
     anomaly_df['trainMAE'] = trainMAE
     anomaly_df['max_trainMAE'] = max_trainMAE
     anomaly_df['anomaly'] = anomaly_df['trainMAE'] > anomaly_df['max_trainMAE']
-    anomaly_df['data'] = test[seq_size:]['data']
+    anomaly_df[attr_1_col_name] = test[seq_size:][attr_1_col_name]
 
     # Plot testMAE vs max_trainMAE
     sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['trainMAE'])
@@ -234,7 +244,7 @@ if __name__ == '__main__':
     anomaly_df['trainMSE'] = trainMSE
     anomaly_df['max_trainMAE'] = max_trainMAE
     anomaly_df['anomaly'] = anomaly_df['trainMSE'] > anomaly_df['max_trainMAE']  # todo: im mixing max_trainMAE with MSE so this might need to be adapted
-    anomaly_df['data'] = test[seq_size:]['data']
+    anomaly_df[attr_1_col_name] = test[seq_size:][attr_1_col_name]
 
     # Plot testMSE vs max_trainMAE
     sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['trainMSE'])
@@ -243,15 +253,17 @@ if __name__ == '__main__':
     plt.show()
 
 
-
-
     anomalies = anomaly_df.loc[anomaly_df['anomaly'] == True]
 
     # Plot anomalies
     # sns.lineplot(x=anomaly_df['Time'], y=scaler.inverse_transform(anomaly_df['data']))
     # sns.scatterplot(x=anomalies['Time'], y=scaler.inverse_transform(anomalies['data']), color='r')
 
-    sns.lineplot(x=anomaly_df['Time'], y=scaler.inverse_transform(anomaly_df['data']).values.reshape(-1, 1).flatten())
-    sns.scatterplot(x=anomalies['Time'], y=scaler.inverse_transform(anomalies['data'].values.reshape(-1, 1).flatten()), color='r')
+    df0.drop(columns=["Anomaly"], inplace=True)
 
+
+    sns.lineplot(x=anomaly_df['Time'], y=scaler.inverse_transform(anomaly_df[attr_1_col_name].drop(columns=['Time'], inplace=True)))
+    sns.scatterplot(x=anomalies['Time'], y=scaler.inverse_transform(anomalies[attr_1_col_name].drop(columns=['Time'], inplace=True)), color='r')
     plt.show()
+
+
