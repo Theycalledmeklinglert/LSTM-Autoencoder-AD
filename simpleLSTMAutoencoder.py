@@ -16,9 +16,11 @@ import seaborn as sns
 from data_processing import clean_csv
 
 
-def get_LSTM_Autoencder(file_path=None):
+def get_trained_LSTM_Autoencder(trainX=None, trainY=None, file_path=None):
     if file_path is not None:
         model = load_model(file_path, compile=True)
+        model.compile(optimizer='adam', loss='mean_squared_error')
+        model.summary()
 
     else:
         model = Sequential()
@@ -31,6 +33,19 @@ def get_LSTM_Autoencder(file_path=None):
         model.add(Dropout(rate=0.2))
         model.add(TimeDistributed(Dense(trainX.shape[2])))
 
+        model.compile(optimizer='adam', loss='mean_squared_error')
+        model.summary()
+
+        history = model.fit(trainX, trainY, epochs=20, batch_size=4, validation_split=0.1, shuffle=False, verbose=1)  #todo: probably need trainX istead of trainY
+        # todo: changed trainY to trainX
+
+        model.save("./models/fuckingSimpleLSTMAutoenc" + ".keras")
+
+        plt.plot(history.history['loss'], label='Training loss')
+        plt.plot(history.history['val_loss'], label='Validation loss')
+        plt.legend()
+        plt.show()
+
         # model.compile(optimizer='adam', loss='mse')
         # model.summary()
 
@@ -42,6 +57,8 @@ def get_LSTM_Autoencder(file_path=None):
         # model.add(LSTM(128, return_sequences=True))                        #todo: went from 128 to 256
         # model.add(Dropout(rate=0.2))
         # model.add(TimeDistributed(Dense(trainX.shape[2])))                           #todo: went from 128 to 256
+
+
 
     return model
 
@@ -140,27 +157,27 @@ if __name__ == '__main__':
     # Input shape is seq_size, nb_features
     # batch_size = trainX.shape[0] (Keras handles this), seq_size = trainX.shape[1], nb_features = trainX.shape[2]
 
-    model = get_LSTM_Autoencder()
+    model = get_trained_LSTM_Autoencder(trainX, trainY, "./models/pretty good performance on univar wheelspeed - fuckingSimpleLSTMAutoenc.keras")
     #model.compile(optimizer='adam', loss='mae')         #loss='mean_squared_error'
-    model.compile(optimizer='adam', loss='mean_squared_error')
+    #model.compile(optimizer='adam', loss='mean_squared_error')
 
     #todo: try adding val data as separate series: validation_data=(X_vN1, X_vN1)
 
-    model.summary()
+    #model.summary()
 
     # fit model
     #todo:
     # note "validation_split=0.1" and batch_size; shuffle is true per default
     # batch_size = 32 too large; 4 works well
-    history = model.fit(trainX, trainY, epochs=20, batch_size=4, validation_split=0.1, shuffle=False, verbose=1)  #todo: probably need trainX istead of trainY
+    #history = model.fit(trainX, trainY, epochs=20, batch_size=4, validation_split=0.1, shuffle=False, verbose=1)  #todo: probably need trainX istead of trainY
     #todo: changed trainY to trainX
 
     model.save("./models/fuckingSimpleLSTMAutoenc" + ".keras")
 
-    plt.plot(history.history['loss'], label='Training loss')
-    plt.plot(history.history['val_loss'], label='Validation loss')
-    plt.legend()
-    plt.show()
+    # plt.plot(history.history['loss'], label='Training loss')
+    # plt.plot(history.history['val_loss'], label='Validation loss')
+    # plt.legend()
+    # plt.show()
 
     # model.evaluate(testX, testY)
 
@@ -258,8 +275,6 @@ if __name__ == '__main__':
     # Plot anomalies
     # sns.lineplot(x=anomaly_df['Time'], y=scaler.inverse_transform(anomaly_df['data']))
     # sns.scatterplot(x=anomalies['Time'], y=scaler.inverse_transform(anomalies['data']), color='r')
-
-    df0.drop(columns=["Anomaly"], inplace=True)
 
 
     sns.lineplot(x=anomaly_df['Time'], y=scaler.inverse_transform(anomaly_df[attr_1_col_name].drop(columns=['Time'], inplace=True)))
