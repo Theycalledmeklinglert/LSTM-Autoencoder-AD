@@ -9,6 +9,7 @@ from keras import Sequential
 from keras.src.layers import LSTM, Dropout, RepeatVector, TimeDistributed, Dense
 from keras.src.saving import load_model
 from matplotlib import pyplot as plt
+from pmdarima.arima import ADFTest
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, MaxAbsScaler, RobustScaler, QuantileTransformer
 #from keras.models import Model
 import seaborn as sns
@@ -23,6 +24,10 @@ def get_trained_LSTM_Autoencder(trainX=None, trainY=None, file_path=None):
         model.summary()
 
     else:
+        # define Autoencoder model
+        # Input shape is seq_size, nb_features
+        # batch_size = trainX.shape[0] (Keras handles this), seq_size = trainX.shape[1], nb_features = trainX.shape[2]
+
         model = Sequential()
         model.add(LSTM(128, activation='relu', input_shape=(trainX.shape[1], trainX.shape[2]), return_sequences=True))
         model.add(LSTM(64, activation='relu', return_sequences=False))
@@ -72,15 +77,18 @@ if __name__ == '__main__':
     # df0 = clean_csv("./aufnahmen/csv/skidpad_valid_fast2_17_47_28/can_interface-current_steering_angle.csv", False)
     # df1 = clean_csv("./aufnahmen/csv/anomalous data/can_interface-current_steering_angle.csv", False)
 
-    df0 = clean_csv("./aufnahmen/csv/autocross_valid_run/can_interface-wheelspeed.csv", False)
-    df1 = clean_csv("./aufnahmen/csv/anomalous data/can_interface-wheelspeed.csv", False)
+    df0 = clean_csv("./aufnahmen/csv/autocross_valid_run/can_interface-current_steering_angle.csv", False)
+    df1 = clean_csv("./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage/can_interface-current_steering_angle.csv", False)
+    #df1 = clean_csv("./aufnahmen/csv/anomalous data/can_interface-wheelspeed.csv", False)
 
-    df0.drop(columns=["Anomaly", "FR.data", "RL.data", "RR.data"], inplace=True)
-    df1.drop(columns=["Anomaly", "FR.data", "RL.data", "RR.data"], inplace=True)
+    # df0.drop(columns=["Anomaly", "FR.data", "RL.data", "RR.data"], inplace=True)      #todo: for wheelspeed
+    # df1.drop(columns=["Anomaly", "FR.data", "RL.data", "RR.data"], inplace=True)
+    df0.drop(columns=["Anomaly"], inplace=True)
+    #df1.drop(columns=["Anomaly"], inplace=True)
+
 
     attr_1_col_name = df0.columns[1]
 
-    #df0.drop(columns=["Anomaly"], inplace=True)
     print(df0.head())
     sns.lineplot(x=df0['Time'], y=df0[attr_1_col_name])
     plt.title('Orig Train')
@@ -98,15 +106,34 @@ if __name__ == '__main__':
     #train, test = df.loc[df['Date'] <= '2003-12-31'], df.loc[df['Date'] > '2003-12-31'] #todo: original. Uses trainX to predict last part of itself (testX)
     train, test = df0, df1          #todo: original. Uses trainX to predict last part of itself (testX)
 
-    train[attr_1_col_name] = train[attr_1_col_name].diff().fillna(0)          #todo: EXPERIMENTAL
-    test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)            #todo: EXPERIMENTAL
+    train[attr_1_col_name] = train[attr_1_col_name].diff().fillna(0)
+    #test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
+
+    adf_test = ADFTest(alpha=0.05)
+    p_val, should_diff = adf_test.should_diff(test[attr_1_col_name].to_numpy().flatten())
+    print("For train data ---> p_val: " + str(p_val) + " should_diff: " + str(should_diff))
+
+    if should_diff:
+        #todo:
+        # Doesnt work for ebs test steering motor encoder damage.bag
+        # Entweder vlt checken ob mean oder Varianz der Diffs übr oder unter irgendeinem Wert liegt
+        # ODER: Steering angle imemr multivariate zusammen mit steering_angle_data aus Controll acceleration predicted lassen
+        test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
+        print("Test was diffed as determined by ADF p_values > 0.05")
+        print(df1.head())
+        sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
+        plt.title('Diffed Test')
+        plt.show()
+    else:
+        print("Test was NOT diffed as determined by ADF p_values < 0.05")
+        print(df1.head())
+        sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
+        plt.title('Not Diffed Test')
+        plt.show()
+
 
     sns.lineplot(x=train['Time'], y=train[attr_1_col_name])
     plt.title('Diffed Train')
-    plt.show()
-    print(df1.head())
-    sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
-    plt.title('Diffed Test')
     plt.show()
 
     print("train: ", train)
@@ -129,14 +156,7 @@ if __name__ == '__main__':
     print("scaled train: ", train)
     print("scaled test: ", test)
 
-    # As required for LSTM networks, we require to reshape an input data into n_samples x timesteps x n_features.
-    # In this example, the n_features is 2. We will make timesteps = 3.
-    # With this, the resultant n_samples is 5 (as the input data has 9 rows).
-
     seq_size = 30  # Number of time steps to look back
-
-
-    # Larger sequences (look further back) may improve forecasting.
 
     def to_sequences(x, y, seq_size=1):
         x_values = []
@@ -149,15 +169,10 @@ if __name__ == '__main__':
 
         return np.array(x_values), np.array(y_values)
 
-
     trainX, trainY = to_sequences(train[[attr_1_col_name]], train[attr_1_col_name], seq_size)   #todo: double [[]] to return dataframe instead of sequence
     testX, testY = to_sequences(test[[attr_1_col_name]], test[attr_1_col_name], seq_size)
 
-    # define Autoencoder model
-    # Input shape is seq_size, nb_features
-    # batch_size = trainX.shape[0] (Keras handles this), seq_size = trainX.shape[1], nb_features = trainX.shape[2]
-
-    model = get_trained_LSTM_Autoencder(trainX, trainY, "./models/pretty good performance on univar wheelspeed - fuckingSimpleLSTMAutoenc.keras")
+    model = get_trained_LSTM_Autoencder(trainX, trainY, "./models/pretty good performance on steering angle - fuckingSimpleLSTMAutoenc.keras")
     #model.compile(optimizer='adam', loss='mae')         #loss='mean_squared_error'
     #model.compile(optimizer='adam', loss='mean_squared_error')
 

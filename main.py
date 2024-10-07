@@ -35,7 +35,7 @@ if __name__ == '__main__':
     print(keras.__version__)
     print(np.__version__)
 
-    run_auto_arima(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/autocross_valid2_17_23_44", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41"], "can_interface-wheelspeed.csv") #"control-acceleration.csv")    # "can_interface-wheelspeed.csv" , #"can_interface-current_steering_angle.csv"
+    #run_auto_arima(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/autocross_valid2_17_23_44", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41"], "can_interface-wheelspeed.csv") #"control-acceleration.csv")    # "can_interface-wheelspeed.csv" , #"can_interface-current_steering_angle.csv"
 
     #todo:
     # tsdisplay(y_train, lag_max=100)
@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     #print_unique_values(df, "status")
 
-    #read_file_from_bagpy_to_csv("./aufnahmen/tmp/autocross_valid_run.bag")
+    read_file_from_bagpy_to_csv("./aufnahmen/tmp/skidpad_valid_run.bag")
     #read_file_from_bagpy_to_csv("./aufnahmen/error_zusammenstellung/error_zusammenstellung/autocross_unbekannter_kommunikationsfehler.bag")
 
 
