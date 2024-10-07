@@ -73,7 +73,7 @@ def plot_scatter_normal_vs_noisy():
 
 
 def plot_clusters_with_noise():
-    # Set random seed for reproducibility
+
     np.random.seed(42)
 
     # Generate two clusters of normal data (black)
@@ -100,14 +100,11 @@ def plot_clusters_with_noise():
     noise_x2 = np.random.uniform(6, 17, 30)
     noise_y2 = np.random.uniform(7, 15, 30)
 
-    # Define two anomalous points (red) between clusters
     anomaly_x = [7, 5]
     anomaly_y = [7, 13]
 
-    # Create the figure and axes
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 6))
 
-    # Scatter plot for the two clusters (black)
     ax1.scatter(cluster1_x, cluster1_y, color='black', label='Cluster 1', alpha=0.7)
     ax1.scatter(cluster2_x, cluster2_y, color='black', label='Cluster 2', alpha=0.7)
     ax1.scatter(anomaly_x, anomaly_y, color='red', label='Anomaly', s=100, edgecolor='black')
@@ -126,7 +123,6 @@ def plot_clusters_with_noise():
     ax2.scatter(noise_x1, noise_y1, color='black', label='Noise', alpha=0.7)
     ax2.scatter(noise_x2, noise_y2, color='black', label='Noise', alpha=0.7)
 
-    # Highlight anomalous points in red with labels
     ax2.scatter(anomaly_x, anomaly_y, color='red', label='Anomaly', s=100, edgecolor='black')
     for i in range(len(anomaly_x)):
         ax2.text(anomaly_x[i] + 0.2, anomaly_y[i], f'Anomaly {i + 1}', color='red')
@@ -136,9 +132,7 @@ def plot_clusters_with_noise():
     ax2.set_ylabel('Feature Y')
     ax2.grid(True)
 
-    # Adjust layout and show the plot
     plt.tight_layout()
-
     plt.savefig("./exampleGraphs/scatterplot_with_and_without_noise.png", format='png', dpi=300)  # You can adjust the format and dpi as needed
 
     plt.show()

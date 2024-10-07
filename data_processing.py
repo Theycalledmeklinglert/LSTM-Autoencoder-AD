@@ -463,26 +463,38 @@ def plot_data_integrated(data, file_name, contains_timestamps):
         timestamps = data[:, 0]
         values = data[:, 1:]
     else:
-        timestamps = np.arange(data.shape[0])  # Create a sequence of indices as timestamps
+        timestamps = np.arange(data.shape[0])
         values = data
 
-        # Plotting
-    plt.figure(figsize=(10, 6))
-    if values.shape[1] == 1:
-        # If there's only one column of values
-        plt.plot(timestamps, values, label='Feature 1')
-    else:
-        # If there are multiple columns of values
-        for i in range(values.shape[1]):
-            plt.plot(timestamps, values[:, i], label=f'Feature {i + 1}')
+    print("here")
 
-    file_name = shorten_file_name(file_name)
-    plt.xlabel('Time (s)')
-    plt.ylabel('Value')
-    plt.title('Plot of ' + file_name)
+    plt.figure(figsize=(10, 6))
+    # if values.shape[1] == 1:
+    #     # If there's only one column of values
+    #     plt.plot(timestamps, values) #, label='Steering Angle')
+    # else:
+        #If there are multiple columns of values
+        #for i in range(values.shape[1]):
+    print("here2")
+
+    plt.plot(timestamps, values[:, 1], label=f'Steering Command')
+    print("here3")
+
+    # plt.plot(timestamps, values[:, 0], label=f'FL.data')
+    # plt.plot(timestamps, values[:, 1], label=f'FR.data')
+    # plt.plot(timestamps, values[:, 2], label=f'RL.data')
+    # plt.plot(timestamps, values[:, 3], label=f'RR.data')
+
+    #file_name = shorten_file_name(file_name)
+    plt.xlabel('Consecutive Measurements', fontsize=14)
+    plt.ylabel('Steering Command', fontsize=14)
+    #plt.title('Plot of ' + file_name)
     plt.legend()
     plt.grid(True)
-    plt.savefig("./exampleGraphs/normalPlots/" + file_name + ".png", format='png', dpi=200)
+    print("here4")
+
+    plt.savefig("./exampleGraphs/normalPlots/" + "skpd steering command" + ".jpg", format='jpg', dpi=100)
+    print("here5")
     plt.show()
 
 def plot_data_standalone(directories, single_sensor_name, sameSensorInOneFolder=False):

@@ -10,13 +10,13 @@ from anomaly_and_CD_injection import add_anomalies_and_drift
 from auto_arima import run_auto_arima
 from data_processing import csv_file_to_nparr, \
     old_directory_csv_files_to_dataframe_to_numpyArray, read_file_from_bagpy_to_csv, plot_data_integrated, \
-    plot_data_standalone, plot_acf, plot_acf_standalone
+    plot_data_standalone, plot_acf, plot_acf_standalone, clean_csv
 from exampleGraphs.example_plot_generator import plot_contextual_anomaly, \
     plot_collective_anomaly_similar, plot_point_anomaly
 from exampleGraphs.normal_vs_noisy_data import plot_normal_vs_noisy_data, plot_scatter_normal_vs_noisy, \
     plot_clusters_with_noise
 from tf_lstm_autoencoder import test_lstm_autoencoder
-from utils import add_anomaly_column_to_csv_files
+from utils import add_anomaly_column_to_csv_files, plot_steerAngle_over_steerAngleComm_in_single_plot
 import pmdarima as pm
 
 
@@ -35,7 +35,16 @@ if __name__ == '__main__':
     print(keras.__version__)
     print(np.__version__)
 
-    #run_auto_arima(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/autocross_valid2_17_23_44", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41"], "can_interface-wheelspeed.csv") #"control-acceleration.csv")    # "can_interface-wheelspeed.csv" , #"can_interface-current_steering_angle.csv"
+    #plot_steerAngle_over_steerAngleComm_in_single_plot("./aufnahmen/csv/autocross_valid_run/", "can_interface-current_steering_angle.csv", "control-acceleration.csv")
+
+    #plot_data_standalone(["./aufnahmen/csv/skidpad_valid_fast3_17_58_41/", "./aufnahmen/csv/autocross_valid_run/"], "control-acceleration.csv", sameSensorInOneFolder=False)
+    plot_data_standalone(["./aufnahmen/csv/autocross_valid_16_05_23/", "./aufnahmen/csv/skidpad_valid_run/"], "control-acceleration.csv", sameSensorInOneFolder=False)
+
+
+
+    #plot_steerAngle_over_steerAngleComm_in_single_plot("./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage/", "can_interface-current_steering_angle.csv", "control-acceleration.csv")
+
+    #run_auto_arima(["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/autocross_valid2_17_23_44", "./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/skidpad_valid_run"], "can_interface-current_steering_angle.csv") #"control-acceleration.csv")    # "can_interface-wheelspeed.csv" , #"can_interface-current_steering_angle.csv"
 
     #todo:
     # tsdisplay(y_train, lag_max=100)
@@ -76,7 +85,7 @@ if __name__ == '__main__':
 
     #print_unique_values(df, "status")
 
-    read_file_from_bagpy_to_csv("./aufnahmen/tmp/skidpad_valid_run.bag")
+    #read_file_from_bagpy_to_csv("./aufnahmen/tmp/skidpad_valid_run.bag")
     #read_file_from_bagpy_to_csv("./aufnahmen/error_zusammenstellung/error_zusammenstellung/autocross_unbekannter_kommunikationsfehler.bag")
 
 

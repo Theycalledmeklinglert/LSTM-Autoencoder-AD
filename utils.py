@@ -7,8 +7,7 @@ from matplotlib import pyplot as plt
 from sklearn.preprocessing import MinMaxScaler
 
 from data_processing import reverse_normalization, get_matching_file_pairs_from_directories, \
-    get_normalized_data_and_labels, reshape_data_for_autoencoder_lstm
-
+    get_normalized_data_and_labels, reshape_data_for_autoencoder_lstm, clean_csv
 
 
 def autoencoder_predict_and_calculate_error(model, X_tN, labels, future_steps, iterations, scaler):
@@ -96,6 +95,31 @@ def stacked_LSTM_predict_and_calculate_error(model, X_tN, Y_tN, future_steps, it
     avg_error_matrix = np.mean(all_err_vecs, axis=0)
     print("Avg. error: " + str(avg_error_matrix))
     print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
+
+
+def plot_steerAngle_over_steerAngleComm_in_single_plot(directory, sensor_1, sensor_2):
+    steer_angle = clean_csv(directory + sensor_1, False)
+    steer_angle_command = clean_csv(directory + sensor_2, False)
+
+    # find start timestamp for both
+    first_value_command = steer_angle_command['Time'].iloc[0]
+    steer_angle_filtered = steer_angle[steer_angle['Time'] >= first_value_command]
+    print(first_value_command)
+
+    steer_angle_filtered['Time'] = range(len(steer_angle_filtered))
+    steer_angle_command['Time'] = range(len(steer_angle_command))
+    steer_angle_filtered = steer_angle_filtered.iloc[:len(steer_angle_command)]
+
+    plt.plot(steer_angle_filtered['Time'], steer_angle_filtered['data'], label='Steering angle', color='b')
+    plt.plot(steer_angle_command['Time'], steer_angle_command['steering_angle.data'], label='MCU steering command', color='orange')
+
+    plt.xlabel('Consecutive Measurements')
+    plt.ylabel('Respective Sensor Value')
+    plt.legend()
+
+    plt.savefig("./exampleGraphs/steer_angle_vs_steer_command.jpg", format='jpg', dpi=100)  #steer_angle_vs_steer_command.jpg
+
+    plt.show()
 
 
 

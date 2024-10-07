@@ -79,6 +79,8 @@ def run_auto_arima(directories, specific_sensor):
     print("For skidpad_valid_fast2_17_47_28 ---> p_val: " + str(p_val) + " should_diff: " + str(should_diff))
     p_val, should_diff = adf_test.should_diff(dfs[4].iloc[:, 0].to_numpy().flatten())
     print("For skidpad_valid_fast3_17_58_41 ---> p_val: " + str(p_val) + " should_diff: " + str(should_diff))
+    p_val, should_diff = adf_test.should_diff(dfs[5].iloc[:, 0].to_numpy().flatten())
+    print("For skidpad_valid_run ---> p_val: " + str(p_val) + " should_diff: " + str(should_diff))
 
     # p_val, should_diff = adf_test.should_diff(first_order_diffed.flatten())
     # print("For 1st order diff ---> p_val: " + str(p_val) + " should_diff: " + str(should_diff))

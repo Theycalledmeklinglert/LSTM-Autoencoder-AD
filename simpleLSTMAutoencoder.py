@@ -14,7 +14,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, MaxAbsScaler, Ro
 #from keras.models import Model
 import seaborn as sns
 
-from data_processing import clean_csv
+from data_processing import clean_csv, plot_data_standalone
 
 
 def get_trained_LSTM_Autoencder(trainX=None, trainY=None, file_path=None):
@@ -38,11 +38,25 @@ def get_trained_LSTM_Autoencder(trainX=None, trainY=None, file_path=None):
         model.add(Dropout(rate=0.2))
         model.add(TimeDistributed(Dense(trainX.shape[2])))
 
+        # model.compile(optimizer='adam', loss='mse')
+        # model.summary()
+
+        # Try another model
+        # model = Sequential()
+        # model.add(LSTM(128, input_shape=(trainX.shape[1], trainX.shape[2])))
+        # model.add(Dropout(rate=0.2))
+        # model.add(RepeatVector(trainX.shape[1]))
+        # model.add(LSTM(128, return_sequences=True))
+        # model.add(Dropout(rate=0.2))
+        # model.add(TimeDistributed(Dense(trainX.shape[2])))
+
         model.compile(optimizer='adam', loss='mean_squared_error')
+        #model.compile(optimizer='adam', loss='mae')                #todo: try this one
+
         model.summary()
 
-        history = model.fit(trainX, trainY, epochs=20, batch_size=4, validation_split=0.1, shuffle=False, verbose=1)  #todo: probably need trainX istead of trainY
-        # todo: changed trainY to trainX
+        history = model.fit(trainX, trainY, epochs=20, batch_size=4, validation_split=0.1, shuffle=False,
+                            verbose=1)  # todo: probably need trainX istead of trainY
 
         model.save("./models/fuckingSimpleLSTMAutoenc" + ".keras")
 
@@ -50,20 +64,6 @@ def get_trained_LSTM_Autoencder(trainX=None, trainY=None, file_path=None):
         plt.plot(history.history['val_loss'], label='Validation loss')
         plt.legend()
         plt.show()
-
-        # model.compile(optimizer='adam', loss='mse')
-        # model.summary()
-
-        # Try another model
-        # model = Sequential()
-        # model.add(LSTM(128, input_shape=(trainX.shape[1], trainX.shape[2])))    #todo: went from 128 to 256
-        # model.add(Dropout(rate=0.2))
-        # model.add(RepeatVector(trainX.shape[1]))
-        # model.add(LSTM(128, return_sequences=True))                        #todo: went from 128 to 256
-        # model.add(Dropout(rate=0.2))
-        # model.add(TimeDistributed(Dense(trainX.shape[2])))                           #todo: went from 128 to 256
-
-
 
     return model
 
@@ -77,15 +77,19 @@ if __name__ == '__main__':
     # df0 = clean_csv("./aufnahmen/csv/skidpad_valid_fast2_17_47_28/can_interface-current_steering_angle.csv", False)
     # df1 = clean_csv("./aufnahmen/csv/anomalous data/can_interface-current_steering_angle.csv", False)
 
-    df0 = clean_csv("./aufnahmen/csv/autocross_valid_run/can_interface-current_steering_angle.csv", False)
-    df1 = clean_csv("./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage/can_interface-current_steering_angle.csv", False)
-    #df1 = clean_csv("./aufnahmen/csv/anomalous data/can_interface-wheelspeed.csv", False)
+    directories = ["./aufnahmen/csv/autocross_valid_run/", "./aufnahmen/csv/anomalous data/"]
+    sensor_name = "can_interface-current_steering_angle.csv"
+    #plot_data_standalone(directories, sensor_name, sameSensorInOneFolder=False)
+    df0 = clean_csv(directories[0] + sensor_name, False)
+    #df1 = clean_csv("./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage/can_interface-current_steering_angle.csv", False)
+    df1 = clean_csv(directories[1] + sensor_name, False)
+    df0['Time'] = range(len(df0))
+    df1['Time'] = range(len(df1))
 
     # df0.drop(columns=["Anomaly", "FR.data", "RL.data", "RR.data"], inplace=True)      #todo: for wheelspeed
     # df1.drop(columns=["Anomaly", "FR.data", "RL.data", "RR.data"], inplace=True)
     df0.drop(columns=["Anomaly"], inplace=True)
-    #df1.drop(columns=["Anomaly"], inplace=True)
-
+    df1.drop(columns=["Anomaly"], inplace=True)
 
     attr_1_col_name = df0.columns[1]
 
@@ -102,46 +106,49 @@ if __name__ == '__main__':
     print("Start train data date is: ", df0['Time'].min())
     print("End train data date is: ", df0['Time'].max())
 
-    # Change train data from Mid 2017 to 2019.... seems to be a jump early 2017
-    #train, test = df.loc[df['Date'] <= '2003-12-31'], df.loc[df['Date'] > '2003-12-31'] #todo: original. Uses trainX to predict last part of itself (testX)
-    train, test = df0, df1          #todo: original. Uses trainX to predict last part of itself (testX)
+    train, test = df0, df1
 
     train[attr_1_col_name] = train[attr_1_col_name].diff().fillna(0)
-    #test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
+    test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
+
+    sns.lineplot(x=train['Time'], y=train[attr_1_col_name])
+    plt.title('Diffed Train')
+    plt.show()
+    print(df1.head())
+    sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
+    plt.title('Diffed Test')
+    plt.show()
 
     adf_test = ADFTest(alpha=0.05)
     p_val, should_diff = adf_test.should_diff(test[attr_1_col_name].to_numpy().flatten())
     print("For train data ---> p_val: " + str(p_val) + " should_diff: " + str(should_diff))
 
-    if should_diff:
-        #todo:
-        # Doesnt work for ebs test steering motor encoder damage.bag
-        # Entweder vlt checken ob mean oder Varianz der Diffs übr oder unter irgendeinem Wert liegt
-        # ODER: Steering angle imemr multivariate zusammen mit steering_angle_data aus Controll acceleration predicted lassen
-        test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
-        print("Test was diffed as determined by ADF p_values > 0.05")
-        print(df1.head())
-        sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
-        plt.title('Diffed Test')
-        plt.show()
-    else:
-        print("Test was NOT diffed as determined by ADF p_values < 0.05")
-        print(df1.head())
-        sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
-        plt.title('Not Diffed Test')
-        plt.show()
+    # if should_diff:
+         #todo:
+         # Doesnt work for ebs test steering motor encoder damage.bag
+         # Entweder vlt checken ob mean oder Varianz der Diffs übr oder unter irgendeinem Wert liegt
+         # ODER: Steering angle imemr multivariate zusammen mit steering_angle_data aus Controll acceleration predicted lassen
+    #     test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
+    #     print("Test was diffed as determined by ADF p_values > 0.05")
+    #     print(df1.head())
+    #     sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
+    #     plt.title('Diffed Test')
+    #     plt.show()
+    # else:
+    #     print("Test was NOT diffed as determined by ADF p_values < 0.05")
+    #     print(df1.head())
+    #     sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
+    #     plt.title('Not Diffed Test')
+    #     plt.show()
 
 
-    sns.lineplot(x=train['Time'], y=train[attr_1_col_name])
-    plt.title('Diffed Train')
-    plt.show()
 
     print("train: ", train)
     print("test: ", test)
 
     # LSTM use sigmoid and tanh that are sensitive to magnitude so values need to be normalized
-    # scaler = MinMaxScaler()
-    scaler = StandardScaler()           #todo: MaxAbsScaler() might be smart for large val ranges at end of the series'
+    scaler = MinMaxScaler()              # may work better for steering_angle, and acceleration due to negativ values
+    #scaler = StandardScaler()           #todo: MaxAbsScaler() might be smart for large val ranges at end of the series'
     #scaler = MaxAbsScaler()
     #scaler = RobustScaler()
     #scaler = QuantileTransformer()
@@ -172,7 +179,7 @@ if __name__ == '__main__':
     trainX, trainY = to_sequences(train[[attr_1_col_name]], train[attr_1_col_name], seq_size)   #todo: double [[]] to return dataframe instead of sequence
     testX, testY = to_sequences(test[[attr_1_col_name]], test[attr_1_col_name], seq_size)
 
-    model = get_trained_LSTM_Autoencder(trainX, trainY, "./models/pretty good performance on steering angle - fuckingSimpleLSTMAutoenc.keras")
+    model = get_trained_LSTM_Autoencder(trainX, trainY) #, "./models/pretty good performance on steering angle - fuckingSimpleLSTMAutoenc.keras")
     #model.compile(optimizer='adam', loss='mae')         #loss='mean_squared_error'
     #model.compile(optimizer='adam', loss='mean_squared_error')
 
@@ -201,18 +208,27 @@ if __name__ == '__main__':
     # We can define this value beyond which we call anomaly.
     # Let us look at MAE in training prediction
 
+    testPredict = model.predict(testX)
+    testMAE = np.mean(np.abs(testPredict - testX), axis=1)
+    plt.hist(testMAE, bins=30)
+    plt.show()
+
+    testMSE = np.mean(np.square(testPredict - testX), axis=1)
+    plt.hist(testMSE, bins=30)
+    plt.show()
+
     trainPredict = model.predict(trainX)
     trainMAE = np.mean(np.abs(trainPredict - trainX), axis=1)
     plt.hist(trainMAE, bins=30)
     plt.show()
 
-    max_trainMAE = 0.3  # or Define 90% value of max as threshold.
-
-
-    testPredict = model.predict(testX)
-    testMAE = np.mean(np.abs(testPredict - testX), axis=1)
-    plt.hist(testMAE, bins=30)
+    trainMSE = np.mean(np.square(trainPredict - trainX), axis=1)
+    plt.hist(trainMSE, bins=30)
     plt.show()
+
+
+    max_trainMAE = 1.0 * np.max(trainMAE)  # or Define 90% value of max as threshold.
+    max_trainMSE = 1.0 * np.max(trainMSE)  # or Define 90% value of max as threshold.
 
     # Capture all details in a DataFrame for easy plotting
     anomaly_df = pd.DataFrame(test[seq_size:])
@@ -227,21 +243,17 @@ if __name__ == '__main__':
     plt.title('Test MAE')
     plt.show()
 
-    #testPredict = model.predict(testX)
-    testMSE = np.mean(np.square(testPredict - testX), axis=1)
-    plt.hist(testMSE, bins=30)
-    plt.show()
 
     # Capture all details in a DataFrame for easy plotting
     anomaly_df = pd.DataFrame(test[seq_size:])
     anomaly_df['testMSE'] = testMSE
-    anomaly_df['max_trainMAE'] = max_trainMAE
-    anomaly_df['anomaly'] = anomaly_df['testMSE'] > anomaly_df['max_trainMAE']  #todo: im mixing max_trainMAE with MSE so this might need to be adapted
+    anomaly_df['max_trainMSE'] = max_trainMSE
+    anomaly_df['anomaly'] = anomaly_df['testMSE'] > anomaly_df['max_trainMSE']  #todo: im mixing max_trainMAE with MSE so this might need to be adapted
     anomaly_df[attr_1_col_name] = test[seq_size:][attr_1_col_name]
 
     # Plot testMSE vs max_trainMAE
     sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['testMSE'])
-    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['max_trainMAE'])
+    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['max_trainMSE'])
     plt.title('Test MSE')
     plt.show()
 
@@ -249,16 +261,13 @@ if __name__ == '__main__':
 
     #todo: do Train data stats here
 
-    trainPredict = model.predict(trainX)
-    trainMAE = np.mean(np.abs(trainPredict - trainX), axis=1)
-    plt.hist(trainMAE, bins=30)
-    plt.show()
+
 
     anomaly_df = pd.DataFrame(train[seq_size:])
     anomaly_df['trainMAE'] = trainMAE
     anomaly_df['max_trainMAE'] = max_trainMAE
     anomaly_df['anomaly'] = anomaly_df['trainMAE'] > anomaly_df['max_trainMAE']
-    anomaly_df[attr_1_col_name] = test[seq_size:][attr_1_col_name]
+    anomaly_df[attr_1_col_name] = train[seq_size:][attr_1_col_name]
 
     # Plot testMAE vs max_trainMAE
     sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['trainMAE'])
@@ -266,21 +275,18 @@ if __name__ == '__main__':
     plt.title('Train MAE')
     plt.show()
 
-    # testPredict = model.predict(testX)
-    trainMSE = np.mean(np.square(trainPredict - trainX), axis=1)
-    plt.hist(trainMSE, bins=30)
-    plt.show()
+
 
     # Capture all details in a DataFrame for easy plotting
     anomaly_df = pd.DataFrame(train[seq_size:])
     anomaly_df['trainMSE'] = trainMSE
-    anomaly_df['max_trainMAE'] = max_trainMAE
-    anomaly_df['anomaly'] = anomaly_df['trainMSE'] > anomaly_df['max_trainMAE']  # todo: im mixing max_trainMAE with MSE so this might need to be adapted
-    anomaly_df[attr_1_col_name] = test[seq_size:][attr_1_col_name]
+    anomaly_df['max_trainMSE'] = max_trainMSE
+    anomaly_df['anomaly'] = anomaly_df['trainMSE'] > anomaly_df['max_trainMSE']  # todo: im mixing max_trainMAE with MSE so this might need to be adapted
+    anomaly_df[attr_1_col_name] = train[seq_size:][attr_1_col_name]
 
     # Plot testMSE vs max_trainMAE
     sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['trainMSE'])
-    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['max_trainMAE'])
+    sns.lineplot(x=anomaly_df['Time'], y=anomaly_df['max_trainMSE'])
     plt.title('Train MSE')
     plt.show()
 
