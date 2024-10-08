@@ -153,9 +153,9 @@ def run_auto_arima(directories, specific_sensor):
 
     #tsdisplay(data_yeojohnson, title="undiffed autocross_valid_run yeo-johnson transform ", lag_max=100)
 
-    scaler = PowerTransformer(method='yeo-johnson')
-    data_yeojohnson = scaler.fit_transform(df0_orig_data.reshape(-1, 1))
-    tsdisplay(data_yeojohnson, title= "undiffed autocross_valid_run yeo-johnson transform ", lag_max=100)
+    #scaler = PowerTransformer(method='yeo-johnson')
+    #data_yeojohnson = scaler.fit_transform(df0_orig_data.reshape(-1, 1))
+    #tsdisplay(data_yeojohnson, title= "undiffed autocross_valid_run yeo-johnson transform ", lag_max=100)
 
     # can try maxiter=10 or 20 to increase speed but lose robustness
     # try d=None; data has no autocorrelation at d=1 but autoArima uses other methods than just ADF and ACF and may have a better result
