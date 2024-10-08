@@ -18,7 +18,7 @@ from data_processing import clean_csv, plot_data_standalone
 from utils import filter_df_by_start_and_end_time_of_activity_phase
 
 
-def get_trained_LSTM_Autoencder(trainX=None, trainY=None, file_path=None):
+def get_trained_LSTM_Autoencder(trainX=None, trainY=None, validX=None, validY=None, file_path=None):
     if file_path is not None:
         model = load_model(file_path, compile=True)
         model.compile(optimizer='adam', loss='mean_squared_error')
@@ -61,10 +61,11 @@ def get_trained_LSTM_Autoencder(trainX=None, trainY=None, file_path=None):
 
         model.summary()
 
-        history = model.fit(trainX, trainY, epochs=5, batch_size=4, validation_split=0.1, shuffle=False,
-                            verbose=1)  # todo: probably need trainX istead of trainY
+        history = model.fit(trainX, trainY, epochs=5, batch_size=16,  validation_data=(validX, validY), shuffle=False, verbose=1)  # todo: probably need trainX istead of trainY
+        #history = model.fit(trainX, trainY, epochs=5, batch_size=4, validation_split=0.1, shuffle=False, verbose=1)  # todo: probably need trainX istead of trainY
 
-        model.save("./models/fuckingSimpleLSTMAutoenc" + ".keras")
+        model.save("./models/SimpleLSTMAutoenc" + ".keras")
+        print("saved model to ./models/SimpleLSTMAutoenc.keras")
 
         plt.plot(history.history['loss'], label='Training loss')
         plt.plot(history.history['val_loss'], label='Validation loss')
@@ -73,6 +74,18 @@ def get_trained_LSTM_Autoencder(trainX=None, trainY=None, file_path=None):
 
     return model
 
+def df_to_sequences(x, y, seq_size=1):
+    x_values = []
+    y_values = []
+
+    for i in range(len(x) - seq_size):
+        # print(i)
+        x_values.append(x.iloc[i:(i + seq_size)].values)
+        y_values.append(y.iloc[i + seq_size])
+
+    return np.array(x_values), np.array(y_values)
+
+
 
 if __name__ == '__main__':
 
@@ -80,7 +93,7 @@ if __name__ == '__main__':
     #df = dataframe[['Date', 'Close']]
     #df['Date'] = pd.to_datetime(df['Date'])
 
-    directories = ["./aufnahmen/csv/autocross_valid_run/", "./aufnahmen/csv/anomalous data/"]
+    directories = ["./aufnahmen/csv/autocross_valid_run/", "./aufnahmen/csv/autocross_valid_16_05_23/", "./aufnahmen/csv/anomalous data/"]
     sensor_name = "can_interface-current_steering_angle.csv"
     #df0 = clean_csv(directories[0] + sensor_name, False)
     #df1 = clean_csv("./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage/can_interface-current_steering_angle.csv", False)
@@ -89,59 +102,65 @@ if __name__ == '__main__':
     #df1['Time'] = range(len(df1))
 
     df0_no_cut = clean_csv("./aufnahmen/csv/autocross_valid_run/can_interface-current_steering_angle.csv", False)
-    df1_no_cut = clean_csv("./aufnahmen/csv/anomalous data/can_interface-current_steering_angle.csv", False)
+    df1_no_cut = clean_csv("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv", False)
+    df2_no_cut = clean_csv("./aufnahmen/csv/anomalous data/can_interface-current_steering_angle.csv", False)
 
     #todo:first return ins controll_acc df
     _, df0 = filter_df_by_start_and_end_time_of_activity_phase(directories[0],
                                                                control_acc_filename="control-acceleration.csv",
                                                                target_df_filename="can_interface-current_steering_angle.csv")
-    _, df1 = filter_df_by_start_and_end_time_of_activity_phase(directories[1],
-                                                               control_acc_filename="control-acceleration.csv",
-                                                               target_df_filename="can_interface-current_steering_angle.csv")
+    _, df1 = filter_df_by_start_and_end_time_of_activity_phase(directories[1], control_acc_filename="control-acceleration.csv", target_df_filename="can_interface-current_steering_angle.csv")
 
+    _, df2 = filter_df_by_start_and_end_time_of_activity_phase(directories[2], control_acc_filename="control-acceleration.csv", target_df_filename="can_interface-current_steering_angle.csv")
 
     print("Train Orig length: ", len(df0_no_cut))
-    print("Test Orig length: ", len(df1_no_cut))
+    print("Test Orig length: ", len(df2_no_cut))
     print("Train Cut length: ", len(df0))
-    print("Test Cut length: ", len(df1))
+    print("Test Cut length: ", len(df2))
 
     # df0.drop(columns=["Anomaly", "FR.data", "RL.data", "RR.data"], inplace=True)      #todo: for wheelspeed
     # df1.drop(columns=["Anomaly", "FR.data", "RL.data", "RR.data"], inplace=True)
     df0.drop(columns=["Anomaly"], inplace=True)
     df1.drop(columns=["Anomaly"], inplace=True)
-
+    df2.drop(columns=["Anomaly"], inplace=True)
     attr_1_col_name = df0.columns[1]
 
-    train, test = df0, df1
+    train, valid, test = df0, df1, df2
 
     print("train: ", train)
     print("test: ", test)
 
-    print(df0.head())
+    #print(df0.head())
     sns.lineplot(x=train.index, y=train[attr_1_col_name])
     plt.title('Orig Train')
     plt.show()
-    #df1.drop(columns=["Anomaly"], inplace=True)
-    print(df1.head())
+    #print(df2.head())
+    sns.lineplot(x=valid.index, y=valid[attr_1_col_name])
+    plt.title('Orig Valid')
+    plt.show()
+    #print(df2.head())
     sns.lineplot(x=test.index, y=test[attr_1_col_name])
     plt.title('Orig Test')
     plt.show()
 
     print("Start train data date is: ", df0['Time'].min())
     print("End train data date is: ", df0['Time'].max())
-    print("Start test data date is: ", df1['Time'].min())
-    print("End test data date is: ", df1['Time'].max())
+    print("Start test data date is: ", df2['Time'].min())
+    print("End test data date is: ", df2['Time'].max())
 
 
     #todo: Diff is very important
     train[attr_1_col_name] = train[attr_1_col_name].diff().fillna(0)
+    valid[attr_1_col_name] = valid[attr_1_col_name].diff().fillna(0)
     test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
-
 
     sns.lineplot(x=train.index, y=train[attr_1_col_name])
     plt.title('Diffed Train')
     plt.show()
-    print(df1.head())
+    #print(df2.head())
+    sns.lineplot(x=valid.index, y=valid[attr_1_col_name])
+    plt.title('Diffed Valid')
+    plt.show()
     sns.lineplot(x=test.index, y=test[attr_1_col_name])
     plt.title('Diffed Test')
     plt.show()
@@ -157,13 +176,13 @@ if __name__ == '__main__':
     # ODER: Steering angle imemr multivariate zusammen mit steering_angle_data aus Controll acceleration predicted lassen
     #     test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
     #     print("Test was diffed as determined by ADF p_values > 0.05")
-    #     print(df1.head())
+    #     print(df2.head())
     #     sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
     #     plt.title('Diffed Test')
     #     plt.show()
     # else:
     #     print("Test was NOT diffed as determined by ADF p_values < 0.05")
-    #     print(df1.head())
+    #     print(df2.head())
     #     sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
     #     plt.title('Not Diffed Test')
     #     plt.show()
@@ -186,6 +205,7 @@ if __name__ == '__main__':
     scaler = MinMaxScaler()  # may work better for steering_angle, and acceleration due to negativ values
     scaler = scaler.fit(train[[attr_1_col_name]])
     train[attr_1_col_name] = scaler.transform(train[[attr_1_col_name]])
+    valid[attr_1_col_name] = scaler.transform(valid[[attr_1_col_name]])
     test[attr_1_col_name] = scaler.transform(test[[attr_1_col_name]])
 
     # scaler = scaler.fit(train[[attr_1_col_name]])
@@ -195,34 +215,22 @@ if __name__ == '__main__':
     # TODO:
     # ----------------------------------------------------------------------------------------------------------
 
-    print("scaled and diffed train: ", train)
-    print("scaled and diffed test : ", test)
+    print("scaled and diffed train: \n", train)
+    print("scaled and diffed valid :  \n", valid)
+    print("scaled and diffed test :  \n", test)
 
     seq_size = 30  # Number of time steps to look back
 
 
-    def to_sequences(x, y, seq_size=1):
-        x_values = []
-        y_values = []
 
-        for i in range(len(x) - seq_size):
-            # print(i)
-            x_values.append(x.iloc[i:(i + seq_size)].values)
-            y_values.append(y.iloc[i + seq_size])
+    trainX, trainY = df_to_sequences(train[[attr_1_col_name]], train[attr_1_col_name], seq_size)  #todo: double [[]] to return dataframe instead of sequence
 
-        return np.array(x_values), np.array(y_values)
+    validX, validY = df_to_sequences(valid[[attr_1_col_name]], valid[attr_1_col_name],)
 
+    testX, testY = df_to_sequences(test[[attr_1_col_name]], test[attr_1_col_name], seq_size)
 
-    trainX, trainY = to_sequences(train[[attr_1_col_name]], train[attr_1_col_name],
-                                  seq_size)  #todo: double [[]] to return dataframe instead of sequence
-    testX, testY = to_sequences(test[[attr_1_col_name]], test[attr_1_col_name], seq_size)
+    model = get_trained_LSTM_Autoencder(trainX, trainY, validX, validY, file_path="./models/fuckingSimpleLSTMAutoenc.keras")  #, "./models/pretty good performance on steering angle - fuckingSimpleLSTMAutoenc.keras")
 
-    model = get_trained_LSTM_Autoencder(trainX, trainY, file_path="./models/fuckingSimpleLSTMAutoenc.keras")  #, "./models/pretty good performance on steering angle - fuckingSimpleLSTMAutoenc.keras")
-
-
-
-    model.save("./models/SimpleLSTMAutoenc" + ".keras")
-    print("saved model to ./models/SimpleLSTMAutoenc.keras")
 
     # plt.plot(history.history['loss'], label='Training loss')
     # plt.plot(history.history['val_loss'], label='Validation loss')

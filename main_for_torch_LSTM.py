@@ -308,17 +308,6 @@ if __name__ == '__main__':
     mu, sigma = calculate_mle_mu_sigma(error_vecs_val)
     anom_anomaly_scores = compute_anomaly_score(error_vecs_anom, mu, sigma)
 
-
-    #TODO: I'm not completely sure if should take the shifted or the unshifted true values?
-    # bei wheelspeed könnte die künstliche Überkänge von X_sN Probleme machen; Denke Datasets sollten alle ähnliche Länge haben
-    # Kann theoretisch auch mal shufflen ausprobieren
-    # Evtl. für jede Batch aus Windows eigene mu, sigma und Anom Score Threshold berechnen
-    # Jedes Window + threshold dann zusammenfügen oder einzeln plotten
-    # ODER: Time Series in Hälfte (oder anderweitig in den "konstanten" und "hoch variablen" Teil teilen (funktioniert bei Steering Angele gut)
-    # Dann Threshold Berechnung für jeden Teil
-    # Gucken ob ich doch die unshifted Sequences zur error_vec Berechnung nehmen sollte
-    # Direkt vor und nach Anomalie Sequenzen in csv X_vNA Punkte auch als Anomalien markieren?
-
     anomaly_true_seq_true_labels_numpy = batched_tensor_to_numpy_and_invert_scaling(anomaly_true_seq_true_labels, None)
     print('true labels numpy: ', anomaly_true_seq_true_labels_numpy)
     print('anom_anomaly_scores: ', anom_anomaly_scores)
