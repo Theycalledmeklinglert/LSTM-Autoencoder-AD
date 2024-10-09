@@ -99,9 +99,14 @@ true_anomaly_loader = DataLoader(anomaly_true_seq, batch_size=batch_size, shuffl
 test_loader = DataLoader(x_T_seq, batch_size=batch_size, shuffle=False)         # shuffle needs to be off;
 true_test_loader = DataLoader(x_T_true_seq, batch_size=batch_size, shuffle=False)
 
+num_layers = 1
+hidden_size = 200
+nb_feature = nb_feature
+batch_size = batch_size
+dropout = 0.2
 name_model = 'lstm_model'
 path_model = './models/'
-model = LSTMAutoEncoder(num_layers=1, hidden_size=200, nb_feature=nb_feature, batch_size=batch_size, dropout=0.2, device=device)
+model = LSTMAutoEncoder(num_layers=num_layers, hidden_size=hidden_size, nb_feature=nb_feature, batch_size=batch_size, dropout=dropout, device=device)
 model = model.to(device)
 # optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.001)
@@ -209,22 +214,23 @@ def predict(loader, true_loader, input_data):    #, model)
 if __name__ == '__main__':
     print("I hate LSTMs")
 
-    for epoch in range(1, 40):
-        train(epoch)
-        if evaluate(valid_loader, true_valid_loader, validation=True, epoch=epoch):
-            break
-        # Lr on plateau
-        if earlyStopping.patience_count == 2:
-            print('lr on plateau ', optimizer.param_groups[0]['lr'], ' -> ', optimizer.param_groups[0]['lr'] / 10)
-            optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / 10
+    # for epoch in range(1, 40):
+    #     train(epoch)
+    #     if evaluate(valid_loader, true_valid_loader, validation=True, epoch=epoch):
+    #         break
+    #     # Lr on plateau
+    #     if earlyStopping.patience_count == 2:
+    #         print('lr on plateau ', optimizer.param_groups[0]['lr'], ' -> ', optimizer.param_groups[0]['lr'] / 10)
+    #         optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / 10
+    # torch.save(model.state_dict(), "./models/torch_LSTM_num_lay" + str(num_layers) + "_hidSize" + str(hidden_size) + "_nbFeat" + str(nb_feature) + "_batchSz" + str(batch_size) + ".pth")
+    # #model_management.save_best_model()
 
-    #model_management.save_best_model()
 
-    torch.save(model.state_dict(), './models/torch_LSTM.pth')
-
-    # model.load_state_dict(torch.load('./models/torch_LSTM.pth'))
-    # model = model.to(device)
-    # model.eval()
+    #Load
+    model = LSTMAutoEncoder(num_layers=num_layers, hidden_size=hidden_size, nb_feature=nb_feature, batch_size=batch_size, device=device)
+    model.load_state_dict(torch.load('./models/torch_LSTM.pth'))
+    model = model.to(device)
+    model.eval()
 
     #todo: changes train all "xxxx_seq" to "xxxx_true_seq
 
