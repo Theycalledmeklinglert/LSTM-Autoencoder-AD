@@ -34,17 +34,28 @@ class LSTMAutoEncoder(nn.Module):
 
         #print(f"outer input_decoder of linear shape after reshape: {input_decoder.cpu().detach().numpy().shape}")
 
-
         for i in range(input_seq.shape[1] - 1, -1, -1):                                     #go through input seq backwards
             #output_decoder, hidden_cell = self.decoder(input_decoder, hidden_cell)  # hidden_cell[0] doesnt work
 
-            output_decoder, last_hidden = self.decoder(input_decoder, last_hidden)  # hidden_cell[0] doesnt work
+            #output_decoder, last_hidden = self.decoder(input_decoder, last_hidden)  # hidden_cell[0] doesnt work
+            #input_decoder = output_decoder
+
+            output_decoder, _ = self.decoder(input_decoder, last_hidden)  # hidden_cell[0] doesnt work
 
             input_decoder = output_decoder
-            output[:, i, :] = output_decoder[:, 0, :]       # likely selects the first (and only) time step from the decoder output for all batches and all features.
+            #print(f"output_decoder_shape: {output_decoder.cpu().detach().numpy().shape}")  #(4, 1, 1)
+            #output[:, i, :] = output_decoder[:, 0, :]       # likely selects the first (and only) time step from the decoder output for all batches and all features.
+            output = output_decoder
 
         #print(f"output_decoder_shape: {output_decoder.cpu().detach().numpy().shape}")
         #print(f"output var in loop: {output_decoder.cpu().detach().numpy().shape}")
+
+        #todo: TEST for only 1 timestep into future
+
+        #return output
+        #print(f"output_decoder_shape: {output_decoder.cpu().detach().numpy().shape}")
+        #print(f"output[:, 0, :]_shape :,0,: : {output[:, 0, :].cpu().detach().numpy().shape}")
+        #print(f"output_shape: {output.cpu().detach().numpy().shape}")
 
         return output
 

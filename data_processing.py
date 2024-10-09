@@ -15,6 +15,7 @@ from statsmodels.graphics.tsaplots import plot_acf
 from statsmodels.stats.diagnostic import acorr_ljungbox
 
 
+
 def get_normalized_data_and_labels(file_pair, scaler, factor, remove_timestamps):
     data_with_time_diffs = []
     true_labels_list = []
@@ -25,11 +26,16 @@ def get_normalized_data_and_labels(file_pair, scaler, factor, remove_timestamps)
         if data is None:
             break
 
+        #print("here2:", single_file)
+
+        print("here2:", data)
         print("here: " + str(data.shape))
 
-        data = data[:, :1]
+        data = data[:, 1:]
 
         print("here: " + str(data.shape))
+
+        print("here3: " + str(data))
 
         plot_data_integrated(data, "Unscaled" + single_file, not remove_timestamps)
         print("unnormalized_data_with_time_diffs: \n" + str(data))
@@ -81,11 +87,11 @@ def get_noShift_andShift_data_windows_for_lstm(data_list, window_size, window_st
     '''
     window_size and shift_value should be equal
     window_step = 0             --> shifted and not shifted windows are the same
-    window_step = window_size   --> shifted data not shifted windows have no overlap
+    window_step = window_size   --> shifted data not shifted windows have no overlap and are subsequent
     in general window_step < window_size
     '''
     # Reshape X to fit LSTM input shape (samples, time steps, features)
-    if window_size < 1 or window_step < 0 or window_step >= window_size:
+    if window_size < 1 or window_step < 0:   #or window_step >= window_size:
         from utils import InvalidReshapeParamters
         raise InvalidReshapeParamters()
         return
@@ -98,16 +104,24 @@ def get_noShift_andShift_data_windows_for_lstm(data_list, window_size, window_st
         not_shifted_windowed_data = []
         shifted_windowed_data = []
 
-        for window_start in range(0, data.shape[0] - window_size * 2, window_size):   #todo: pain, suffering, agony, torment, stark discomfort
+        for window_start in range(0, data.shape[0] - window_size - 2):
+        #for window_start in range(0, data.shape[0] - window_size * 2, window_size):    #todo: previous vers
+
             no_shift_window_end = window_start + window_size
             no_shift_window = data[window_start:no_shift_window_end]
 
-            shift_window_start = no_shift_window_end - window_step
-            shift_window_end = shift_window_start + window_size
+            # shift_window_start = no_shift_window_end - window_step
+            # shift_window_end = shift_window_start + window_size
+            # shift_window = data[shift_window_start:shift_window_end]
+            #todo:this now only goes 1 timestep into future
+            shift_window_start = no_shift_window_end                #- window_step
+            shift_window_end = shift_window_start + 1            #window_step
             shift_window = data[shift_window_start:shift_window_end]
 
             not_shifted_windowed_data.append(no_shift_window)
             shifted_windowed_data.append(shift_window)
+
+
 
         all_no_shift_windows.append(numpy.array(not_shifted_windowed_data))
         all_shift_windows.append(numpy.array(shifted_windowed_data))
@@ -206,12 +220,60 @@ def convert_timestamp_to_relative_time_diff(df):
     return df
 
 
+def get_start_time_of_activity_phase_from_control_acc(control_acc_df):
+    #steer_angle_command = clean_csv(directory + sensor_1, False)
+    first_command_timestamp = control_acc_df['Time'].iloc[0]
+    print("Start of activity phase at: ", first_command_timestamp)
+    return first_command_timestamp
+
+
+def filter_df_by_start_and_end_time_of_activity_phase(directory, control_acc_filename=None, target_df_filename=None):
+    control_acc_df = clean_csv(directory + control_acc_filename, False)
+    target_df = clean_csv(directory + target_df_filename, False)
+
+    start_timestamp = get_start_time_of_activity_phase_from_control_acc(control_acc_df)
+    #cut beginning phase
+    target_df_filtered = target_df[target_df['Time'] >= start_timestamp].copy()
+
+
+    #set new indexes
+    #target_df_filtered.loc[:, 'Time'] = range(len(target_df_filtered))
+    #control_acc_df.loc[:, 'Time'] = range(len(control_acc_df))
+    #cut end phase
+    if len(target_df_filtered) > len(control_acc_df):
+        target_df_filtered = target_df_filtered.iloc[:len(control_acc_df)].copy()
+
+
+    print("Filtered length (after matching length):", len(target_df_filtered))
+    print("First timestamp after filtering:", target_df_filtered['Time'].iloc[0])
+    return control_acc_df, target_df_filtered
+
+
 def csv_file_to_nparr(file_path, remove_timestamps, factor):
     print("Getting data from: " + str(file_path))
 
     offset = 0
-    df = clean_csv(file_path, remove_timestamps)
+    #df = clean_csv(file_path, remove_timestamps)
+
+    dir_path = file_path.rpartition("\\")[0] + "\\"
+    sensor_name = file_path.rpartition("\\")[2]
+
+    print(dir_path)
+    print(sensor_name)
+
+    _, df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, control_acc_filename="control-acceleration.csv", target_df_filename=sensor_name)
+
+    print("Before resetting index:")
+    print(df)
+
+    # Reset the index
+    df.reset_index(drop=True, inplace=True)
+
+    print("\nAfter resetting index:")
+    print(df)
+
     if df is None:
+        print("None Dataframe returned in csv_file_to_nparr")
         return
 
     print("cleaned csv")
@@ -272,9 +334,6 @@ def old_directory_csv_files_to_dataframe_to_numpyArray(directory):
 
     samples = np.zeros((dims[0], dims[1]))
 
-    # todo: csv's have different number of rows --> need to fill the rest of them with 0s i guess?
-    # todo: OR: downsample my data to equal length but that's needlessly complicated too
-    # todo: might be the only viable option cause otherwise I will fuck up my training
     col_offset = 0
     for df in dfs:
         for row_index, row in df.iterrows():
@@ -469,15 +528,16 @@ def plot_data_integrated(data, file_name, contains_timestamps):
     print("here")
 
     plt.figure(figsize=(10, 6))
-    # if values.shape[1] == 1:
-    #     # If there's only one column of values
-    #     plt.plot(timestamps, values) #, label='Steering Angle')
-    # else:
-        #If there are multiple columns of values
-        #for i in range(values.shape[1]):
+    if values.shape[1] == 1:
+        # If only one column of values
+        plt.plot(timestamps, values, label='Steering Angle')
+    else:
+        # If there are multiple columns of values
+        for i in range(values.shape[1]):
+            plt.plot(timestamps, values[:, i], label="Feature: " + str(i))
     print("here2")
 
-    plt.plot(timestamps, values[:, 1], label=f'Steering Command')
+    #plt.plot(timestamps, values[:, 1], label=f'Steering Command') todo: used this for single channel BA plots
     print("here3")
 
     # plt.plot(timestamps, values[:, 0], label=f'FL.data')
@@ -488,12 +548,12 @@ def plot_data_integrated(data, file_name, contains_timestamps):
     #file_name = shorten_file_name(file_name)
     plt.xlabel('Consecutive Measurements', fontsize=14)
     plt.ylabel('Steering Command', fontsize=14)
-    #plt.title('Plot of ' + file_name)
+    plt.title('Plot of ' + file_name)   #todo: comment this out for single channel BA plots
     plt.legend()
     plt.grid(True)
     print("here4")
 
-    plt.savefig("./exampleGraphs/normalPlots/" + "skpd steering command" + ".jpg", format='jpg', dpi=100)
+    #plt.savefig("./exampleGraphs/normalPlots/" + "skpd steering command" + ".jpg", format='jpg', dpi=100)  todo: used this for single channel BA plots
     print("here5")
     plt.show()
 
@@ -540,30 +600,3 @@ def shorten_file_name(file_name):
     return file_name[file_name.rfind("/") + 1:].rstrip(".csv").replace("\\", "_")
 
 
-    # series = data[:, 1]
-    #
-    # # Step 1: Compute the differences
-    # diff_series = np.diff(series)
-    #
-    # # Step 2: Perform the Ljung-Box test
-    # ljung_box_result = acorr_ljungbox(diff_series, lags=[10], return_df=True)
-    #
-    # # Step 3: Plot the differenced series
-    # plt.figure(figsize=(14, 6))
-    # plt.subplot(1, 2, 1)
-    # plt.plot(diff_series)
-    # plt.title('Differenced Series')
-    # plt.xlabel('Time')
-    # plt.ylabel('Differenced Value')
-    #
-    # # Step 4: Plot the p-values from the Ljung-Box test
-    # plt.subplot(1, 2, 2)
-    # plt.bar(ljung_box_result.index, ljung_box_result['lb_pvalue'])
-    # #plt.yscale('log')
-    # plt.title('Ljung-Box Test p-values')
-    # plt.xlabel('Lag')
-    # plt.ylabel('p-value')
-    # plt.axhline(y=0.05, color='r', linestyle='--')  # Significance level line
-    #
-    # plt.tight_layout()
-    # plt.show()

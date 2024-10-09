@@ -14,8 +14,7 @@ from sklearn.preprocessing import MinMaxScaler, StandardScaler, MaxAbsScaler, Ro
 #from keras.models import Model
 import seaborn as sns
 
-from data_processing import clean_csv, plot_data_standalone
-from utils import filter_df_by_start_and_end_time_of_activity_phase
+from data_processing import clean_csv, plot_data_standalone, filter_df_by_start_and_end_time_of_activity_phase
 
 
 def get_trained_LSTM_Autoencder(trainX=None, trainY=None, validX=None, validY=None, file_path=None):
@@ -101,9 +100,9 @@ if __name__ == '__main__':
     #df0['Time'] = range(len(df0))
     #df1['Time'] = range(len(df1))
 
-    df0_no_cut = clean_csv("./aufnahmen/csv/autocross_valid_run/can_interface-current_steering_angle.csv", False)
-    df1_no_cut = clean_csv("./aufnahmen/csv/autocross_valid_16_05_23/can_interface-current_steering_angle.csv", False)
-    df2_no_cut = clean_csv("./aufnahmen/csv/anomalous data/can_interface-current_steering_angle.csv", False)
+    df0_no_cut = clean_csv(directories[0] + sensor_name, False)
+    df1_no_cut = clean_csv(directories[1] + sensor_name, False)
+    df2_no_cut = clean_csv(directories[2] + sensor_name, False)
 
     #todo:first return ins controll_acc df
     _, df0 = filter_df_by_start_and_end_time_of_activity_phase(directories[0],
@@ -112,6 +111,9 @@ if __name__ == '__main__':
     _, df1 = filter_df_by_start_and_end_time_of_activity_phase(directories[1], control_acc_filename="control-acceleration.csv", target_df_filename="can_interface-current_steering_angle.csv")
 
     _, df2 = filter_df_by_start_and_end_time_of_activity_phase(directories[2], control_acc_filename="control-acceleration.csv", target_df_filename="can_interface-current_steering_angle.csv")
+
+
+
 
     print("Train Orig length: ", len(df0_no_cut))
     print("Test Orig length: ", len(df2_no_cut))
@@ -150,9 +152,9 @@ if __name__ == '__main__':
 
 
     #todo: Diff is very important
-    train[attr_1_col_name] = train[attr_1_col_name].diff().fillna(0)
-    valid[attr_1_col_name] = valid[attr_1_col_name].diff().fillna(0)
-    test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
+    # train[attr_1_col_name] = train[attr_1_col_name].diff().fillna(0)
+    # valid[attr_1_col_name] = valid[attr_1_col_name].diff().fillna(0)
+    # test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
 
     sns.lineplot(x=train.index, y=train[attr_1_col_name])
     plt.title('Diffed Train')
@@ -222,14 +224,13 @@ if __name__ == '__main__':
     seq_size = 30  # Number of time steps to look back
 
 
-
     trainX, trainY = df_to_sequences(train[[attr_1_col_name]], train[attr_1_col_name], seq_size)  #todo: double [[]] to return dataframe instead of sequence
 
     validX, validY = df_to_sequences(valid[[attr_1_col_name]], valid[attr_1_col_name],)
 
     testX, testY = df_to_sequences(test[[attr_1_col_name]], test[attr_1_col_name], seq_size)
 
-    model = get_trained_LSTM_Autoencder(trainX, trainY, validX, validY, file_path="./models/fuckingSimpleLSTMAutoenc.keras")  #, "./models/pretty good performance on steering angle - fuckingSimpleLSTMAutoenc.keras")
+    model = get_trained_LSTM_Autoencder(trainX, trainY, validX, validY) #, file_path="./models/fuckingSimpleLSTMAutoenc.keras")  #, "./models/pretty good performance on steering angle - fuckingSimpleLSTMAutoenc.keras")
 
 
     # plt.plot(history.history['loss'], label='Training loss')

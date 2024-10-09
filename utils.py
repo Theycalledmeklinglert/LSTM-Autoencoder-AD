@@ -94,7 +94,7 @@ def stacked_LSTM_predict_and_calculate_error(model, X_tN, Y_tN, future_steps, it
 
     avg_error_matrix = np.mean(all_err_vecs, axis=0)
     print("Avg. error: " + str(avg_error_matrix))
-    print("Avg. error (now with 20% less cancer!): " + str(np.mean(avg_error_matrix, axis=0)))
+    print("Mean Avg. error): " + str(np.mean(avg_error_matrix, axis=0)))
 
 
 def plot_steerAngle_over_steerAngleComm_in_single_plot(directory, sensor_1, sensor_2):
@@ -121,35 +121,6 @@ def plot_steerAngle_over_steerAngleComm_in_single_plot(directory, sensor_1, sens
 
     plt.show()
 
-
-
-def get_start_time_of_activity_phase_from_control_acc(control_acc_df):
-    #steer_angle_command = clean_csv(directory + sensor_1, False)
-    first_command_timestamp = control_acc_df['Time'].iloc[0]
-    print("Start of activity phase at: ", first_command_timestamp)
-    return first_command_timestamp
-
-
-def filter_df_by_start_and_end_time_of_activity_phase(directory, control_acc_filename=None, target_df_filename=None):
-    control_acc_df = clean_csv(directory + control_acc_filename, False)
-    target_df = clean_csv(directory + target_df_filename, False)
-
-    start_timestamp = get_start_time_of_activity_phase_from_control_acc(control_acc_df)
-    #cut beginning phase
-    target_df_filtered = target_df[target_df['Time'] >= start_timestamp].copy()
-
-
-    #set new indexes
-    #target_df_filtered.loc[:, 'Time'] = range(len(target_df_filtered))
-    #control_acc_df.loc[:, 'Time'] = range(len(control_acc_df))
-    #cut end phase
-    if len(target_df_filtered) > len(control_acc_df):
-        target_df_filtered = target_df_filtered.iloc[:len(control_acc_df)].copy()
-
-
-    print("Filtered length (after matching length):", len(target_df_filtered))
-    print("First timestamp after filtering:", target_df_filtered['Time'].iloc[0])
-    return control_acc_df, target_df_filtered
 
 
 def add_anomaly_column_to_csv_files(directories):

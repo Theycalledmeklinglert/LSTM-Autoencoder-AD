@@ -30,13 +30,13 @@ device = torch.device('cpu')
 # steering angle: step_window = 0;size_window = 300;batch_size = 16;hidden_size=100;scaler = StandardScaler();dropout = 0.4 (auch wenn das nichts macht glaube ich)
 
 
-step_window = 29
-size_window = 30
+step_window = 30
+size_window = 50
 
 #scaler = MinMaxScaler(feature_range=(0, 1))
-#scaler = MinMaxScaler(feature_range=(0, 1))  # Scales the data to a fixed range, typically [0, 1].
+scaler = MinMaxScaler()  # Scales the data to a fixed range, typically [0, 1].
 #scaler = StandardScaler()                      #Scales the data to have a mean of 0 and a standard deviation of 1.
-scaler = MaxAbsScaler()                         #Scales each feature by its maximum absolute value, so that each feature is in the range [0, 1] or [-1, 0] or [-1, 1]
+#scaler = MaxAbsScaler()                         #Scales each feature by its maximum absolute value, so that each feature is in the range [0, 1] or [-1, 0] or [-1, 1]
 #scaler = QuantileTransformer(output_distribution='normal')
 #scaler = None
 
@@ -58,7 +58,6 @@ not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true
 #not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], single_sensor_name="can_interface-wheelspeed.csv")
 
 
-howMuchIsThis = not_shifted_data_winds[0]
 test = not_shifted_data_winds[0][0]
 test_shifted = shifted_data_winds[0][0]
 test2 = not_shifted_data_winds[0][1]
@@ -68,7 +67,7 @@ test_shifted_true_labels = shifted_true_winds[0][0]
 test_not_shifted_true_labels = not_shifted_true_winds[0][0]
 
 
-batch_size = 4
+batch_size = 8  #todo: batch_size worked fairly well
 train_seq = not_shifted_data_winds[0]#[0][0]      # because get_data_as_single_batches_of_subseqs return [data_with_time_diffs, true_label_list]
 train_seq_true_labels = not_shifted_true_winds[0]
 train_true_seq = shifted_data_winds[0]
@@ -118,14 +117,14 @@ true_test_loader = DataLoader(x_T_true_seq, batch_size=batch_size, shuffle=False
 #         build model              #
 # ----------------------------------#
 
-model = LSTMAutoEncoder(num_layers=1, hidden_size=500, nb_feature=nb_feature, batch_size=batch_size, dropout=0.2, device=device)
+model = LSTMAutoEncoder(num_layers=1, hidden_size=200, nb_feature=nb_feature, batch_size=batch_size, dropout=0.2, device=device)
 model = model.to(device)
 # optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 # loss
 criterion = torch.nn.MSELoss()
 # Callbacks
-earlyStopping = EarlyStopping(patience=20)
+earlyStopping = EarlyStopping(patience=4)
 model_management = ModelManagement(path_model, name_model)
 # Plot
 loss_checkpoint_train = LossCheckpoint()
@@ -145,8 +144,13 @@ def train(epoch):
         optimizer.zero_grad()
         # forward
         train_data = train_data.to(device).float()
+
+
         output = model.forward(train_data)
-        output = torch.flip(output, dims=[1])   #todo: ?
+        #output = torch.flip(output, dims=[1])   #todo: ? NO
+
+        #print("y_true__shape: " + str(y_true_data.shape))
+        #print("output_shape: " + str(output.shape))
 
         #loss = criterion(data, output.to(device))
         loss = criterion(output.to(device), y_true_data.to(device).float())
@@ -178,7 +182,7 @@ def evaluate(loader, true_loader, validation=False, epoch=0):
             input_data = input_data.to(device).float()
             output = model.forward(input_data)
 
-            output = torch.flip(output, dims=[1])   #todo: ?
+            #output = torch.flip(output, dims=[1])   #todo: ? NO
 
             loss = criterion(output.to(device), true_data.to(device).float())
             eval_loss += loss.item()
@@ -193,7 +197,6 @@ def evaluate(loader, true_loader, validation=False, epoch=0):
         loss_checkpoint_valid.losses.append(avg_loss)
         model_management.checkpoint(epoch, model, optimizer, avg_loss)
         return earlyStopping.check_training(avg_loss)
-
 
 def predict(loader, true_loader, input_data):    #, model)
     eval_loss = 0
@@ -214,8 +217,7 @@ def predict(loader, true_loader, input_data):    #, model)
             # print('id_batch*data.shape[0]: ', id_batch * data.shape[0])
             # print('data shape: ', data.shape)
 
-            #todo: I THINK(!) i need to reverse the sequence here. This NEEDS to be tested!!
-            output = torch.flip(output, dims=[1])       #todo: ?
+            #output = torch.flip(output, dims=[1])       #todo: ? NO
 
             #predictions[id_batch * data.shape[0]:(id_batch + 1) * data.shape[0], :, :] = output.reshape(data.shape[0], seq_length, -1)
             predictions[id_batch * data.shape[0]:(id_batch + 1) * data.shape[0], :, :] = output
@@ -226,6 +228,11 @@ def predict(loader, true_loader, input_data):    #, model)
     print('====> Prediction Average loss: {:.6f}'.format(avg_loss))
     return predictions
 
+#todo:
+# huh? ----> shape of predictions:  torch.Size([4070, 30, 1])
+#            numpy shape of input:  (122100, 1)
+
+
 
 if __name__ == '__main__':
     print("I hate LSTMs")
@@ -233,12 +240,12 @@ if __name__ == '__main__':
     # print(transformed_ts.shape)
     # print(str(transformed_ts[0]))
 
-    for epoch in range(1, 10):
+    for epoch in range(1, 20):
         train(epoch)
         if evaluate(valid_loader, true_valid_loader, validation=True, epoch=epoch):
             break
         # Lr on plateau
-        if earlyStopping.patience_count == 20:
+        if earlyStopping.patience_count == 2:
             print('lr on plateau ', optimizer.param_groups[0]['lr'], ' -> ', optimizer.param_groups[0]['lr'] / 10)
             optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / 10
     model_management.save_best_model()
@@ -253,11 +260,13 @@ if __name__ == '__main__':
     # model = model.to(device)
 
 
-    predictions_train = predict(train_loader, true_train_loader, train_seq) #, model)
+    #todo: changes train all "xxxx_seq" to "xxxx_true_seq
+
+    predictions_train = predict(train_loader, true_train_loader, train_true_seq) #, model)
     print('shape of predictions: ', predictions_train.shape)
     #print('predictions: \n' + str(predictions_train))
 
-    train_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(train_seq, scaler)
+    train_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(train_true_seq, scaler)
     print('numpy shape of input: ', train_seq_numpy.shape)
     #print('Original scaled tensor input: \n', train_seq)
     print('Reverse scaled numpy input: \n' + str(train_seq_numpy))
@@ -268,11 +277,11 @@ if __name__ == '__main__':
 
     plot_time_series(predictions_train_numpy, "Predicted time Series for: X_sN")
 
-    predictions_anom = predict(anomaly_loader, true_anomaly_loader, anomaly_seq) #, model)
+    predictions_anom = predict(anomaly_loader, true_anomaly_loader, anomaly_true_seq) #, model)
     predictions_anom_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_anom, scaler)
     plot_time_series(predictions_anom_numpy, "Predicted time Series for: X_vNA")
 
-    predictions_val = predict(valid_loader, true_valid_loader, valid_seq)  # , model)
+    predictions_val = predict(valid_loader, true_valid_loader, valid_true_seq)  # , model)
     predictions_val_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_val, scaler)
     plot_time_series(predictions_val_numpy, "Predicted time Series for: X_vN")
 
