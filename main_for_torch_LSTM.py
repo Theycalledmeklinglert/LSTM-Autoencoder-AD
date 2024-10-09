@@ -222,6 +222,9 @@ if __name__ == '__main__':
 
     torch.save(model.state_dict(), './models/torch_LSTM.pth')
 
+    # model.load_state_dict(torch.load('./models/torch_LSTM.pth'))
+    # model = model.to(device)
+    # model.eval()
 
     #todo: changes train all "xxxx_seq" to "xxxx_true_seq
 

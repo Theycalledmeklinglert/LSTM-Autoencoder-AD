@@ -243,7 +243,7 @@ def filter_df_by_start_and_end_time_of_activity_phase(directory, remove_time_col
     #control_acc_df.loc[:, 'Time'] = range(len(control_acc_df))
     #cut end phase
     if len(target_df_filtered) > len(control_acc_df):
-        target_df_filtered = target_df_filtered.iloc[:len(control_acc_df)].copy()
+        target_df_filtered = target_df_filtered.iloc[:(len(control_acc_df) - 5)].copy()
 
 
     print("Filtered length (after matching length):", len(target_df_filtered))
