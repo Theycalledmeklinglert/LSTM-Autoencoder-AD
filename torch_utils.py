@@ -8,41 +8,49 @@ import numpy as np
 
 from data_processing import clean_csv, convert_timestamp_to_relative_time_diff, reshape_data_for_autoencoder_lstm, \
     get_normalized_data_and_labels, get_matching_file_pairs_from_directories, get_noShift_andShift_data_windows_for_lstm
+from torch_LSTM_autoenc import LSTMAutoEncoder
 
 
-class FormulaStudentDataset(Dataset):
-    def __init__(self, path, type, nrows=None):
-        """
-        Args:
-            path (string): Path to file with annotations.
-            type (string): 'csv' or 'pytorch'
-        """
-        if type == 'csv':
-            self.data = pd.read_csv(path, delimiter=' ', nrows=nrows, header=None)
-            print("old Datasetloader df: \n" + str(self.data.head))
-            self.data = read_Formul_Stud_csv_to_nmpy_arr(path, True, nrows=nrows)
-            print("my fucked up Datasetloader df: \n" + str(self.data.head))
-
-        elif type == 'pytorch':
-            self.data = torch.load(path)
-        else:
-            raise ValueError('type value is wrong: ', type)
-        self.type = type
-
-    def __len__(self):
-        if self.type == 'csv':
-            return len(self.data)
-        if self.type == 'pytorch':
-            return self.data.shape[0]
-
-    def __getitem__(self, idx):
-        if torch.is_tensor(idx):
-            idx = idx.tolist()
-        if self.type == 'csv':
-            return torch.from_numpy(np.array(self.data.iloc[idx, :], dtype=np.float))
-        if self.type == 'pytorch':
-            return self.data[idx,:,:]
-
+#
+# class FormulaStudentDataset(Dataset):
+#     def __init__(self, path, type, nrows=None):
+#         """
+#         Args:
+#             path (string): Path to file with annotations.
+#             type (string): 'csv' or 'pytorch'
+#         """
+#         if type == 'csv':
+#             self.data = pd.read_csv(path, delimiter=' ', nrows=nrows, header=None)
+#             print("old Datasetloader df: \n" + str(self.data.head))
+#             self.data = read_Formul_Stud_csv_to_nmpy_arr(path, True, nrows=nrows)
+#             print("my fucked up Datasetloader df: \n" + str(self.data.head))
+#         else:
+#             raise ValueError('type value is wrong: ', type)
+#         self.type = type
+#
+#     def __len__(self):
+#         if self.type == 'csv':
+#             return len(self.data)
+#
+#     def __getitem__(self, idx):
+#         if torch.is_tensor(idx):
+#             idx = idx.tolist()
+#         if self.type == 'csv':
+#             return torch.from_numpy(np.array(self.data.iloc[idx, :], dtype=np.float))
+#
+# def read_Formul_Stud_csv_to_nmpy_arr(file_path, remove_timestamps, nrows):
+#     print("Getting data from: " + str(file_path))
+#     df = clean_csv(file_path, remove_timestamps)
+#     if df is None:
+#         return
+#     print("cleaned csv")
+#     df = convert_timestamp_to_relative_time_diff(df)
+#
+#     #if "Anomaly" in df.columns:
+#     print("converted timestamps")
+#     print(df.shape)
+#     return df
+#Todo: this can probably go
 
 
 class EarlyStopping:
@@ -86,6 +94,16 @@ class ModelManagement:
     def save_best_model(self):
         torch.save(self.dict_model, self.path + '%s_epoch_%d' % (self.name_model, self.dict_model['epoch']))
 
+    def load_best_model_in_eval_mode(self, model_path_plus_name):
+        model = LSTMAutoEncoder()
+        optimizer = torch.optim.Adam(model.parameters())  # Replace with the actual optimizer used
+        checkpoint = torch.load(model_path_plus_name)  # Replace 'N' with the epoch number
+        model.load_state_dict(checkpoint['model_state_dict'])
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        epoch = checkpoint['epoch']
+        loss = checkpoint['loss']
+        model.eval()
+        return model
 
 class LossCheckpoint:
     def __init__(self):
@@ -99,20 +117,6 @@ class LossCheckpoint:
         if log:
             plt.yscale('log')
         plt.show()
-
-
-def read_Formul_Stud_csv_to_nmpy_arr(file_path, remove_timestamps, nrows):
-    print("Getting data from: " + str(file_path))
-    df = clean_csv(file_path, remove_timestamps)
-    if df is None:
-        return
-    print("cleaned csv")
-    df = convert_timestamp_to_relative_time_diff(df)
-
-    #if "Anomaly" in df.columns:
-    print("converted timestamps")
-    print(df.shape)
-    return df
 
 
 def get_data_as_list_of_single_batches_of_subseqs(time_steps, window_step, remove_timestamps, scaler=None, directories=None, single_sensor_name=None):

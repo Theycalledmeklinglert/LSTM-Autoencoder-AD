@@ -9,18 +9,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 from data_processing import clean_csv, convert_timestamp_to_relative_time_diff, reverse_normalization
 from torch_LSTM_autoenc import LSTMAutoEncoder
 from torch_preprocessing import preprocessing
-from torch_utils import EarlyStopping, ModelManagement, LossCheckpoint, FormulaStudentDataset, \
+from torch_utils import EarlyStopping, ModelManagement, LossCheckpoint, \
     get_data_as_list_of_single_batches_of_subseqs, batched_tensor_to_numpy_and_invert_scaling, plot_time_series, \
     get_data_as_shifted_batches_seqs, calculate_mle_mu_sigma, compute_anomaly_score, find_optimal_threshold, \
     plot_data_over_threshold
 
-name_model = 'lstm_model'
-path_model = './models/'
-device = torch.device('cpu')
-
-# ----------------------------------#
-#         load dataset              #
-# ----------------------------------#
 
 # directories=["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data",
 # "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"],
@@ -29,9 +22,7 @@ device = torch.device('cpu')
 #todo:
 # steering angle: step_window = 0;size_window = 300;batch_size = 16;hidden_size=100;scaler = StandardScaler();dropout = 0.4 (auch wenn das nichts macht glaube ich)
 
-
-step_window = 30
-size_window = 50
+device = torch.device('cpu')
 
 #scaler = MinMaxScaler(feature_range=(0, 1))
 scaler = MinMaxScaler()  # Scales the data to a fixed range, typically [0, 1].
@@ -44,15 +35,9 @@ scaler = MinMaxScaler()  # Scales the data to a fixed range, typically [0, 1].
 # try increase batch_size; increase window step; adding timestamp; try shuffling ;scaling; try changing hidden size;
 # maybe only one per batch but i dont think tis fixes the issue
 
-# all_data = get_data_as_single_batches_of_subseqs(size_window, step_window, True, scaler=scaler,
-#                                                  directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"],
-#                                                  single_sensor_name="can_interface-current_steering_angle.csv")
-# all_data = get_data_as_single_batches_of_subseqs(size_window, step_window, True, scaler=scaler,
-#                                                  directories=["./aufnahmen/csv/autocross_valid_16_05_23",
-#                                                               "./aufnahmen/csv/autocross_valid_run",
-#                                                               "./aufnahmen/csv/anomalous data",
-#                                                               "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], single_sensor_name="can_interface-wheelspeed.csv")
 
+step_window = 3
+size_window = 50
 not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
 
 #not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], single_sensor_name="can_interface-wheelspeed.csv")
@@ -67,7 +52,6 @@ test_shifted_true_labels = shifted_true_winds[0][0]
 test_not_shifted_true_labels = not_shifted_true_winds[0][0]
 
 
-batch_size = 8  #todo: batch_size worked fairly well
 train_seq = not_shifted_data_winds[0]#[0][0]      # because get_data_as_single_batches_of_subseqs return [data_with_time_diffs, true_label_list]
 train_seq_true_labels = not_shifted_true_winds[0]
 train_true_seq = shifted_data_winds[0]
@@ -104,6 +88,8 @@ size_data, nb_feature = not_shifted_data_winds[0][0].shape
 # seq_length, size_data, nb_feature = train_seq.data.shape
 # print('train_seq shape:', train_seq.shape)
 
+batch_size = 2  #todo: batch_size 4 worked fairly well; batch_size 8 actually quite well + MinMaxScaler for steering angle
+
 train_loader = DataLoader(train_seq, batch_size=batch_size, shuffle=False)      # shuffle needs to be off;
 true_train_loader = DataLoader(train_true_seq, batch_size=batch_size, shuffle=False)
 valid_loader = DataLoader(valid_seq, batch_size=batch_size, shuffle=False)       # shuffle needs to be off;
@@ -113,10 +99,8 @@ true_anomaly_loader = DataLoader(anomaly_true_seq, batch_size=batch_size, shuffl
 test_loader = DataLoader(x_T_seq, batch_size=batch_size, shuffle=False)         # shuffle needs to be off;
 true_test_loader = DataLoader(x_T_true_seq, batch_size=batch_size, shuffle=False)
 
-# ----------------------------------#
-#         build model              #
-# ----------------------------------#
-
+name_model = 'lstm_model'
+path_model = './models/'
 model = LSTMAutoEncoder(num_layers=1, hidden_size=200, nb_feature=nb_feature, batch_size=batch_size, dropout=0.2, device=device)
 model = model.to(device)
 # optimizer
@@ -125,7 +109,7 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 criterion = torch.nn.MSELoss()
 # Callbacks
 earlyStopping = EarlyStopping(patience=4)
-model_management = ModelManagement(path_model, name_model)
+#model_management = ModelManagement(path_model, name_model)
 # Plot
 loss_checkpoint_train = LossCheckpoint()
 loss_checkpoint_valid = LossCheckpoint()
@@ -140,14 +124,11 @@ def train(epoch):
     for (id_batch, train_data), (_, y_true_data) in zip(enumerate(train_loader), enumerate(true_train_loader)):
         # print("data: " + str(data))
         # print("data_shape: " + str(data.shape))
-
         optimizer.zero_grad()
         # forward
         train_data = train_data.to(device).float()
 
-
-        output = model.forward(train_data)
-        #output = torch.flip(output, dims=[1])   #todo: ? NO
+        output = model.forward(train_data, step_window)  #todo: could make windows of unequal sizes for input and pred here
 
         #print("y_true__shape: " + str(y_true_data.shape))
         #print("output_shape: " + str(output.shape))
@@ -180,9 +161,7 @@ def evaluate(loader, true_loader, validation=False, epoch=0):
         #for id_batch, data in enumerate(loader):
         for (id_batch, input_data), (_, true_data) in zip(enumerate(loader), enumerate(true_loader)):
             input_data = input_data.to(device).float()
-            output = model.forward(input_data)
-
-            #output = torch.flip(output, dims=[1])   #todo: ? NO
+            output = model.forward(input_data, step_window)
 
             loss = criterion(output.to(device), true_data.to(device).float())
             eval_loss += loss.item()
@@ -195,7 +174,7 @@ def evaluate(loader, true_loader, validation=False, epoch=0):
     # Checkpoint
     if validation:
         loss_checkpoint_valid.losses.append(avg_loss)
-        model_management.checkpoint(epoch, model, optimizer, avg_loss)
+        #model_management.checkpoint(epoch, model, optimizer, avg_loss)
         return earlyStopping.check_training(avg_loss)
 
 def predict(loader, true_loader, input_data):    #, model)
@@ -207,7 +186,7 @@ def predict(loader, true_loader, input_data):    #, model)
         for (id_batch, data), (_, true_data) in zip(enumerate(loader), enumerate(true_loader)):
 
             data = data.to(device).float()
-            output = model.forward(data)
+            output = model.forward(data, step_window)
 
             # print('input_data shape: ', input_data.shape)
             # print('predict shape: ', predict.shape)
@@ -216,8 +195,6 @@ def predict(loader, true_loader, input_data):    #, model)
             # print('id_batch: ', id_batch)
             # print('id_batch*data.shape[0]: ', id_batch * data.shape[0])
             # print('data shape: ', data.shape)
-
-            #output = torch.flip(output, dims=[1])       #todo: ? NO
 
             #predictions[id_batch * data.shape[0]:(id_batch + 1) * data.shape[0], :, :] = output.reshape(data.shape[0], seq_length, -1)
             predictions[id_batch * data.shape[0]:(id_batch + 1) * data.shape[0], :, :] = output
@@ -228,19 +205,11 @@ def predict(loader, true_loader, input_data):    #, model)
     print('====> Prediction Average loss: {:.6f}'.format(avg_loss))
     return predictions
 
-#todo:
-# huh? ----> shape of predictions:  torch.Size([4070, 30, 1])
-#            numpy shape of input:  (122100, 1)
-
-
 
 if __name__ == '__main__':
     print("I hate LSTMs")
-    # transformed_ts = preprocessing(train_seq, "mean-max-min-trend-kurtosis-max_diff_var-var_var-level_shift", 50, size_window, step_window)
-    # print(transformed_ts.shape)
-    # print(str(transformed_ts[0]))
 
-    for epoch in range(1, 20):
+    for epoch in range(1, 40):
         train(epoch)
         if evaluate(valid_loader, true_valid_loader, validation=True, epoch=epoch):
             break
@@ -248,16 +217,10 @@ if __name__ == '__main__':
         if earlyStopping.patience_count == 2:
             print('lr on plateau ', optimizer.param_groups[0]['lr'], ' -> ', optimizer.param_groups[0]['lr'] / 10)
             optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / 10
-    model_management.save_best_model()
 
+    #model_management.save_best_model()
 
-    # optimizer = torch.optim.Adam(model.parameters())
-    # checkpoint = torch.load('./models/lstm_model_epoch_5')
-    # model.load_state_dict(checkpoint['model_state_dict'])
-    # optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-    # epoch = checkpoint['epoch']
-    # loss = checkpoint['loss']
-    # model = model.to(device)
+    torch.save(model.state_dict(), './models/torch_LSTM.pth')
 
 
     #todo: changes train all "xxxx_seq" to "xxxx_true_seq
@@ -322,7 +285,7 @@ if __name__ == '__main__':
     print('anom_anomaly_scores: ', anom_anomaly_scores)
 
 
-    best_anomaly_threshold, best_fbeta = find_optimal_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, 0.3)
+    best_anomaly_threshold, best_fbeta = find_optimal_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, 1.8)
     print("Best anomaly threshold: " + str(best_anomaly_threshold))
 
     #X_tN_anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)

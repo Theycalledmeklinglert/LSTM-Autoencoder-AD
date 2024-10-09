@@ -31,7 +31,7 @@ def get_normalized_data_and_labels(file_pair, scaler, factor, remove_timestamps)
         print("here2:", data)
         print("here: " + str(data.shape))
 
-        data = data[:, 1:]
+        #data = data[:, 1:]
 
         print("here: " + str(data.shape))
 
@@ -84,12 +84,6 @@ def reshape_data_for_autoencoder_lstm(data_list, window_size, window_step):
 
 
 def get_noShift_andShift_data_windows_for_lstm(data_list, window_size, window_step=None): #, shift_value=None):
-    '''
-    window_size and shift_value should be equal
-    window_step = 0             --> shifted and not shifted windows are the same
-    window_step = window_size   --> shifted data not shifted windows have no overlap and are subsequent
-    in general window_step < window_size
-    '''
     # Reshape X to fit LSTM input shape (samples, time steps, features)
     if window_size < 1 or window_step < 0:   #or window_step >= window_size:
         from utils import InvalidReshapeParamters
@@ -104,23 +98,31 @@ def get_noShift_andShift_data_windows_for_lstm(data_list, window_size, window_st
         not_shifted_windowed_data = []
         shifted_windowed_data = []
 
-        for window_start in range(0, data.shape[0] - window_size - 2):
-        #for window_start in range(0, data.shape[0] - window_size * 2, window_size):    #todo: previous vers
+        #for window_start in range(0, data.shape[0] - window_size):
+        for window_start in range(0, data.shape[0] - window_size - window_step, window_step):      #window_size):    #todo: previous vers
 
             no_shift_window_end = window_start + window_size
             no_shift_window = data[window_start:no_shift_window_end]
 
-            # shift_window_start = no_shift_window_end - window_step
-            # shift_window_end = shift_window_start + window_size
-            # shift_window = data[shift_window_start:shift_window_end]
             #todo:this now only goes 1 timestep into future
             shift_window_start = no_shift_window_end                #- window_step
-            shift_window_end = shift_window_start + 1            #window_step
+            shift_window_end = shift_window_start + window_step           #+ 1            #window_step
             shift_window = data[shift_window_start:shift_window_end]
 
             not_shifted_windowed_data.append(no_shift_window)
             shifted_windowed_data.append(shift_window)
+            #TODO: The above worked for 1 timestep into future
 
+            # no_shift_window_end = window_start + window_size
+            # no_shift_window = data[window_start:no_shift_window_end]
+            #
+            # shift_window_start = no_shift_window_end                #- window_step
+            # shift_window_end = shift_window_start + 1            #window_step
+            # shift_window = data[shift_window_start:shift_window_end]
+            #
+            # not_shifted_windowed_data.append(no_shift_window)
+            # shifted_windowed_data.append(shift_window)
+            #
 
 
         all_no_shift_windows.append(numpy.array(not_shifted_windowed_data))
@@ -227,7 +229,7 @@ def get_start_time_of_activity_phase_from_control_acc(control_acc_df):
     return first_command_timestamp
 
 
-def filter_df_by_start_and_end_time_of_activity_phase(directory, control_acc_filename=None, target_df_filename=None):
+def filter_df_by_start_and_end_time_of_activity_phase(directory, remove_time_col=False, control_acc_filename=None, target_df_filename=None):
     control_acc_df = clean_csv(directory + control_acc_filename, False)
     target_df = clean_csv(directory + target_df_filename, False)
 
@@ -246,6 +248,12 @@ def filter_df_by_start_and_end_time_of_activity_phase(directory, control_acc_fil
 
     print("Filtered length (after matching length):", len(target_df_filtered))
     print("First timestamp after filtering:", target_df_filtered['Time'].iloc[0])
+
+    if remove_time_col:
+        control_acc_df = control_acc_df.drop(columns=['Time'])
+        target_df_filtered = target_df_filtered.drop(columns=['Time'])
+        print("Removed 'Time' columns from Dataframes in filter_df_by_start_and_end_time_of_activity_phase")
+
     return control_acc_df, target_df_filtered
 
 
@@ -261,7 +269,7 @@ def csv_file_to_nparr(file_path, remove_timestamps, factor):
     print(dir_path)
     print(sensor_name)
 
-    _, df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, control_acc_filename="control-acceleration.csv", target_df_filename=sensor_name)
+    _, df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, remove_timestamps, control_acc_filename="control-acceleration.csv", target_df_filename=sensor_name)
 
     print("Before resetting index:")
     print(df)
@@ -278,11 +286,11 @@ def csv_file_to_nparr(file_path, remove_timestamps, factor):
 
     print("cleaned csv")
 
-    df = convert_timestamp_to_relative_time_diff(df)
+    #df = convert_timestamp_to_relative_time_diff(df)   #todo: changed this recently (Wednesday)
     if "Anomaly" in df.columns:
         offset = 1
 
-    print("converted timestamps")
+    #print("converted timestamps")
     print(df.shape)
 
     samples = np.zeros((df.shape[0], df.shape[1] - offset))

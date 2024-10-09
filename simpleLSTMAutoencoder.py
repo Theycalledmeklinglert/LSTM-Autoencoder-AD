@@ -17,7 +17,7 @@ import seaborn as sns
 from data_processing import clean_csv, plot_data_standalone, filter_df_by_start_and_end_time_of_activity_phase
 
 
-def get_trained_LSTM_Autoencder(trainX=None, trainY=None, validX=None, validY=None, file_path=None):
+def get_trained_LSTM_Autoencder(trainX=None, trainY=None, validX=None, validY=None, batch_size=None, epochs=None, dropout=None, file_path=None):
     if file_path is not None:
         model = load_model(file_path, compile=True)
         model.compile(optimizer='adam', loss='mean_squared_error')
@@ -25,42 +25,41 @@ def get_trained_LSTM_Autoencder(trainX=None, trainY=None, validX=None, validY=No
 
     else:
 
-        # todo: try adding val data as separate series: validation_data=(X_vN1, X_vN1)
-
-        # todo:
+        #todo:
         # note "validation_split=0.1" and batch_size; shuffle is true per default
         # batch_size = 32 too large; 4 works well
-        # history = model.fit(trainX, trainY, epochs=20, batch_size=4, validation_split=0.1, shuffle=False, verbose=1)  #todo: probably need trainX istead of trainY
+        # history = model.fit(trainX, trainY, epochs=20, batch_size=4, validation_split=0.1, shuffle=False, verbose=1)
         # todo: changed trainY to trainX
 
-        model = Sequential()
-        model.add(LSTM(128, activation='relu', input_shape=(trainX.shape[1], trainX.shape[2]), return_sequences=True))
-        model.add(LSTM(64, activation='relu', return_sequences=False))
-        model.add(Dropout(rate=0.2))
-        model.add(RepeatVector(trainX.shape[1]))
-        model.add(LSTM(64, activation='relu', return_sequences=True))
-        model.add(LSTM(128, activation='relu', return_sequences=True))
-        model.add(Dropout(rate=0.2))
-        model.add(TimeDistributed(Dense(trainX.shape[2])))
 
-        # model.compile(optimizer='adam', loss='mse')
-        # model.summary()
-
-        # Try another model
         # model = Sequential()
-        # model.add(LSTM(128, input_shape=(trainX.shape[1], trainX.shape[2])))
-        # model.add(Dropout(rate=0.2))
+        # model.add(LSTM(128, activation='relu', input_shape=(trainX.shape[1], trainX.shape[2]), return_sequences=True))
+        # model.add(LSTM(64, activation='relu', return_sequences=False))
+        # model.add(Dropout(rate=dropout))
         # model.add(RepeatVector(trainX.shape[1]))
-        # model.add(LSTM(128, return_sequences=True))
-        # model.add(Dropout(rate=0.2))
+        # #model.add(RepeatVector(future_steps))            #todo: changed to this for possible seq2seq; likely wrong
+        #
+        # model.add(LSTM(64, activation='relu', return_sequences=True))
+        # model.add(LSTM(128, activation='relu', return_sequences=True))
+        # model.add(Dropout(rate=dropout))
         # model.add(TimeDistributed(Dense(trainX.shape[2])))
+        #model.add(TimeDistributed(Dense(future_steps)))
+
+
+        model = Sequential()
+        model.add(LSTM(128, input_shape=(trainX.shape[1], trainX.shape[2])))
+        model.add(Dropout(rate=dropout))
+        model.add(RepeatVector(trainX.shape[1]))
+        model.add(LSTM(128, return_sequences=True))
+        model.add(Dropout(rate=dropout))
+        model.add(TimeDistributed(Dense(trainX.shape[2])))
 
         model.compile(optimizer='adam', loss='mean_squared_error')
         #model.compile(optimizer='adam', loss='mae')                #todo: try this one
 
         model.summary()
 
-        history = model.fit(trainX, trainY, epochs=5, batch_size=16,  validation_data=(validX, validY), shuffle=False, verbose=1)  # todo: probably need trainX istead of trainY
+        history = model.fit(trainX, trainY, epochs=epochs, batch_size=batch_size,  validation_data=(validX, validY), shuffle=False, verbose=1)  # todo: probably need trainX istead of trainY
         #history = model.fit(trainX, trainY, epochs=5, batch_size=4, validation_split=0.1, shuffle=False, verbose=1)  # todo: probably need trainX istead of trainY
 
         model.save("./models/SimpleLSTMAutoenc" + ".keras")
@@ -73,14 +72,21 @@ def get_trained_LSTM_Autoencder(trainX=None, trainY=None, validX=None, validY=No
 
     return model
 
-def df_to_sequences(x, y, seq_size=1):
+def df_to_sequences(x, y, seq_size):
     x_values = []
     y_values = []
 
     for i in range(len(x) - seq_size):
-        # print(i)
         x_values.append(x.iloc[i:(i + seq_size)].values)
         y_values.append(y.iloc[i + seq_size])
+
+        # if future_steps == 1:
+        #     y_values.append(y.iloc[i + seq_size])
+        # else:
+        #     y_values.append(y.iloc[i + seq_size:(i + seq_size + future_steps)].values)
+
+    print("x", np.array(x_values).shape)
+    print("y", np.array(y_values).shape)
 
     return np.array(x_values), np.array(y_values)
 
@@ -92,7 +98,7 @@ if __name__ == '__main__':
     #df = dataframe[['Date', 'Close']]
     #df['Date'] = pd.to_datetime(df['Date'])
 
-    directories = ["./aufnahmen/csv/autocross_valid_run/", "./aufnahmen/csv/autocross_valid_16_05_23/", "./aufnahmen/csv/anomalous data/"]
+    directories = ["./aufnahmen/csv/skidpad_valid_fast2_17_47_28/", "./aufnahmen/csv/autocross_valid_16_05_23/", "./aufnahmen/csv/anomalous data/"]
     sensor_name = "can_interface-current_steering_angle.csv"
     #df0 = clean_csv(directories[0] + sensor_name, False)
     #df1 = clean_csv("./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage/can_interface-current_steering_angle.csv", False)
@@ -105,14 +111,12 @@ if __name__ == '__main__':
     df2_no_cut = clean_csv(directories[2] + sensor_name, False)
 
     #todo:first return ins controll_acc df
-    _, df0 = filter_df_by_start_and_end_time_of_activity_phase(directories[0],
+    _, df0 = filter_df_by_start_and_end_time_of_activity_phase(directories[0], remove_time_col=False,
                                                                control_acc_filename="control-acceleration.csv",
                                                                target_df_filename="can_interface-current_steering_angle.csv")
-    _, df1 = filter_df_by_start_and_end_time_of_activity_phase(directories[1], control_acc_filename="control-acceleration.csv", target_df_filename="can_interface-current_steering_angle.csv")
+    _, df1 = filter_df_by_start_and_end_time_of_activity_phase(directories[1], remove_time_col=False, control_acc_filename="control-acceleration.csv", target_df_filename="can_interface-current_steering_angle.csv")
 
-    _, df2 = filter_df_by_start_and_end_time_of_activity_phase(directories[2], control_acc_filename="control-acceleration.csv", target_df_filename="can_interface-current_steering_angle.csv")
-
-
+    _, df2 = filter_df_by_start_and_end_time_of_activity_phase(directories[2], remove_time_col=False, control_acc_filename="control-acceleration.csv", target_df_filename="can_interface-current_steering_angle.csv")
 
 
     print("Train Orig length: ", len(df0_no_cut))
@@ -152,9 +156,9 @@ if __name__ == '__main__':
 
 
     #todo: Diff is very important
-    # train[attr_1_col_name] = train[attr_1_col_name].diff().fillna(0)
-    # valid[attr_1_col_name] = valid[attr_1_col_name].diff().fillna(0)
-    # test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
+    train[attr_1_col_name] = train[attr_1_col_name].diff().fillna(0)
+    valid[attr_1_col_name] = valid[attr_1_col_name].diff().fillna(0)
+    test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
 
     sns.lineplot(x=train.index, y=train[attr_1_col_name])
     plt.title('Diffed Train')
@@ -221,29 +225,21 @@ if __name__ == '__main__':
     print("scaled and diffed valid :  \n", valid)
     print("scaled and diffed test :  \n", test)
 
-    seq_size = 30  # Number of time steps to look back
-
+    seq_size = 50  # Number of time steps to look back
+    #future_steps = 3
 
     trainX, trainY = df_to_sequences(train[[attr_1_col_name]], train[attr_1_col_name], seq_size)  #todo: double [[]] to return dataframe instead of sequence
 
-    validX, validY = df_to_sequences(valid[[attr_1_col_name]], valid[attr_1_col_name],)
+    validX, validY = df_to_sequences(valid[[attr_1_col_name]], valid[attr_1_col_name], seq_size)
 
     testX, testY = df_to_sequences(test[[attr_1_col_name]], test[attr_1_col_name], seq_size)
 
-    model = get_trained_LSTM_Autoencder(trainX, trainY, validX, validY) #, file_path="./models/fuckingSimpleLSTMAutoenc.keras")  #, "./models/pretty good performance on steering angle - fuckingSimpleLSTMAutoenc.keras")
+    #todo:
+    # Ich glaube auch dass mein Train Datensatz einfach scheisse gewählt ist wegen der langen linear Section
+    # try dropout 0.4
+    # also try the other architecture
 
-
-    # plt.plot(history.history['loss'], label='Training loss')
-    # plt.plot(history.history['val_loss'], label='Validation loss')
-    # plt.legend()
-    # plt.show()
-
-    # model.evaluate(testX, testY)
-
-    ###########################
-    # Anomaly is where reconstruction error is large.
-    # We can define this value beyond which we call anomaly.
-    # Let us look at MAE in training prediction
+    model = get_trained_LSTM_Autoencder(trainX, trainY, validX, validY, batch_size=4, epochs=20, dropout=0.4, file_path=None) #, file_path="./models/fuckingSimpleLSTMAutoenc.keras")  #, "./models/pretty good performance on steering angle - fuckingSimpleLSTMAutoenc.keras")
 
     testPredict = model.predict(testX)
     testMAE = np.mean(np.abs(testPredict - testX), axis=1)
