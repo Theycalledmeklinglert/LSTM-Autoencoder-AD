@@ -9,11 +9,10 @@ from sklearn.metrics.pairwise import cosine_similarity
 from data_processing import clean_csv, convert_timestamp_to_relative_time_diff, reverse_normalization
 from torch_LSTM_autoenc import LSTMAutoEncoder
 from torch_preprocessing import preprocessing
-from torch_utils import EarlyStopping, ModelManagement, LossCheckpoint, \
+from torch_utils import EarlyStopping, \
     get_data_as_list_of_single_batches_of_subseqs, batched_tensor_to_numpy_and_invert_scaling, plot_time_series, \
     get_data_as_shifted_batches_seqs, calculate_mle_mu_sigma, compute_anomaly_score, find_optimal_threshold, \
-    plot_data_over_threshold
-
+    plot_anomaly_scores_over_threshold, plot_loss_over_epochs
 
 # directories=["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data",
 # "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"],
@@ -31,16 +30,18 @@ scaler = MinMaxScaler()  # Scales the data to a fixed range, typically [0, 1].
 #scaler = QuantileTransformer(output_distribution='normal')
 #scaler = None
 
-#todo:
-# try increase batch_size; increase window step; adding timestamp; try shuffling ;scaling; try changing hidden size;
-# maybe only one per batch but i dont think tis fixes the issue
 
-
+# todo:
+#  previous 50:3; 80:5 was worse
+# sweet spot ist definitiv 50:3
 step_window = 3
 size_window = 50
-not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name="can_interface-current_steering_angle.csv")
+#single_sensor_name = "can_interface-wheelspeed.csv"
+single_sensor_name = "can_interface-current_steering_angle.csv"
 
-#not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"], single_sensor_name="can_interface-wheelspeed.csv")
+not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name=single_sensor_name)
+#not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name=single_sensor_name)
+
 
 
 test = not_shifted_data_winds[0][0]
@@ -100,7 +101,7 @@ test_loader = DataLoader(x_T_seq, batch_size=batch_size, shuffle=False)         
 true_test_loader = DataLoader(x_T_true_seq, batch_size=batch_size, shuffle=False)
 
 num_layers = 1
-hidden_size = 200
+hidden_size = 128   #todo: previous 200
 nb_feature = nb_feature
 batch_size = batch_size
 dropout = 0.2
@@ -108,16 +109,12 @@ name_model = 'lstm_model'
 path_model = './models/'
 model = LSTMAutoEncoder(num_layers=num_layers, hidden_size=hidden_size, nb_feature=nb_feature, batch_size=batch_size, dropout=dropout, device=device)
 model = model.to(device)
-# optimizer
 optimizer = optim.Adam(model.parameters(), lr=0.001)
-# loss
 criterion = torch.nn.MSELoss()
-# Callbacks
-earlyStopping = EarlyStopping(patience=4)
-#model_management = ModelManagement(path_model, name_model)
-# Plot
-loss_checkpoint_train = LossCheckpoint()
-loss_checkpoint_valid = LossCheckpoint()
+earlyStopping = EarlyStopping(patience=10)
+
+train_losses = []
+valid_losses = []
 
 
 def train(epoch):
@@ -154,7 +151,7 @@ def train(epoch):
 
     avg_loss = train_loss / len(train_loader)
     print('====> Epoch: {} Average loss: {:.6f}'.format(epoch, avg_loss))
-    loss_checkpoint_train.losses.append(avg_loss)
+    train_losses.append(avg_loss)
     model.is_training = False
 
 
@@ -178,9 +175,10 @@ def evaluate(loader, true_loader, validation=False, epoch=0):
     print('====> Validation Average loss: {:.6f}'.format(avg_loss))
     # Checkpoint
     if validation:
-        loss_checkpoint_valid.losses.append(avg_loss)
+        valid_losses.append(avg_loss)
         #model_management.checkpoint(epoch, model, optimizer, avg_loss)
         return earlyStopping.check_training(avg_loss)
+
 
 def predict(loader, true_loader, input_data):    #, model)
     eval_loss = 0
@@ -214,21 +212,21 @@ def predict(loader, true_loader, input_data):    #, model)
 if __name__ == '__main__':
     print("I hate LSTMs")
 
-    # for epoch in range(1, 40):
+    # for epoch in range(1, 100):
     #     train(epoch)
     #     if evaluate(valid_loader, true_valid_loader, validation=True, epoch=epoch):
     #         break
-    #     # Lr on plateau
-    #     if earlyStopping.patience_count == 2:
+    #
+    #     if earlyStopping.patience_count == 7:
     #         print('lr on plateau ', optimizer.param_groups[0]['lr'], ' -> ', optimizer.param_groups[0]['lr'] / 10)
     #         optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / 10
-    # torch.save(model.state_dict(), "./models/torch_LSTM_num_lay" + str(num_layers) + "_hidSize" + str(hidden_size) + "_nbFeat" + str(nb_feature) + "_batchSz" + str(batch_size) + ".pth")
-    # #model_management.save_best_model()
+    # torch.save(model.state_dict(), "./models/torch_LSTM_" +"windSz" + str(size_window) + "_windStp" + str(step_window) + "_numlay" + str(num_layers) + "_hidSize" + str(hidden_size) + "_nbFeat" + str(nb_feature) + "_batchSz" + str(batch_size) + "_" + single_sensor_name + ".pth")
+    # plot_loss_over_epochs(train_losses, valid_losses)
 
 
     #Load
     model = LSTMAutoEncoder(num_layers=num_layers, hidden_size=hidden_size, nb_feature=nb_feature, batch_size=batch_size, device=device)
-    model.load_state_dict(torch.load('./models/torch_LSTM.pth'))
+    model.load_state_dict(torch.load('./models/torch_LSTM_windSz50_windStp3_numlay1_hidSize128_nbFeat1_batchSz2_can_interface-current_steering_angle.csv.pth'))
     model = model.to(device)
     model.eval()
 
@@ -297,11 +295,15 @@ if __name__ == '__main__':
     best_anomaly_threshold, best_fbeta = find_optimal_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, 1.8)
     print("Best anomaly threshold: " + str(best_anomaly_threshold))
 
+
     #X_tN_anomaly_scores = compute_anomaly_score(X_tN_error_vecs, mu, sigma)
     valid_true_seq_true_labels_numpy = batched_tensor_to_numpy_and_invert_scaling(valid_true_seq_true_labels, None)
     val_anomaly_scores = compute_anomaly_score(error_vecs_val, mu, sigma)
 
+    print('test: ', anomaly_true_seq_true_labels_numpy.shape)
+    print('test2: ', anom_anomaly_scores.shape)
+    print("test3:", anomaly_true_seq.shape)
 
     #todo: may have to adjust these functions if using window_step
-    plot_data_over_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vNA", size_window)
-    plot_data_over_threshold(val_anomaly_scores, valid_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vN", size_window)
+    plot_anomaly_scores_over_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vNA", size_window)
+    plot_anomaly_scores_over_threshold(val_anomaly_scores, valid_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vN", size_window)
