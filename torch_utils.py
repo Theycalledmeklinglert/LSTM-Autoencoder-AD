@@ -353,6 +353,14 @@ def plot_detection_results(true_seq, anomaly_scores, true_labels, window_step, t
     print(f"False Negatives: {len(false_neg)}")
     print(f"True Negatives: {len(true_neg)}")
 
+    precision = len(true_pos) / (len(true_pos) + len(false_pos))
+    recall = len(true_pos) / (len(true_pos) + len(false_neg))
+    f1_score = 2 * ((precision * recall) / (precision + recall))
+    print("Precision: " + str(precision))
+    print("Recall: " + str(recall))
+    print("F1 score: " + str(f1_score))
+
+
     plt.figure(figsize=(10, 6))
     plt.plot(true_seq, label='Original Sequence', color='blue')
 

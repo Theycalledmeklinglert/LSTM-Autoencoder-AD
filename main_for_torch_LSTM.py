@@ -268,28 +268,28 @@ if __name__ == '__main__':
     # anomaly_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(anomaly_seq, scaler)                     # anomaly_seq
     # error_vecs_anom = np.absolute(np.subtract(predictions_anom_numpy, anomaly_seq_numpy))
 
-    plot_time_series(error_vecs_anom, "Pred Error X_vNA")
+    plot_time_series(error_vecs_anom, "Prediction error for X_vNA")
 
     valid_true_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(valid_true_seq, scaler)              #valid_true_seq
     error_vecs_val = np.absolute(np.subtract(predictions_val_numpy, valid_true_seq_numpy))
     # valid_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(valid_seq, scaler)                         #valid_seq
     # error_vecs_val = np.absolute(np.subtract(predictions_val_numpy, valid_seq_numpy))
 
-    plot_time_series(error_vecs_val, "Pred Error X_vN")
+    #plot_time_series(error_vecs_val, "Pred Error X_vN")
 
     train_true_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(train_true_seq, scaler)             #train_true_seq
     error_vecs_train = np.absolute(np.subtract(predictions_train_numpy, train_true_seq_numpy))
     # train_seq_numpy = batched_tensor_to_numpy_and_invert_scaling(train_seq, scaler)                         #train_seq
     # error_vecs_train = np.absolute(np.subtract(predictions_train_numpy, train_seq_numpy))
 
-    plot_time_series(error_vecs_train, "Pred Error X_sN")
+    #plot_time_series(error_vecs_train, "Pred Error X_sN")
 
     mu, sigma = calculate_mle_mu_sigma(error_vecs_val)
     anom_anomaly_scores = compute_anomaly_score(error_vecs_anom, mu, sigma)
 
     anomaly_true_seq_true_labels_numpy = batched_tensor_to_numpy_and_invert_scaling(anomaly_true_seq_true_labels, None)
-    print('true labels numpy: ', anomaly_true_seq_true_labels_numpy)
-    print('anom_anomaly_scores: ', anom_anomaly_scores)
+    #print('true labels numpy: ', anomaly_true_seq_true_labels_numpy)
+    #print('anom_anomaly_scores: ', anom_anomaly_scores)
 
 
     best_anomaly_threshold, best_fbeta = find_optimal_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, 1.8)
@@ -300,11 +300,6 @@ if __name__ == '__main__':
     valid_true_seq_true_labels_numpy = batched_tensor_to_numpy_and_invert_scaling(valid_true_seq_true_labels, None)
     val_anomaly_scores = compute_anomaly_score(error_vecs_val, mu, sigma)
 
-    print('test: ', anomaly_true_seq_true_labels_numpy.shape)
-    print('test2: ', anom_anomaly_scores.shape)
-    print("test3:", anomaly_true_seq.shape)
-
-    #todo: may have to adjust these functions if using window_step
     plot_anomaly_scores_over_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vNA")
     plot_anomaly_scores_over_threshold(val_anomaly_scores, valid_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vN")
 
@@ -319,5 +314,5 @@ if __name__ == '__main__':
     test_anomaly_scores = compute_anomaly_score(test_error_vecs_anom, mu, sigma)
     test_true_seq_true_labels_numpy = batched_tensor_to_numpy_and_invert_scaling(x_T_true_seq_true_labels, None)
 
-    plot_anomaly_scores_over_threshold(test_anomaly_scores, test_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_tN")
-    plot_detection_results(test_true_seq_numpy, test_anomaly_scores, test_true_seq_true_labels_numpy, step_window, best_anomaly_threshold, "Inject Anoms Steering angle")
+    plot_anomaly_scores_over_threshold(test_anomaly_scores, test_true_seq_true_labels_numpy, best_anomaly_threshold, "Anomaly scores X_tN")
+    plot_detection_results(test_true_seq_numpy, test_anomaly_scores, test_true_seq_true_labels_numpy, step_window, best_anomaly_threshold, "Detected Flip Anomalies in Steering angle")

@@ -163,7 +163,7 @@ def plot_normal_vs_injected_anomalies(normalSource_path, injectAnom_path, sensor
     ax2.set_ylabel('Values')
     ax2.grid(True)
 
-    fig.suptitle(f'Comparison of Normal and Injected Anomalies for {sensor_name}')
+    fig.suptitle(f'Comparison of Normal and Injected Anomalies for Steering Sensor')
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig("./injectedAnomalyData/Normal_vs_anom_plot" + '.png')
     plt.show()
