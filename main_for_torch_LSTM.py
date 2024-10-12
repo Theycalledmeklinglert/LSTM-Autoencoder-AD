@@ -12,7 +12,7 @@ from torch_preprocessing import preprocessing
 from torch_utils import EarlyStopping, \
     get_data_as_list_of_single_batches_of_subseqs, batched_tensor_to_numpy_and_invert_scaling, plot_time_series, \
     get_data_as_shifted_batches_seqs, calculate_mle_mu_sigma, compute_anomaly_score, find_optimal_threshold, \
-    plot_anomaly_scores_over_threshold, plot_loss_over_epochs
+    plot_anomaly_scores_over_threshold, plot_loss_over_epochs, plot_detection_results
 
 # directories=["./aufnahmen/csv/autocross_valid_16_05_23", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data",
 # "./aufnahmen/csv/test data/ebs_test_steering_motor_encoder_damage"],
@@ -307,3 +307,5 @@ if __name__ == '__main__':
     #todo: may have to adjust these functions if using window_step
     plot_anomaly_scores_over_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vNA", size_window)
     plot_anomaly_scores_over_threshold(val_anomaly_scores, valid_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vN", size_window)
+
+    plot_detection_results(anomaly_true_seq_numpy, anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, step_window, best_anomaly_threshold, "Steering angle")

@@ -16,7 +16,6 @@ class LSTMAutoEncoder(nn.Module):
         #print(f"input_seq: {input_seq.cpu().detach().numpy()}")
 
         output = torch.ones(size=input_seq.shape, dtype=torch.float)
-        output = torch.ones(size=input_seq.shape, dtype=torch.float)
 
         #hidden_cell = self.encoder(input_seq)                       # encoded hidden state of input seq
         #_, last_hidden = self.encoder(input_seq)   # todo: previous; WORKED

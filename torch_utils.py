@@ -1,3 +1,5 @@
+import os
+
 import torch
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -271,10 +273,10 @@ def plot_anomaly_scores_over_threshold(anomaly_scores, true_labels, threshold, f
                     normal_below['x'].append(idx)
                     normal_below['y'].append(score)
 
-        plt.scatter(anomalous_above['x'], anomalous_above['y'], color='red', marker='x', s=20, label='Anomaly')
-        plt.scatter(anomalous_below['x'], anomalous_below['y'], color='yellow', marker='x', s=20)
-        plt.scatter(normal_above['x'], normal_above['y'], color='purple', marker='o', s=20, label='Normal')
-        plt.scatter(normal_below['x'], normal_below['y'], color='blue', marker='o', s=20)
+        plt.scatter(anomalous_above['x'], anomalous_above['y'], color='red', marker='x', s=10, label='Anomaly')
+        plt.scatter(anomalous_below['x'], anomalous_below['y'], color='yellow', marker='x', s=10)
+        plt.scatter(normal_above['x'], normal_above['y'], color='purple', marker='o', s=10, label='Normal')
+        plt.scatter(normal_below['x'], normal_below['y'], color='blue', marker='o', s=10)
 
         if k == 0:
             plt.ylim(0, threshold * 2.0)
@@ -293,7 +295,7 @@ def plot_anomaly_scores_over_threshold(anomaly_scores, true_labels, threshold, f
 
         plt.legend(handles=legend_elements, loc='upper left')
         plt.title('Anomaly Scores with True Labels of ' + file_name)
-        plt.xlabel('Window Index')
+        plt.xlabel('Index of Observation')
         plt.ylabel('Anomaly Score')
 
         plt.savefig(file_name + str(k) + '.png')
@@ -301,6 +303,7 @@ def plot_anomaly_scores_over_threshold(anomaly_scores, true_labels, threshold, f
 
     print("Number of windows above threshold: " + str(np.sum(np.array(anomaly_scores) > threshold)))
     print("Number of windows below threshold: " + str(np.sum(np.array(anomaly_scores) <= threshold)))
+
 
 def plot_loss_over_epochs(train_loss, valid_loss):
     plt.figure(figsize=(10, 6))
@@ -313,10 +316,57 @@ def plot_loss_over_epochs(train_loss, valid_loss):
     plt.grid(True)
     plt.show()
 
-def plot_detection_results(true_seq, anomaly_scores, window_step, true_labels):
-    true_seq = true_seq.reshape(-1)
 
+def plot_detection_results(true_seq, anomaly_scores, true_labels, window_step, threshold, title):
+    #true_seq = true_seq.reshape(-1)
+
+    if(true_seq.shape != anomaly_scores.shape or true_seq.shape != true_labels.shape):
+        print("True seq shape is not equal to anomaly scores shape or not equal to true labels shape")
+        print("true_seq.shape: " + str(true_seq.shape))
+        print("anomaly_scores.shape: " + str(anomaly_scores.shape))
+        print("true_labels.shape: " + str(true_labels.shape))
+
+    true_pos = []
+    false_pos = []
+    false_neg = []
+    true_neg = []
+
+    for idx in range(0, true_seq.shape[0] - window_step + 1, window_step):
+        window_scores = anomaly_scores[idx:idx + window_step]
+        window_labels = true_labels[idx:idx + window_step]
+
+        if np.any(window_scores > threshold):
+            if np.any(window_labels == 1):
+                true_pos.extend(range(idx, idx + window_step))  # True positive
+            else:
+                false_pos.extend(range(idx, idx + window_step))  # False positive
+        else:
+            if np.any(window_labels == 1):
+                false_neg.extend(range(idx, idx + window_step))  # False negative
+            else:
+                true_neg.extend(range(idx, idx + window_step))  # True negative
+
+    print(f"True Positives: {len(true_pos)}")
+    print(f"False Positives: {len(false_pos)}")
+    print(f"False Negatives: {len(false_neg)}")
+    print(f"True Negatives: {len(true_neg)}")
 
     plt.figure(figsize=(10, 6))
+    plt.plot(true_seq, label='Original Sequence', color='blue')
+
+
+    if len(true_pos) > 0:
+        plt.scatter(true_pos, true_seq[true_pos], color='red', label='True Positives')
+    if len(false_pos) > 0:
+        plt.scatter(false_pos, true_seq[false_pos], color='purple', label='False Positives')
+    if len(false_neg) > 0:
+        plt.scatter(false_neg, true_seq[false_neg], color='orange', label='False Negatives')
+
+    plt.title('Detection Results for ' + title)
+    plt.legend()
+    plt.grid(True)
+
+    plt.savefig("./exampleGraphs/detectionResults/" + title + '.png')
+    plt.show()
 
 

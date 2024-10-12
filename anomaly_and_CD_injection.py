@@ -3,6 +3,8 @@ import random
 import pandas as pd
 from sklearn.preprocessing import MaxAbsScaler
 
+from data_processing import filter_df_by_start_and_end_time_of_activity_phase
+
 
 def add_anomalies_and_drift(num_anomalies, csv_file, output_file):
     # Step 1: Load the data
@@ -65,3 +67,27 @@ def add_anomalies_and_drift(num_anomalies, csv_file, output_file):
     df.to_csv(output_file, index=False)
 
     print(f"Anomalies and concept drift added to {output_file}")
+
+def add_point_anomalies(dir_path, sensor_name, num_anomalies):
+
+    _, df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, False, control_acc_filename="control-acceleration.csv", target_df_filename=sensor_name)
+
+    for _ in range(num_anomalies):
+        index = random.randint(0, len(df) - 1)
+        df.loc[index, 'your_column'] = df['your_column'].mean() + 10 * df['your_column'].std()
+
+def add_coll_anomalies(dir_path, sensor_name, collective_len):
+
+    _, df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, False, control_acc_filename="control-acceleration.csv", target_df_filename=sensor_name)
+
+    start_idx = random.randint(0, len(df) - collective_len - 1)
+
+    # Add collective anomalies by replacing a series of points with unusual values
+    df.loc[start_idx:start_idx + collective_len, 'your_column'] = df['your_column'].mean() + 5 * df['your_column'].std()
+
+def add_contextual_anomalies(dir_path, sensor_name, num_anomalies):
+
+    _, df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, False, control_acc_filename="control-acceleration.csv", target_df_filename=sensor_name)
+
+    contextual_range = df[(df['Time'] >= '2024-01-01') & (df['Time'] <= '2024-01-10')]
+    df.loc[contextual_range.index, 'your_column'] = contextual_range['your_column'].mean() + 3 * contextual_range['your_column'].std()

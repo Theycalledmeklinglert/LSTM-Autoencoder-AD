@@ -104,7 +104,6 @@ def get_noShift_andShift_data_windows_for_lstm(data_list, window_size, window_st
             no_shift_window_end = window_start + window_size
             no_shift_window = data[window_start:no_shift_window_end]
 
-            #todo:this now only goes 1 timestep into future
             shift_window_start = no_shift_window_end                #- window_step
             shift_window_end = shift_window_start + window_step           #+ 1            #window_step
             shift_window = data[shift_window_start:shift_window_end]
@@ -243,7 +242,7 @@ def filter_df_by_start_and_end_time_of_activity_phase(directory, remove_time_col
     #control_acc_df.loc[:, 'Time'] = range(len(control_acc_df))
     #cut end phase
     if len(target_df_filtered) > len(control_acc_df):
-        target_df_filtered = target_df_filtered.iloc[:(len(control_acc_df) - 5)].copy()
+        target_df_filtered = target_df_filtered.iloc[:(len(control_acc_df) - 1)].copy()
 
 
     print("Filtered length (after matching length):", len(target_df_filtered))
