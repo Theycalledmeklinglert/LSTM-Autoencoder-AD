@@ -253,6 +253,9 @@ def filter_df_by_start_and_end_time_of_activity_phase(directory, remove_time_col
         target_df_filtered = target_df_filtered.drop(columns=['Time'])
         print("Removed 'Time' columns from Dataframes in filter_df_by_start_and_end_time_of_activity_phase")
 
+    #control_acc_df.reset_index(drop=True, inplace=True)
+    #target_df_filtered.reset_index(drop=True, inplace=True)
+
     return control_acc_df, target_df_filtered
 
 
@@ -386,9 +389,6 @@ def clean_csv(file_path, remove_timestamps=False, nrows=None):
         raise DataFrameContainsNaNError()
 
     cols_to_check = [col for col in df.columns if col != "Anomaly"]
-    #print("Columns in DataFrame:", df.columns.tolist())
-    #print("Columns to check:", cols_to_check)
-    #print("df: " + str(df))
 
     if not cols_to_check:
         print("No columns to check after filtering.")
@@ -396,8 +396,8 @@ def clean_csv(file_path, remove_timestamps=False, nrows=None):
         number_of_valid_cols = len(df.columns)
         # Drop columns with all missing values, excluding "Anomaly"
         print(type(cols_to_check))
-        df.dropna(axis=0, how='all', subset=cols_to_check, inplace=True) # i don't know why this works since axis=0 is supposed to be deleting rows and axis=1 to delete columns. However axis=1 crashes for some reason
-                                                                         # and axis=0 works and removes only the 0 columns so I guess I'll just leave it here for now if it doesnt cause any issues
+        df.dropna(axis=0, how='all', subset=cols_to_check, inplace=True)
+
         if number_of_valid_cols != len(df.columns):
             from utils import SensorFileColumnsContainsOnlyZeroesError
             print("Sensor file contains NaN. Check for malfunction in " + str(file_path))
@@ -416,10 +416,7 @@ def clean_csv(file_path, remove_timestamps=False, nrows=None):
         except SensorFileColumnsOnlyContainsSameValue as e:
             print("A column in the sensor file contains only one and the same value. Check for malfunction in " + str(file_path))
 
-
     print("df after removing nan and 0 cols: \n" + str(df))
-
-    #print("filepath: " + str(file_path))
 
     return df
 
@@ -537,11 +534,11 @@ def plot_data_integrated(data, file_name, contains_timestamps):
     plt.figure(figsize=(10, 6))
     if values.shape[1] == 1:
         # If only one column of values
-        plt.plot(timestamps, values, label='Steering Angle')
+        plt.plot(timestamps, values)    #todo: changed this: label='Steering Angle')
     else:
         # If there are multiple columns of values
         for i in range(values.shape[1]):
-            plt.plot(timestamps, values[:, i], label="Feature: " + str(i))
+            plt.plot(timestamps, values[:, i]) #todo: changed this: label="Feature: " + str(i))
     print("here2")
 
     #plt.plot(timestamps, values[:, 1], label=f'Steering Command') todo: used this for single channel BA plots
@@ -553,10 +550,10 @@ def plot_data_integrated(data, file_name, contains_timestamps):
     # plt.plot(timestamps, values[:, 3], label=f'RR.data')
 
     #file_name = shorten_file_name(file_name)
-    plt.xlabel('Consecutive Measurements', fontsize=14)
-    plt.ylabel('Steering Command', fontsize=14)
+    plt.xlabel('Time', fontsize=14)
+    plt.ylabel('Sensor Measurement', fontsize=14)
     plt.title('Plot of ' + file_name)   #todo: comment this out for single channel BA plots
-    plt.legend()
+    #plt.legend()
     plt.grid(True)
     print("here4")
 

@@ -186,7 +186,7 @@ def find_optimal_threshold(anomaly_scores, true_labels, beta):
     return best_threshold, best_fbeta
 
 
-def plot_anomaly_scores_over_threshold(anomaly_scores, true_labels, threshold, file_name, time_steps):
+def plot_anomaly_scores_over_threshold(anomaly_scores, true_labels, threshold, file_name):
     """
     Plots the data points under the threshold as blue dots, the ones over the threshold as red crosses,
     and the threshold itself as a red dotted line.
@@ -273,27 +273,29 @@ def plot_anomaly_scores_over_threshold(anomaly_scores, true_labels, threshold, f
                     normal_below['x'].append(idx)
                     normal_below['y'].append(score)
 
-        plt.scatter(anomalous_above['x'], anomalous_above['y'], color='red', marker='x', s=10, label='Anomaly')
-        plt.scatter(anomalous_below['x'], anomalous_below['y'], color='yellow', marker='x', s=10)
-        plt.scatter(normal_above['x'], normal_above['y'], color='purple', marker='o', s=10, label='Normal')
-        plt.scatter(normal_below['x'], normal_below['y'], color='blue', marker='o', s=10)
+        plt.scatter(anomalous_above['x'], anomalous_above['y'], color='red', marker='x', s=20, label='Anomaly')
+        plt.scatter(anomalous_below['x'], anomalous_below['y'], color='yellow', marker='x', s=20)
+        plt.scatter(normal_above['x'], normal_above['y'], color='purple', marker='o', s=20, label='Normal')
+        plt.scatter(normal_below['x'], normal_below['y'], color='blue', marker='o', s=20)
 
         if k == 0:
             plt.ylim(0, threshold * 2.0)
         else:
             plt.ylim(0, max(anomaly_scores) * 1.1)
 
-        legend_elements = [
-            Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
-            Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
-        ]
+        # legend_elements = [
+        #     Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
+        #     Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
+        # ]
 
         plt.axhline(y=threshold, color='red', linestyle='--', label='Anomaly Threshold', linewidth=2)
 
-        plt.text(-0.05 * len(anomaly_scores), threshold, f'{threshold}', va='center', ha='right', color='red',
-                 fontsize=12, fontweight='bold')
+        # plt.text(-0.05 * len(anomaly_scores), threshold, f'{threshold}', va='center', ha='right', color='red',
+        #          fontsize=12, fontweight='bold')
 
-        plt.legend(handles=legend_elements, loc='upper left')
+        #plt.legend(handles=legend_elements, loc='upper left')
+        plt.legend(loc='upper right')
+
         plt.title('Anomaly Scores with True Labels of ' + file_name)
         plt.xlabel('Index of Observation')
         plt.ylabel('Anomaly Score')
