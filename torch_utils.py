@@ -106,7 +106,7 @@ def plot_time_series(data, title):
     time_axis = range(data.shape[0])
 
     # Plot each feature separately
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(10, 6))
 
     for i in range(num_features):
         plt.plot(time_axis, data[:, i], label=f'Feature {i + 1}')
@@ -136,14 +136,13 @@ def compute_anomaly_score(error_vecs, mu, sigma):
 
     if error_vecs.shape[1] == 1:
         # scores_of_window.append(np.square(data_point - mu) / sigma) #z_score for univariate data -->doesnt work
-        scores_of_seq = np.sqrt(np.square(np.subtract(error_vecs, mu)))     #todo: this might need improvement
+        #scores_of_seq = np.sqrt(np.square(np.subtract(error_vecs, mu)))
+        # Z-score for univariate data
+        scores_of_seq = np.abs(error_vecs - mu) / sigma
     else:
         # Mahalanobis distance for multivariate data
         inv_cov_matr = np.linalg.inv(sigma)
         diff = error_vecs - mu
-        #score = np.dot(np.dot(diff, inv_cov_matr), diff.T) #todo: old one for data point one
-        # print("score manually: " + str(score))
-        # score = mahalanobis(data_point, mu, inv_cov_matr)
         scores_of_seq = np.einsum('ij,jk,ik->i', diff, inv_cov_matr, diff)
 
     return scores_of_seq
@@ -155,8 +154,6 @@ def find_optimal_threshold(anomaly_scores, true_labels, beta):
 
     print("anomaly_scores shape: " + str(anomaly_scores.shape))
     print("true_labels shape: " + str(true_labels.shape))
-
-    #true_labels = np.where(true_labels > 0.5, 1, 0)
 
     precision, recall, thresholds = precision_recall_curve(y_true=true_labels, y_score=anomaly_scores)
     fbeta_scores = (1 + beta ** 2) * (precision * recall) / ((beta ** 2) * precision + recall)
@@ -234,74 +231,76 @@ def plot_anomaly_scores_over_threshold(anomaly_scores, true_labels, threshold, f
     #             window_anomaly_scores.append(np.mean(window_scores))
     #         window_labels.append(0)
 
-    for k in range(2):
-        plt.figure(figsize=(12, 6))
+    #for k in range(2): #todo: changed
+    plt.figure(figsize=(12, 6))
 
-        # for idx, (score, label) in enumerate(zip(window_anomaly_scores, window_labels)):
-        #     if label == 1:  # True anomaly (window)
-        #         if score >= threshold:
-        #             color = 'red'  # Anomalous window above threshold
-        #         else:
-        #             color = 'yellow'  # Anomalous window below threshold
-        #         marker = 'x'
-        #     else:  # Normal window
-        #         if score >= threshold:
-        #             color = 'purple'  # Normal window above threshold
-        #         else:
-        #             color = 'blue'  # Normal window below threshold
-        #         marker = 'o'
-        #
-        #     plt.scatter(idx, score, color=color, marker=marker, s=20, label='Anomaly' if label == 1 else 'Normal')
+    # for idx, (score, label) in enumerate(zip(window_anomaly_scores, window_labels)):
+    #     if label == 1:  # True anomaly (window)
+    #         if score >= threshold:
+    #             color = 'red'  # Anomalous window above threshold
+    #         else:
+    #             color = 'yellow'  # Anomalous window below threshold
+    #         marker = 'x'
+    #     else:  # Normal window
+    #         if score >= threshold:
+    #             color = 'purple'  # Normal window above threshold
+    #         else:
+    #             color = 'blue'  # Normal window below threshold
+    #         marker = 'o'
+    #
+    #     plt.scatter(idx, score, color=color, marker=marker, s=20, label='Anomaly' if label == 1 else 'Normal')
 
-        anomalous_above = {'x': [], 'y': []}
-        anomalous_below = {'x': [], 'y': []}
-        normal_above = {'x': [], 'y': []}
-        normal_below = {'x': [], 'y': []}
-        for idx, (score, label) in enumerate(zip(anomaly_scores, true_labels)):
-            if label == 1:  # True anomaly
-                if score >= threshold:
-                    anomalous_above['x'].append(idx)
-                    anomalous_above['y'].append(score)
-                else:
-                    anomalous_below['x'].append(idx)
-                    anomalous_below['y'].append(score)
-            else:  # Normal
-                if score >= threshold:
-                    normal_above['x'].append(idx)
-                    normal_above['y'].append(score)
-                else:
-                    normal_below['x'].append(idx)
-                    normal_below['y'].append(score)
+    anomalous_above = {'x': [], 'y': []}
+    anomalous_below = {'x': [], 'y': []}
+    normal_above = {'x': [], 'y': []}
+    normal_below = {'x': [], 'y': []}
+    for idx, (score, label) in enumerate(zip(anomaly_scores, true_labels)):
+        if label == 1:  # True anomaly
+            if score >= threshold:
+                anomalous_above['x'].append(idx)
+                anomalous_above['y'].append(score)
+            else:
+                anomalous_below['x'].append(idx)
+                anomalous_below['y'].append(score)
+        else:  # Normal
+            if score >= threshold:
+                normal_above['x'].append(idx)
+                normal_above['y'].append(score)
+            else:
+                normal_below['x'].append(idx)
+                normal_below['y'].append(score)
 
-        plt.scatter(anomalous_above['x'], anomalous_above['y'], color='red', marker='x', s=20, label='Anomaly')
-        plt.scatter(anomalous_below['x'], anomalous_below['y'], color='yellow', marker='x', s=20)
-        plt.scatter(normal_above['x'], normal_above['y'], color='purple', marker='o', s=20, label='Normal')
-        plt.scatter(normal_below['x'], normal_below['y'], color='blue', marker='o', s=20)
+    plt.scatter(anomalous_above['x'], anomalous_above['y'], color='red', marker='x', s=20, label='Anomaly')
+    plt.scatter(anomalous_below['x'], anomalous_below['y'], color='yellow', marker='x', s=20)
+    plt.scatter(normal_above['x'], normal_above['y'], color='purple', marker='o', s=20, label='Normal')
+    plt.scatter(normal_below['x'], normal_below['y'], color='blue', marker='o', s=20)
 
-        if k == 0:
-            plt.ylim(0, threshold * 2.0)
-        else:
-            plt.ylim(0, max(anomaly_scores) * 1.1)
+    # if k == 0:
+    #     plt.ylim(0, threshold * 2.0)
+    # else:
+    #     plt.ylim(0, max(anomaly_scores) * 1.1)
 
-        # legend_elements = [
-        #     Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
-        #     Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
-        # ]
+    plt.ylim(0, max(anomaly_scores) * 1.1)
 
-        plt.axhline(y=threshold, color='red', linestyle='--', label='Anomaly Threshold', linewidth=2)
+    # legend_elements = [
+    #     Line2D([0], [0], marker='o', color='w', label='Normal', markerfacecolor='blue', markersize=10),
+    #     Line2D([0], [0], marker='x', color='w', label='Anomaly', markerfacecolor='red', markersize=10)
+    # ]
 
-        # plt.text(-0.05 * len(anomaly_scores), threshold, f'{threshold}', va='center', ha='right', color='red',
-        #          fontsize=12, fontweight='bold')
+    plt.axhline(y=threshold, color='red', linestyle='--', label='Anomaly Threshold', linewidth=2)
 
-        #plt.legend(handles=legend_elements, loc='upper left')
-        plt.legend(loc='upper right')
+    # plt.text(-0.05 * len(anomaly_scores), threshold, f'{threshold}', va='center', ha='right', color='red',
+    #          fontsize=12, fontweight='bold')
 
-        plt.title('Anomaly Scores with True Labels of ' + file_name)
-        plt.xlabel('Index of Observation')
-        plt.ylabel('Anomaly Score')
+    #plt.legend(handles=legend_elements, loc='upper left')
+    plt.legend(loc='upper right')
 
-        plt.savefig(file_name + str(k) + '.png')
-        plt.show()
+    plt.title('Anomaly Scores with True Labels of ' + file_name)
+    plt.xlabel('Index of Observation')
+    plt.ylabel('Anomaly Score')
+
+    #plt.savefig(file_name + str(k) + '.png')
+    plt.show()
 
     print("Number of windows above threshold: " + str(np.sum(np.array(anomaly_scores) > threshold)))
     print("Number of windows below threshold: " + str(np.sum(np.array(anomaly_scores) <= threshold)))
@@ -318,11 +317,70 @@ def plot_loss_over_epochs(train_loss, valid_loss):
     plt.grid(True)
     plt.show()
 
+#
+# def plot_detection_results(true_seq, anomaly_scores, true_labels, window_step, threshold, title):
+#     #true_seq = true_seq.reshape(-1)
+#
+#     if(true_seq.shape != anomaly_scores.shape or true_seq.shape != true_labels.shape):
+#         print("True seq shape is not equal to anomaly scores shape or not equal to true labels shape")
+#         print("true_seq.shape: " + str(true_seq.shape))
+#         print("anomaly_scores.shape: " + str(anomaly_scores.shape))
+#         print("true_labels.shape: " + str(true_labels.shape))
+#
+#     true_pos = []
+#     false_pos = []
+#     false_neg = []
+#     true_neg = []
+#
+#     for idx in range(0, true_seq.shape[0] - window_step + 1, window_step):
+#         window_scores = anomaly_scores[idx:idx + window_step]
+#         window_labels = true_labels[idx:idx + window_step]
+#
+#         if np.any(window_scores > threshold):
+#             if np.any(window_labels == 1):
+#                 true_pos.extend(range(idx, idx + window_step))  # True positive
+#             else:
+#                 false_pos.extend(range(idx, idx + window_step))  # False positive
+#         else:
+#             if np.any(window_labels == 1):
+#                 false_neg.extend(range(idx, idx + window_step))  # False negative
+#             else:
+#                 true_neg.extend(range(idx, idx + window_step))  # True negative
+#
+#     print(f"True Positives: {len(true_pos)}")
+#     print(f"False Positives: {len(false_pos)}")
+#     print(f"False Negatives: {len(false_neg)}")
+#     print(f"True Negatives: {len(true_neg)}")
+#
+#     precision = len(true_pos) / (len(true_pos) + len(false_pos))
+#     recall = len(true_pos) / (len(true_pos) + len(false_neg))
+#     f1_score = 2 * ((precision * recall) / (precision + recall))
+#     print("Precision: " + str(precision))
+#     print("Recall: " + str(recall))
+#     print("F1 score: " + str(f1_score))
+#
+#
+#     plt.figure(figsize=(10, 6))
+#     plt.plot(true_seq, label='Original Sequence', color='blue')
+#
+#
+#     if len(true_pos) > 0:
+#         plt.scatter(true_pos, true_seq[true_pos], color='red', label='True Positives')
+#     # if len(false_pos) > 0:
+#     #     plt.scatter(false_pos, true_seq[false_pos], color='purple', label='False Positives')
+#     if len(false_neg) > 0:
+#         plt.scatter(false_neg, true_seq[false_neg], color='orange', label='False Negatives')
+#
+#     plt.title('Detection Results for ' + title, fontsize=14)
+#     plt.legend()
+#     plt.grid(True)
+#     plt.xlabel('Time', fontsize=14)
+#     plt.ylabel('Predicted Value', fontsize=14)
+#     plt.savefig("./exampleGraphs/detectionResults/" + title + '.png')
+#     plt.show()
 
 def plot_detection_results(true_seq, anomaly_scores, true_labels, window_step, threshold, title):
-    #true_seq = true_seq.reshape(-1)
-
-    if(true_seq.shape != anomaly_scores.shape or true_seq.shape != true_labels.shape):
+    if true_seq.shape != anomaly_scores.shape or true_seq.shape != true_labels.shape:
         print("True seq shape is not equal to anomaly scores shape or not equal to true labels shape")
         print("true_seq.shape: " + str(true_seq.shape))
         print("anomaly_scores.shape: " + str(anomaly_scores.shape))
@@ -353,30 +411,37 @@ def plot_detection_results(true_seq, anomaly_scores, true_labels, window_step, t
     print(f"False Negatives: {len(false_neg)}")
     print(f"True Negatives: {len(true_neg)}")
 
-    precision = len(true_pos) / (len(true_pos) + len(false_pos))
-    recall = len(true_pos) / (len(true_pos) + len(false_neg))
-    f1_score = 2 * ((precision * recall) / (precision + recall))
+    precision = len(true_pos) / (len(true_pos) + len(false_pos)) if (len(true_pos) + len(false_pos)) != 0 else 0
+    recall = len(true_pos) / (len(true_pos) + len(false_neg)) if (len(true_pos) + len(false_neg)) != 0 else 0
+    f1_score = 2 * ((precision * recall) / (precision + recall)) if (precision + recall) != 0 else 0
     print("Precision: " + str(precision))
     print("Recall: " + str(recall))
     print("F1 score: " + str(f1_score))
 
+    fig, axs = plt.subplots(1, 2, figsize=(14, 6))
 
-    plt.figure(figsize=(10, 6))
-    plt.plot(true_seq, label='Original Sequence', color='blue')
+    # Left plot: the true sequence
+    axs[0].plot(true_seq, label='Original Sequence', color='blue')
+    axs[0].set_title('Original Sequence', fontsize=14)
+    axs[0].set_xlabel('Time', fontsize=14)
+    axs[0].set_ylabel('Values', fontsize=14)
+    axs[0].grid(True)
 
-
+    # Right plot: detection results
+    axs[1].plot(true_seq, label='Original Sequence', color='blue')
     if len(true_pos) > 0:
-        plt.scatter(true_pos, true_seq[true_pos], color='red', label='True Positives')
-    if len(false_pos) > 0:
-        plt.scatter(false_pos, true_seq[false_pos], color='purple', label='False Positives')
+        axs[1].scatter(true_pos, true_seq[true_pos], color='red', label='True Positives')
     if len(false_neg) > 0:
-        plt.scatter(false_neg, true_seq[false_neg], color='orange', label='False Negatives')
+        axs[1].scatter(false_neg, true_seq[false_neg], color='orange', label='False Negatives')
 
-    plt.title('Detection Results for ' + title)
-    plt.legend()
-    plt.grid(True)
+    axs[1].set_title('Detection Results', fontsize=14)
+    axs[1].legend()
+    axs[1].grid(True)
+    axs[1].set_xlabel('Time', fontsize=14)
+    axs[1].set_ylabel('Predicted Value', fontsize=14)
 
-    plt.savefig("./exampleGraphs/detectionResults/" + title + '.png')
+    plt.tight_layout()  # Adjust layout to avoid overlap
+    #plt.savefig("./exampleGraphs/detectionResults/" + title + '.png')
     plt.show()
 
 

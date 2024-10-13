@@ -552,7 +552,7 @@ def plot_data_integrated(data, file_name, contains_timestamps):
     #file_name = shorten_file_name(file_name)
     plt.xlabel('Time', fontsize=14)
     plt.ylabel('Sensor Measurement', fontsize=14)
-    plt.title('Plot of ' + file_name)   #todo: comment this out for single channel BA plots
+    plt.title('Normal Time Series')   #todo: comment this out for single channel BA plots
     #plt.legend()
     plt.grid(True)
     print("here4")

@@ -1,3 +1,5 @@
+import time
+
 import torch
 import torch.optim as optim
 from sklearn.preprocessing import MinMaxScaler, StandardScaler, QuantileTransformer, MaxAbsScaler
@@ -8,7 +10,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 from data_processing import clean_csv, convert_timestamp_to_relative_time_diff, reverse_normalization
 from torch_LSTM_autoenc import LSTMAutoEncoder
-from torch_preprocessing import preprocessing
 from torch_utils import EarlyStopping, \
     get_data_as_list_of_single_batches_of_subseqs, batched_tensor_to_numpy_and_invert_scaling, plot_time_series, \
     get_data_as_shifted_batches_seqs, calculate_mle_mu_sigma, compute_anomaly_score, find_optimal_threshold, \
@@ -39,7 +40,9 @@ size_window = 50
 #single_sensor_name = "can_interface-wheelspeed.csv"
 single_sensor_name = "can_interface-current_steering_angle.csv"
 
-not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
+#not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
+not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/autocross_valid2_17_23_44", "./aufnahmen/csv/autocross_valid_run", "./aufnahmen/csv/anomalous data", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
+
 #not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name=single_sensor_name)
 
 
@@ -113,14 +116,15 @@ optimizer = optim.Adam(model.parameters(), lr=0.001)
 criterion = torch.nn.MSELoss()
 earlyStopping = EarlyStopping(patience=10)
 
-train_losses = []
-valid_losses = []
+train_losses, valid_losses = [], []
+times = []
 
 
 def train(epoch):
     model.train()
     train_loss = 0
     model.is_training = True
+    start_time = time.time()
 
     #for id_batch, data in enumerate(train_loader):
     for (id_batch, train_data), (_, y_true_data) in zip(enumerate(train_loader), enumerate(true_train_loader)):
@@ -149,6 +153,10 @@ def train(epoch):
             (id_batch + 1) * 100 / len(train_loader),
             loss.item()), sep='', end='', flush=True)
 
+    end_time = time.time()
+    epoch_time = end_time - start_time
+    times.append(epoch_time)
+
     avg_loss = train_loss / len(train_loader)
     print('====> Epoch: {} Average loss: {:.6f}'.format(epoch, avg_loss))
     train_losses.append(avg_loss)
@@ -167,16 +175,16 @@ def evaluate(loader, true_loader, validation=False, epoch=0):
 
             loss = criterion(output.to(device), true_data.to(device).float())
             eval_loss += loss.item()
+
         print('\r', 'Eval [{}/{} ({:.0f}%)] \tLoss: {:.6f})]'.format(
             id_batch + 1, len(loader),
             (id_batch + 1) * 100 / len(loader),
             loss.item()), sep='', end='', flush=True)
+
     avg_loss = eval_loss / len(loader)
     print('====> Validation Average loss: {:.6f}'.format(avg_loss))
-    # Checkpoint
     if validation:
         valid_losses.append(avg_loss)
-        #model_management.checkpoint(epoch, model, optimizer, avg_loss)
         return earlyStopping.check_training(avg_loss)
 
 
@@ -209,10 +217,23 @@ def predict(loader, true_loader, input_data):    #, model)
     return predictions
 
 
-if __name__ == '__main__':
-    print("I hate LSTMs")
+def plot_train_time(times):
+    epochs = range(1, len(train_losses) + 1)
 
-    # for epoch in range(1, 100):
+
+    # Plot Training Time
+    plt.figure(figsize=(10, 6))
+    plt.plot(epochs, times, label='Training Time per Epoch', color='green')
+    plt.xlabel('Epoch')
+    plt.ylabel('Time (seconds)')
+    plt.title('Training Time per Epoch')
+    plt.grid(True)
+    plt.show()
+
+
+
+if __name__ == '__main__':
+    # for epoch in range(1, 100):  #todo: changed from 100 to 20 to test
     #     train(epoch)
     #     if evaluate(valid_loader, true_valid_loader, validation=True, epoch=epoch):
     #         break
@@ -222,11 +243,10 @@ if __name__ == '__main__':
     #         optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / 10
     # torch.save(model.state_dict(), "./models/torch_LSTM_" +"windSz" + str(size_window) + "_windStp" + str(step_window) + "_numlay" + str(num_layers) + "_hidSize" + str(hidden_size) + "_nbFeat" + str(nb_feature) + "_batchSz" + str(batch_size) + "_" + single_sensor_name + ".pth")
     # plot_loss_over_epochs(train_losses, valid_losses)
-
-
+    # plot_train_time(times)
     #Load
     model = LSTMAutoEncoder(num_layers=num_layers, hidden_size=hidden_size, nb_feature=nb_feature, batch_size=batch_size, device=device)
-    model.load_state_dict(torch.load('./models/torch_LSTM_windSz50_windStp3_numlay1_hidSize128_nbFeat1_batchSz2_can_interface-current_steering_angle.csv.pth'))
+    model.load_state_dict(torch.load('./models/sdpd torch_LSTM_windSz50_windStp3_numlay1_hidSize128_nbFeat1_batchSz2_can_interface-current_steering_angle.csv.pth'))
     model = model.to(device)
     model.eval()
 
@@ -292,7 +312,7 @@ if __name__ == '__main__':
     #print('anom_anomaly_scores: ', anom_anomaly_scores)
 
 
-    best_anomaly_threshold, best_fbeta = find_optimal_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, 1.8)
+    best_anomaly_threshold, best_fbeta = find_optimal_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, 1.0)
     print("Best anomaly threshold: " + str(best_anomaly_threshold))
 
 
@@ -303,7 +323,7 @@ if __name__ == '__main__':
     plot_anomaly_scores_over_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vNA")
     plot_anomaly_scores_over_threshold(val_anomaly_scores, valid_true_seq_true_labels_numpy, best_anomaly_threshold, "Anom scores X_vN")
 
-    plot_detection_results(anomaly_true_seq_numpy, anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, step_window, best_anomaly_threshold, "Steering angle")
+    #plot_detection_results(anomaly_true_seq_numpy, anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, step_window, best_anomaly_threshold, "Steering angle")
 
     predictions_test = predict(test_loader, true_test_loader, x_T_true_seq)
     predictions_test_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_test, scaler)

@@ -11,13 +11,11 @@ class LSTMAutoEncoder(nn.Module):
         self.decoder = Decoder(num_layers, hidden_size, nb_feature, dropout=dropout, device=device)
         self.is_training = None
 
-    def forward(self, input_seq, step_window): #, window_step)
-        #print(f"input_seq shape: {input_seq.cpu().detach().numpy().shape}")
-        #print(f"input_seq: {input_seq.cpu().detach().numpy()}")
+    def forward(self, input_seq, step_window):
 
         output = torch.ones(size=input_seq.shape, dtype=torch.float)
 
-        #hidden_cell = self.encoder(input_seq)                       # encoded hidden state of input seq
+        #hidden_cell = self.encoder(input_seq)
         #_, last_hidden = self.encoder(input_seq)   # todo: previous; WORKED
 
         _, last_hidden = self.encoder(input_seq)   # todo: previous; WORKED
@@ -26,19 +24,6 @@ class LSTMAutoEncoder(nn.Module):
         input_decoder = input_seq[:, -1, :].view(input_seq.shape[0], 1, input_seq.shape[2])     # todo: previous; WORKED #takes last timestamp of input seq and reshaped it into (batch_size, 1 (timestep), number_of_features)
 
         output = torch.ones(size=(input_seq.shape[0], step_window, input_seq.shape[2]), dtype=torch.float)
-
-        #print(f"input_decoder shape: {input_decoder.cpu().detach().numpy().shape}")
-        #print(f"input_decoder: {input_decoder.cpu().detach().numpy()}")
-
-        # todo: missing linear layer for first decoder prediction value (see below)
-        #if not self.is_training:
-            #input_decoder = self.decoder.linear(hidden_cell) #[0])
-            #print(f"input_decoder of linear shape before reshape: {input_decoder.cpu().detach().numpy().shape}")
-            #print(f"input_decoder  of linear: {input_decoder.cpu().detach().numpy()}")
-            #input_decoder = input_decoder[:, -1, :].view(input_seq.shape[0], 1, input_seq.shape[2])
-            #print(f"input_decoder of linear shape after reshape: {input_decoder.cpu().detach().numpy().shape}")
-
-        #print(f"outer input_decoder of linear shape after reshape: {input_decoder.cpu().detach().numpy().shape}")
 
         #for i in range(input_seq.shape[1] - 1, -1, -1):                                     #go through input seq backwards
         for i in range(step_window - 1, -1, -1):     #go through input seq backwards        # todo: previous; WORKED
@@ -69,17 +54,6 @@ class LSTMAutoEncoder(nn.Module):
 
         return output
 
-            #print(f"output_decoder_shape: {output_decoder.cpu().detach().numpy().shape}")
-
-            # if self.is_training:
-            #     input_decoder = input_seq[:, i, :].view(input_seq.shape[0], 1, input_seq.shape[2])  #this should
-            #     #print(f"acc_paper_input_decoder_shape: {input_decoder.cpu().detach().numpy().shape}")
-            # else:
-            #     input_decoder = output_decoder
-
-            # Print the output_decoder for each loop iteration
-            #print(f"Iteration {i}, output_decoder: {output_decoder.cpu().detach().numpy()}")  # Move to CPU and detach from graph for printing
-
 
 class Decoder(nn.Module):
     def __init__(self, num_layers, hidden_size, nb_feature, dropout=0, device=torch.device('cpu')):
@@ -93,12 +67,9 @@ class Decoder(nn.Module):
         self.lstm = nn.LSTM(input_size=nb_feature, hidden_size=hidden_size,
                             num_layers=num_layers, batch_first=True, dropout=dropout, bias=True)
 
-        self.linear = nn.Linear(in_features=hidden_size, out_features=nb_feature)   #todo: Change!!!!!!
+        self.linear = nn.Linear(in_features=hidden_size, out_features=nb_feature)
 
     def forward(self, input_seq, hidden_cell):
-        #output = self.linear(hidden_cell[0])
-        #output, hidden_cell = self.lstm(output, hidden_cell)
-
         output, hidden_cell = self.lstm(input_seq, hidden_cell)
         output = self.linear(output)
 

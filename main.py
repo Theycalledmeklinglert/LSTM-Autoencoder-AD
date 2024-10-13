@@ -7,7 +7,6 @@ from pmdarima.datasets import load_sunspots
 from tensorflow import keras
 
 from anomaly_and_CD_injection import add_anomalies_and_drift
-from auto_arima import run_auto_arima
 from data_processing import csv_file_to_nparr, \
     old_directory_csv_files_to_dataframe_to_numpyArray, read_file_from_bagpy_to_csv, plot_data_integrated, \
     plot_data_standalone, plot_acf, plot_acf_standalone, clean_csv
@@ -40,8 +39,8 @@ if __name__ == '__main__':
     #plot_data_standalone(["./aufnahmen/csv/skidpad_valid_fast3_17_58_41/", "./aufnahmen/csv/autocross_valid_run/"], "control-acceleration.csv", sameSensorInOneFolder=False)
     #plot_data_standalone(["./aufnahmen/csv/autocross_valid_16_05_23/", "./aufnahmen/csv/skidpad_valid_run/"], "control-acceleration.csv", sameSensorInOneFolder=False)
 
-    plot_data_standalone(["./aufnahmen/csv/nur steering angle skidpad/"], "can_interface-current_steering_angle.csv", sameSensorInOneFolder=True)
-    plot_data_standalone(["./aufnahmen/csv/nur steering angle autocross/"], "can_interface-current_steering_angle.csv", sameSensorInOneFolder=True)
+    #plot_data_standalone(["./aufnahmen/csv/nur steering angle skidpad/"], "can_interface-current_steering_angle.csv", sameSensorInOneFolder=True)
+    #plot_data_standalone(["./aufnahmen/csv/nur steering angle autocross/"], "can_interface-current_steering_angle.csv", sameSensorInOneFolder=True)
 
 
 
@@ -66,9 +65,6 @@ if __name__ == '__main__':
 
     #before_injection_for_plot, true_labels = csv_file_to_nparr('./aufnahmen/csv/anomalous data/normal_control-acceleration.csv', True)
 
-    #TODO: idea for add_anomalies_and_drift: Only label row as anomaly if the resulting value of new value is greating than 3*sigma of all data in column or sth.
-    # oviously not all data that comes from concept drift is supposed to be labels as anomalies and my current add_anomalies often changes values way too litlle
-
     #add_anomalies_and_drift(100,'./aufnahmen/csv/anomalous data/normal_control-acceleration.csv', './aufnahmen/csv/anomalous data/control-acceleration.csv')
     #after_injection_for_plot, true_labels = csv_file_to_nparr('./aufnahmen/csv/anomalous data/control-acceleration.csv', True)
     #plot_data(before_injection_for_plot, str("before_injection_for_plot"))
@@ -88,11 +84,10 @@ if __name__ == '__main__':
 
     #print_unique_values(df, "status")
 
-    #read_file_from_bagpy_to_csv("./aufnahmen/tmp/skidpad_valid_run.bag")
+    read_file_from_bagpy_to_csv("./aufnahmen/tmp/autocross_cone_mitgenommen.bag")
     #read_file_from_bagpy_to_csv("./aufnahmen/error_zusammenstellung/error_zusammenstellung/autocross_unbekannter_kommunikationsfehler.bag")
 
 
     print_hi('PyCharm')
 
-    #todo: Note if I want to change the amount of timesteps, a new model has to be trained on it
 
