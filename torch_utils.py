@@ -94,7 +94,7 @@ def batched_tensor_to_numpy_and_invert_scaling(tensor, scaler):
 
     return numpy_arr
 
-def plot_time_series(data, title):
+def plot_time_series(data, title, lower_threshold=None, upper_threshold = None):
     print("shape of data to plot: " + str(data.shape))
     num_samples, num_features = data.shape
 
@@ -108,12 +108,19 @@ def plot_time_series(data, title):
     # Plot each feature separately
     plt.figure(figsize=(10, 6))
 
-    for i in range(num_features):
-        plt.plot(time_axis, data[:, i], label=f'Feature {i + 1}')
+    # for i in range(num_features):
+    #     plt.plot(time_axis, data[:, i], label=f'Feature {i + 1}')
+    plt.plot(time_axis, data[:, 0], label=f'Steering Angle')
+    plt.plot(time_axis, data[:, 1], label=f'MCU Steering Command')
+
+    if lower_threshold is not None:
+        plt.axhline(y=lower_threshold, color='red', linestyle='--', label='Lower Threshold', linewidth=2)
+        plt.axhline(y=upper_threshold, color='red', linestyle='--', label='Upper Threshold', linewidth=2)
+
 
     plt.title(title)
-    plt.xlabel("Time")
-    plt.ylabel("Feature Value")
+    plt.xlabel("Time", fontsize=14)
+    plt.ylabel("Feature Value", fontsize=14)
     plt.legend()
     plt.grid(True)
     plt.show()
@@ -270,10 +277,10 @@ def plot_anomaly_scores_over_threshold(anomaly_scores, true_labels, threshold, f
                 normal_below['x'].append(idx)
                 normal_below['y'].append(score)
 
-    plt.scatter(anomalous_above['x'], anomalous_above['y'], color='red', marker='x', s=20, label='Anomaly')
-    plt.scatter(anomalous_below['x'], anomalous_below['y'], color='yellow', marker='x', s=20)
-    plt.scatter(normal_above['x'], normal_above['y'], color='purple', marker='o', s=20, label='Normal')
-    plt.scatter(normal_below['x'], normal_below['y'], color='blue', marker='o', s=20)
+    plt.scatter(anomalous_above['x'], anomalous_above['y'], color='red', marker='x', s=20, label='True Positive')
+    plt.scatter(anomalous_below['x'], anomalous_below['y'], color='yellow', marker='x', s=20, label='False Negative')
+    plt.scatter(normal_above['x'], normal_above['y'], color='purple', marker='o', s=20, label='False Positive')
+    plt.scatter(normal_below['x'], normal_below['y'], color='blue', marker='o', s=20, label='True Negative')
 
     # if k == 0:
     #     plt.ylim(0, threshold * 2.0)
@@ -295,9 +302,9 @@ def plot_anomaly_scores_over_threshold(anomaly_scores, true_labels, threshold, f
     #plt.legend(handles=legend_elements, loc='upper left')
     plt.legend(loc='upper right')
 
-    plt.title('Anomaly Scores with True Labels of ' + file_name)
-    plt.xlabel('Index of Observation')
-    plt.ylabel('Anomaly Score')
+    #plt.title('Anomaly Scores with True Labels of ' + file_name)
+    plt.xlabel('Time', fontsize=14)
+    plt.ylabel('Anomaly Score', fontsize=14)
 
     #plt.savefig(file_name + str(k) + '.png')
     plt.show()
@@ -386,25 +393,44 @@ def plot_detection_results(true_seq, anomaly_scores, true_labels, window_step, t
         print("anomaly_scores.shape: " + str(anomaly_scores.shape))
         print("true_labels.shape: " + str(true_labels.shape))
 
+    print("true_seq.shape: " + str(true_seq.shape))
+    print("anomaly_scores.shape: " + str(anomaly_scores.shape))
+    print("true_labels.shape: " + str(true_labels.shape))
+
     true_pos = []
     false_pos = []
     false_neg = []
     true_neg = []
+    #
+    # for idx in range(0, true_seq.shape[0] - 1, window_step):        #window_step +
+    #     window_scores = anomaly_scores[idx:idx + window_step]
+    #     window_labels = true_labels[idx:idx + window_step]
+    #
+    #     if np.any(window_scores >= threshold):
+    #         if np.any(window_labels == 1):
+    #             true_pos.extend(range(idx, idx + window_step))  # True positive
+    #         else:
+    #             false_pos.extend(range(idx, idx + window_step))  # False positive
+    #     else:
+    #         if np.any(window_labels == 1):
+    #             false_neg.extend(range(idx, idx + window_step))  # False negative
+    #         else:
+    #             true_neg.extend(range(idx, idx + window_step))  # True negative
 
-    for idx in range(0, true_seq.shape[0] - window_step + 1, window_step):
-        window_scores = anomaly_scores[idx:idx + window_step]
-        window_labels = true_labels[idx:idx + window_step]
+    for idx in range(len(anomaly_scores)):
+        score = anomaly_scores[idx]
+        label = true_labels[idx]
 
-        if np.any(window_scores > threshold):
-            if np.any(window_labels == 1):
-                true_pos.extend(range(idx, idx + window_step))  # True positive
+        if score >= threshold:
+            if label == 1:  # True anomaly
+                true_pos.append(idx)  # True positive
             else:
-                false_pos.extend(range(idx, idx + window_step))  # False positive
+                false_pos.append(idx)  # False positive
         else:
-            if np.any(window_labels == 1):
-                false_neg.extend(range(idx, idx + window_step))  # False negative
+            if label == 1:  # True anomaly
+                false_neg.append(idx)  # False negative
             else:
-                true_neg.extend(range(idx, idx + window_step))  # True negative
+                true_neg.append(idx)  # True negative
 
     print(f"True Positives: {len(true_pos)}")
     print(f"False Positives: {len(false_pos)}")
@@ -420,14 +446,12 @@ def plot_detection_results(true_seq, anomaly_scores, true_labels, window_step, t
 
     fig, axs = plt.subplots(1, 2, figsize=(14, 6))
 
-    # Left plot: the true sequence
     axs[0].plot(true_seq, label='Original Sequence', color='blue')
     axs[0].set_title('Original Sequence', fontsize=14)
     axs[0].set_xlabel('Time', fontsize=14)
     axs[0].set_ylabel('Values', fontsize=14)
     axs[0].grid(True)
 
-    # Right plot: detection results
     axs[1].plot(true_seq, label='Original Sequence', color='blue')
     if len(true_pos) > 0:
         axs[1].scatter(true_pos, true_seq[true_pos], color='red', label='True Positives')

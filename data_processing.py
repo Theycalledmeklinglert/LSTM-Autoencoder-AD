@@ -26,8 +26,6 @@ def get_normalized_data_and_labels(file_pair, scaler, factor, remove_timestamps)
         if data is None:
             break
 
-        #print("here2:", single_file)
-
         print("here2:", data)
         print("here: " + str(data.shape))
 
@@ -258,6 +256,15 @@ def filter_df_by_start_and_end_time_of_activity_phase(directory, remove_time_col
 
     return control_acc_df, target_df_filtered
 
+def merge_steer_angle_command_and_steer_angle(control_acc_df, steer_angle_df):
+    control_acc_df = control_acc_df.reset_index(drop=True)
+    steer_angle_df = steer_angle_df.reset_index(drop=True)
+    steer_angle_df['steering_angle.data'] = control_acc_df['steering_angle.data']
+
+    print("ag", steer_angle_df.head)
+    steer_angle_df = steer_angle_df[['data', 'steering_angle.data', 'Anomaly']]
+
+    return steer_angle_df
 
 def csv_file_to_nparr(file_path, remove_timestamps, factor):
     print("Getting data from: " + str(file_path))
@@ -271,7 +278,12 @@ def csv_file_to_nparr(file_path, remove_timestamps, factor):
     print(dir_path)
     print(sensor_name)
 
-    _, df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, remove_timestamps, control_acc_filename="control-acceleration.csv", target_df_filename=sensor_name)
+    control_acc_df, df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, remove_timestamps, control_acc_filename="control-acceleration.csv", target_df_filename=sensor_name)
+
+    #df = merge_steer_angle_command_and_steer_angle(control_acc_df, df)  #todo: Only for encoder damage test
+
+    print("df: \n", df.head)
+    #print("target df: \n", control_acc_df.head)
 
     print("Before resetting index:")
     print(df)
@@ -299,7 +311,7 @@ def csv_file_to_nparr(file_path, remove_timestamps, factor):
     print(samples.shape)
     true_labels = np.zeros((df.shape[0], 1))
     for row_index, row in df.iterrows():
-        #print("going through row: " + str(row_index))
+        print("going through row: " + str(row_index))
         for col_index, column in enumerate(df.columns):
             if column == "Anomaly":
                 true_labels[row_index] = row[column].astype('int')  # 0 or 1; 1=anomaly

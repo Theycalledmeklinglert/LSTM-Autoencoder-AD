@@ -189,6 +189,34 @@ def add_flip_anomalies(dir_path, sensor_name, col_name, anomaly_percentage, outp
     print(f"File saved with injected anomalies to {output_file}")
 
 
+def add_noise_anomalies(dir_path, sensor_name, col_name, noise_percentage, noise_std,
+                        output_dir="./injectedAnomalyData/"):
+    full_df = clean_csv(dir_path + sensor_name, False)
+
+    _, cut_df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, False,
+                                                                  control_acc_filename="control-acceleration.csv",
+                                                                  target_df_filename=sensor_name)
+    valid_indices = cut_df.index.tolist()
+
+    num_noisy_points = int(len(valid_indices) * noise_percentage)
+    print(f"Number of points to add noise: {num_noisy_points}")
+
+    if len(valid_indices) < num_noisy_points:
+        raise ValueError(
+            f"Not enough valid points to insert {num_noisy_points} noise points in the cut dataframe range.")
+
+    selected_indices = random.sample(valid_indices, num_noisy_points)
+
+    for idx in selected_indices:
+        noise = np.random.normal(loc=0.0, scale=noise_std)
+        full_df.at[idx, col_name] = full_df.at[idx, col_name] + noise
+
+    full_df.loc[selected_indices, 'Anomaly'] = 1
+
+    output_file = os.path.join(output_dir, sensor_name)
+    full_df.to_csv(output_file, index=False)
+    print(f"File saved with injected noise to {output_file}")
+
 
 if __name__ == '__main__':
     src_dir = './injectedAnomalyData/insert normal data to be injected here/'
@@ -196,10 +224,10 @@ if __name__ == '__main__':
     col_name = 'data'
     injected_anoms_dir = './injectedAnomalyData/'
 
-    contextual_len = 300
+    contextual_len = 50
 
     #add_contextual_anomalies(src_dir, sensor_name, col_name, contextual_len, output_dir="./injectedAnomalyData/")
-    add_flip_anomalies(src_dir, sensor_name, col_name, 0.20, output_dir="./injectedAnomalyData/")
+    #add_flip_anomalies(src_dir, sensor_name, col_name, 0.20, output_dir="./injectedAnomalyData/")
 
     plot_normal_vs_injected_anomalies(src_dir, injected_anoms_dir, sensor_name)
 
