@@ -41,9 +41,9 @@ size_window = 50
 single_sensor_name = "can_interface-current_steering_angle.csv"
 #single_sensor_name = "control-acceleration.csv"
 
-#not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/autocross_valid2_17_23_44", "./aufnahmen/csv/autocross_cone_mitgenommen", "./aufnahmen/csv/anomalous data/anom_data_ac", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
+not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/autocross_valid2_17_23_44", "./aufnahmen/csv/autocross_cone_mitgenommen", "./aufnahmen/csv/anomalous data/anom_data_ac", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
 
-not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data/anom_data_skpd", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
+#not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data/anom_data_skpd", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
 # not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(
 #     size_window, True, window_step=step_window, scaler=scaler,
 #     directories=["./aufnahmen/csv/autocross_valid2_17_23_44", "./aufnahmen/csv/autocross_valid_run",
@@ -263,8 +263,8 @@ if __name__ == '__main__':
 
     #Load
     model = LSTMAutoEncoder(num_layers=num_layers, hidden_size=hidden_size, nb_feature=nb_feature, batch_size=batch_size, device=device)
-    #model.load_state_dict(torch.load('./models/AC torch_LSTM_windSz50_windStp3_numlay1_hidSize128_nbFeat1_batchSz2_can_interface-current_steering_angle.csv.pth'))
-    model.load_state_dict(torch.load('./models/SK torch_LSTM_windSz50_windStp3_numlay1_hidSize128_nbFeat1_batchSz2_can_interface-current_steering_angle.csv.pth'))
+    model.load_state_dict(torch.load('./models/AC torch_LSTM_windSz50_windStp3_numlay1_hidSize128_nbFeat1_batchSz2_can_interface-current_steering_angle.csv.pth'))
+    #model.load_state_dict(torch.load('./models/SK torch_LSTM_windSz50_windStp3_numlay1_hidSize128_nbFeat1_batchSz2_can_interface-current_steering_angle.csv.pth'))
     model = model.to(device)
 
 
@@ -373,7 +373,7 @@ if __name__ == '__main__':
 
 
 
-    #todo: For enocder damage:
+    #For enocder damage:
     # mean_error_steer = np.mean(error_vecs_val[:, 0])
     # std_dev = np.std(error_vecs_val[:, 0])
     # lower_threshhold = mean_error_steer - 3*std_dev

@@ -135,9 +135,9 @@ def plot_normal_vs_injected_anomalies(normalSource_path, injectAnom_path, sensor
     ax1 = axes[0]
     for i, col in enumerate(columns_to_plot):
         ax1.plot(normal_df.index, normal_df[col], color=colors[i])
-    ax1.set_title('Normal Data')
-    ax1.set_xlabel('Consecutive Measurements')
-    ax1.set_ylabel('Values')
+    ax1.set_title('Normal Data', fontsize=14)
+    ax1.set_xlabel('Consecutive Measurements', fontsize=14)
+    ax1.set_ylabel('Values', fontsize=14)
     #ax1.grid(True)
     ax2 = axes[1]
 
@@ -152,12 +152,13 @@ def plot_normal_vs_injected_anomalies(normalSource_path, injectAnom_path, sensor
                 if len(region) > 0:
                     ax2.axvspan(region[0], region[-1], color='red', alpha=0.3)
 
-    ax2.set_title('Injected Anomalies')
-    ax2.set_xlabel('Consecutive Measurements')
-    ax2.set_ylabel('Values')
+    #ax2.set_title('Injected Anomalies')
+    ax2.set_title('Noisy Data', fontsize=14)
+    ax2.set_xlabel('Consecutive Measurements', fontsize=14)
+    ax2.set_ylabel('Values', fontsize=14)
     #ax2.grid(True)
 
-    fig.suptitle(f'Comparison of Normal and Injected Anomalies for Steering Sensor')
+    #fig.suptitle(f'Comparison of Normal and Injected Anomalies for Steering Sensor')
     plt.tight_layout(rect=[0, 0, 1, 0.95])
     plt.savefig("./injectedAnomalyData/Normal_vs_anom_plot" + '.png')
     plt.show()
@@ -170,7 +171,7 @@ def add_flip_anomalies(dir_path, sensor_name, col_name, anomaly_percentage, outp
                                                                   control_acc_filename="control-acceleration.csv",
                                                                   target_df_filename=sensor_name)
 
-    valid_indices = cut_df[(cut_df[col_name] > 1.3) | (cut_df[col_name] < -1.3)]
+    valid_indices = cut_df[(cut_df[col_name] > 1.2) | (cut_df[col_name] < -1.2)]
     valid_indices = valid_indices[(valid_indices[col_name] >= -5) & (valid_indices[col_name] <= 5)].index.tolist()
 
     num_anomalies = int(len(valid_indices) * anomaly_percentage)
@@ -307,12 +308,11 @@ if __name__ == '__main__':
     col_name = 'data'
     injected_anoms_dir = './injectedAnomalyData/'
 
-    contextual_len = 50
+    #contextual_len = 50
 
     #add_contextual_anomalies(src_dir, sensor_name, col_name, contextual_len, output_dir="./injectedAnomalyData/")
     full_df = add_flip_anomalies(src_dir, sensor_name, col_name, 0.10, output_dir="./injectedAnomalyData/")
 
-    #todo: neuen DF MUSS IN BEI DIRS
 
     full_df = add_noise(full_df, src_dir, sensor_name, col_name, 1.0, 1.0)
     #full_df = add_spike_anomalies(full_df, src_dir, sensor_name, col_name, 0.01, 10, output_dir="./injectedAnomalyData/")

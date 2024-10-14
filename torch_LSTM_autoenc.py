@@ -14,38 +14,18 @@ class LSTMAutoEncoder(nn.Module):
     def forward(self, input_seq, step_window):
 
         output = torch.ones(size=input_seq.shape, dtype=torch.float)
-
-        #hidden_cell = self.encoder(input_seq)
-        #_, last_hidden = self.encoder(input_seq)   # todo: previous; WORKED
-
-        _, last_hidden = self.encoder(input_seq)   # todo: previous; WORKED
-
-
-        input_decoder = input_seq[:, -1, :].view(input_seq.shape[0], 1, input_seq.shape[2])     # todo: previous; WORKED #takes last timestamp of input seq and reshaped it into (batch_size, 1 (timestep), number_of_features)
-
+        _, last_hidden = self.encoder(input_seq)
+        input_decoder = input_seq[:, -1, :].view(input_seq.shape[0], 1, input_seq.shape[2])
         output = torch.ones(size=(input_seq.shape[0], step_window, input_seq.shape[2]), dtype=torch.float)
 
-        #for i in range(input_seq.shape[1] - 1, -1, -1):                                     #go through input seq backwards
-        for i in range(step_window - 1, -1, -1):     #go through input seq backwards        # todo: previous; WORKED
-
-            #output_decoder, hidden_cell = self.decoder(input_decoder, hidden_cell)  # hidden_cell[0] doesnt work
-
-            #output_decoder, last_hidden = self.decoder(input_decoder, last_hidden)  # hidden_cell[0] doesnt work
-            #input_decoder = output_decoder
-
+        for i in range(step_window - 1, -1, -1):
             output_decoder, last_hidden = self.decoder(input_decoder, last_hidden)  # hidden_cell[0] doesnt work
-
-            #output_decoder, _ = self.decoder(input_decoder, last_hidden)  # todo: previous; WORKED
-
-            input_decoder = output_decoder  # todo: previous; WORKED
-            #print(f"output_decoder_shape: {output_decoder.cpu().detach().numpy().shape}")  #(4, 1, 1)
-            output[:, i, :] = output_decoder[:, 0, :]       # likely selects the first (and only) time step from the decoder output for all batches and all features.
-            #output = output_decoder    # todo: previous; WORKED
+            input_decoder = output_decoder
+            output[:, i, :] = output_decoder[:, 0, :]
 
         #print(f"output_decoder_shape: {output_decoder.cpu().detach().numpy().shape}")
         #print(f"output var in loop: {output_decoder.cpu().detach().numpy().shape}")
 
-        #todo: TEST for only 1 timestep into future
 
         #return output
         #print(f"output_decoder_shape: {output_decoder.cpu().detach().numpy().shape}")

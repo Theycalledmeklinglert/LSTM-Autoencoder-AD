@@ -175,25 +175,7 @@ if __name__ == '__main__':
     p_val, should_diff = adf_test.should_diff(test[attr_1_col_name].to_numpy().flatten())
     print("For train data ---> p_val: " + str(p_val) + " should_diff: " + str(should_diff))
 
-    # if should_diff:
-    #todo:
-    # Doesnt work for ebs test steering motor encoder damage.bag
-    # Entweder vlt checken ob mean oder Varianz der Diffs übr oder unter irgendeinem Wert liegt
-    # ODER: Steering angle imemr multivariate zusammen mit steering_angle_data aus Controll acceleration predicted lassen
-    #     test[attr_1_col_name] = test[attr_1_col_name].diff().fillna(0)
-    #     print("Test was diffed as determined by ADF p_values > 0.05")
-    #     print(df2.head())
-    #     sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
-    #     plt.title('Diffed Test')
-    #     plt.show()
-    # else:
-    #     print("Test was NOT diffed as determined by ADF p_values < 0.05")
-    #     print(df2.head())
-    #     sns.lineplot(x=test['Time'], y=test[attr_1_col_name])
-    #     plt.title('Not Diffed Test')
-    #     plt.show()
 
-    # LSTM uses sigmoid and tanh that are sensitive to magnitude so data needs to be normalized
     # scaler = StandardScaler()           #todo: MaxAbsScaler() might be smart for large val ranges at end of the series'
     # scaler = MaxAbsScaler()
     # scaler = RobustScaler()
