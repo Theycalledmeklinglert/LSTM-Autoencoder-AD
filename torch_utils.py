@@ -108,10 +108,10 @@ def plot_time_series(data, title, lower_threshold=None, upper_threshold = None):
     # Plot each feature separately
     plt.figure(figsize=(10, 6))
 
-    # for i in range(num_features):
-    #     plt.plot(time_axis, data[:, i], label=f'Feature {i + 1}')
-    plt.plot(time_axis, data[:, 0], label=f'Steering Angle')
-    plt.plot(time_axis, data[:, 1], label=f'MCU Steering Command')
+    for i in range(num_features):
+        plt.plot(time_axis, data[:, i], label=f'Feature {i + 1}')
+    # plt.plot(time_axis, data[:, 0], label=f'Steering Angle')
+    # plt.plot(time_axis, data[:, 1], label=f'MCU Steering Command')
 
     if lower_threshold is not None:
         plt.axhline(y=lower_threshold, color='red', linestyle='--', label='Lower Threshold', linewidth=2)
@@ -178,14 +178,14 @@ def find_optimal_threshold(anomaly_scores, true_labels, beta):
     best_threshold = thresholds[best_index]
     best_fbeta = fbeta_scores[best_index]
 
-    plt.figure()
-    plt.plot(thresholds, precision[:-1], 'b-', label='Precision')
-    plt.plot(thresholds, recall[:-1], 'g-', label='Recall')
-    plt.xlabel('Threshold')
-    plt.ylabel('Precision/Recall')
-    plt.legend(loc='best')
-    plt.title('Precision-Recall Curve')
-    plt.show()
+    # plt.figure()
+    # plt.plot(thresholds, precision[:-1], 'b-', label='Precision')
+    # plt.plot(thresholds, recall[:-1], 'g-', label='Recall')
+    # plt.xlabel('Threshold')
+    # plt.ylabel('Precision/Recall')
+    # plt.legend(loc='best')
+    # plt.title('Precision-Recall Curve')
+    # plt.show()
 
     return best_threshold, best_fbeta
 
@@ -401,36 +401,36 @@ def plot_detection_results(true_seq, anomaly_scores, true_labels, window_step, t
     false_pos = []
     false_neg = []
     true_neg = []
-    #
-    # for idx in range(0, true_seq.shape[0] - 1, window_step):        #window_step +
-    #     window_scores = anomaly_scores[idx:idx + window_step]
-    #     window_labels = true_labels[idx:idx + window_step]
-    #
-    #     if np.any(window_scores >= threshold):
-    #         if np.any(window_labels == 1):
-    #             true_pos.extend(range(idx, idx + window_step))  # True positive
-    #         else:
-    #             false_pos.extend(range(idx, idx + window_step))  # False positive
-    #     else:
-    #         if np.any(window_labels == 1):
-    #             false_neg.extend(range(idx, idx + window_step))  # False negative
-    #         else:
-    #             true_neg.extend(range(idx, idx + window_step))  # True negative
 
-    for idx in range(len(anomaly_scores)):
-        score = anomaly_scores[idx]
-        label = true_labels[idx]
+    for idx in range(0, true_seq.shape[0] - 1, window_step):        #window_step +
+        window_scores = anomaly_scores[idx:idx + window_step]
+        window_labels = true_labels[idx:idx + window_step]
 
-        if score >= threshold:
-            if label == 1:  # True anomaly
-                true_pos.append(idx)  # True positive
+        if np.any(window_scores >= threshold):
+            if np.any(window_labels == 1):
+                true_pos.extend(range(idx, idx + window_step))  # True positive
             else:
-                false_pos.append(idx)  # False positive
+                false_pos.extend(range(idx, idx + window_step))  # False positive
         else:
-            if label == 1:  # True anomaly
-                false_neg.append(idx)  # False negative
+            if np.any(window_labels == 1):
+                false_neg.extend(range(idx, idx + window_step))  # False negative
             else:
-                true_neg.append(idx)  # True negative
+                true_neg.extend(range(idx, idx + window_step))  # True negative
+
+    # for idx in range(len(anomaly_scores)):
+    #     score = anomaly_scores[idx]
+    #     label = true_labels[idx]
+    #
+    #     if score >= threshold:
+    #         if label == 1:  # True anomaly
+    #             true_pos.append(idx)  # True positive
+    #         else:
+    #             false_pos.append(idx)  # False positive
+    #     else:
+    #         if label == 1:  # True anomaly
+    #             false_neg.append(idx)  # False negative
+    #         else:
+    #             true_neg.append(idx)  # True negative
 
     print(f"True Positives: {len(true_pos)}")
     print(f"False Positives: {len(false_pos)}")
@@ -453,6 +453,9 @@ def plot_detection_results(true_seq, anomaly_scores, true_labels, window_step, t
     axs[0].grid(True)
 
     axs[1].plot(true_seq, label='Original Sequence', color='blue')
+
+    if len(false_pos) > 0:
+        axs[1].scatter(false_pos, true_seq[false_pos], color='purple', label='False Positive')
     if len(true_pos) > 0:
         axs[1].scatter(true_pos, true_seq[true_pos], color='red', label='True Positives')
     if len(false_neg) > 0:

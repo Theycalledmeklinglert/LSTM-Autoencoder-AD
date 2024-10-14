@@ -170,7 +170,7 @@ def add_flip_anomalies(dir_path, sensor_name, col_name, anomaly_percentage, outp
                                                                   control_acc_filename="control-acceleration.csv",
                                                                   target_df_filename=sensor_name)
 
-    valid_indices = cut_df[(cut_df[col_name] > 1.5) | (cut_df[col_name] < -1.5)]
+    valid_indices = cut_df[(cut_df[col_name] > 1.3) | (cut_df[col_name] < -1.3)]
     valid_indices = valid_indices[(valid_indices[col_name] >= -5) & (valid_indices[col_name] <= 5)].index.tolist()
 
     num_anomalies = int(len(valid_indices) * anomaly_percentage)
@@ -184,14 +184,15 @@ def add_flip_anomalies(dir_path, sensor_name, col_name, anomaly_percentage, outp
 
     full_df.loc[selected_indices, 'Anomaly'] = 1
 
-    output_file = os.path.join(output_dir, sensor_name)
-    full_df.to_csv(output_file, index=False)
-    print(f"File saved with injected anomalies to {output_file}")
+    # output_file = os.path.join(output_dir, sensor_name)
+    # full_df.to_csv(output_file, index=False)
+    # print(f"File saved with injected anomalies to {output_file}")
+
+    return full_df
 
 
-def add_noise_anomalies(dir_path, sensor_name, col_name, noise_percentage, noise_std,
-                        output_dir="./injectedAnomalyData/"):
-    full_df = clean_csv(dir_path + sensor_name, False)
+def add_noise(full_df, dir_path, sensor_name, col_name, noise_percentage, noise_std, output_dir="./injectedAnomalyData/"):
+    #full_df = clean_csv(dir_path + sensor_name, False)
 
     _, cut_df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, False,
                                                                   control_acc_filename="control-acceleration.csv",
@@ -209,13 +210,95 @@ def add_noise_anomalies(dir_path, sensor_name, col_name, noise_percentage, noise
 
     for idx in selected_indices:
         noise = np.random.normal(loc=0.0, scale=noise_std)
+        #print("noise: ", noise)
+        #print("Without noise: ", full_df.at[idx, col_name])
+        #print("With noise: ", full_df.at[idx, col_name] + noise)
+
+
         full_df.at[idx, col_name] = full_df.at[idx, col_name] + noise
+
+    #full_df.loc[selected_indices, 'Anomaly'] = 1
+
+    # output_file = os.path.join(output_dir, sensor_name)
+    # full_df.to_csv(output_file, index=False)
+    # print(f"File saved with injected noise to {output_file}")
+
+    return full_df
+
+
+def add_spike_anomalies(full_df, dir_path, sensor_name, col_name, spike_percentage, spike_magnitude, output_dir="./injectedAnomalyData/"):
+    #full_df = clean_csv(dir_path + sensor_name, False)
+
+    _, cut_df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, False,
+                                                                  control_acc_filename="control-acceleration.csv",
+                                                                  target_df_filename=sensor_name)
+    valid_indices = cut_df.index.tolist()
+    num_spikes = int(len(valid_indices) * spike_percentage)
+    print(f"Number of points to add spikes: {num_spikes}")
+
+    if len(valid_indices) < num_spikes:
+        raise ValueError(
+            f"Not enough valid points to insert {num_spikes} spike points in the cut dataframe range.")
+
+    selected_indices = random.sample(valid_indices, num_spikes)
+
+    for idx in selected_indices:
+        spike = np.random.choice([spike_magnitude, -spike_magnitude])
+        #print("Spike: ", spike)
+        # print("Without spike: ", full_df.at[idx, col_name])
+        # print("With spike: ", full_df.at[idx, col_name] + spike)
+
+        full_df.at[idx, col_name] = full_df.at[idx, col_name] + spike
 
     full_df.loc[selected_indices, 'Anomaly'] = 1
 
-    output_file = os.path.join(output_dir, sensor_name)
-    full_df.to_csv(output_file, index=False)
-    print(f"File saved with injected noise to {output_file}")
+    # output_file = os.path.join(output_dir, sensor_name)
+    # full_df.to_csv(output_file, index=False)
+    # print(f"File saved with injected spikes to {output_file}")
+
+    return full_df
+
+
+def add_local_outlier(full_df, dir_path, sensor_name, col_name, pattern_percentage, pattern_magnitude, output_dir="./injectedAnomalyData/"):
+    #full_df = clean_csv(dir_path + sensor_name, False)
+
+    _, cut_df = filter_df_by_start_and_end_time_of_activity_phase(dir_path, False,
+                                                                  control_acc_filename="control-acceleration.csv",
+                                                                  target_df_filename=sensor_name)
+    valid_indices = cut_df.index.tolist()
+
+    num_outliers = int(len(valid_indices) * pattern_percentage)
+    print(f"Number of points to add local outliers: {num_outliers}")
+
+    if len(valid_indices) < num_outliers:
+        raise ValueError(
+            f"Not enough valid points to insert {num_outliers} local outliers in cut dataframe range.")
+
+    selected_indices = random.sample(valid_indices, num_outliers)
+
+    for idx in selected_indices:
+        prev_value = full_df.at[idx - 1, col_name] if idx > 0 else full_df.at[idx, col_name]
+        next_value = full_df.at[idx + 1, col_name] if idx < len(full_df) - 1 else full_df.at[idx, col_name]
+
+        operation = random.choice([-1, 1])
+
+        if prev_value > 0:
+            violation = ((prev_value + next_value) / 2) + (operation * pattern_magnitude)
+        else:
+            violation = ((prev_value + next_value) / 2) + (operation * pattern_magnitude)
+        #print("Local outlier: ", violation)
+        # print("Original value: ", full_df.at[idx, col_name])
+        # print("With outlier added: ", violation)
+
+        full_df.at[idx, col_name] = violation
+
+    full_df.loc[selected_indices, 'Anomaly'] = 1
+
+    return full_df
+
+    # output_file = os.path.join(output_dir, sensor_name)
+    # full_df.to_csv(output_file, index=False)
+    # print(f"File saved with injected local outliers to {output_file}")
 
 
 if __name__ == '__main__':
@@ -227,8 +310,17 @@ if __name__ == '__main__':
     contextual_len = 50
 
     #add_contextual_anomalies(src_dir, sensor_name, col_name, contextual_len, output_dir="./injectedAnomalyData/")
-    #add_flip_anomalies(src_dir, sensor_name, col_name, 0.20, output_dir="./injectedAnomalyData/")
+    full_df = add_flip_anomalies(src_dir, sensor_name, col_name, 0.10, output_dir="./injectedAnomalyData/")
+
+    #todo: neuen DF MUSS IN BEI DIRS
+
+    full_df = add_noise(full_df, src_dir, sensor_name, col_name, 1.0, 1.0)
+    #full_df = add_spike_anomalies(full_df, src_dir, sensor_name, col_name, 0.01, 10, output_dir="./injectedAnomalyData/")
+    #full_df = add_local_outlier(full_df, src_dir, sensor_name, col_name, 0.01, 7, output_dir="./injectedAnomalyData/")
+    output_file = os.path.join(injected_anoms_dir, sensor_name)
+    full_df.to_csv(output_file, index=False)
+    print(f"File saved with injected local outliers to {output_file}")
 
     plot_normal_vs_injected_anomalies(src_dir, injected_anoms_dir, sensor_name)
 
-        #todo: Kanns doch über Torch Main machen; Index wird nicht abeschnitten; muss nur original index in Anom Injec nehmen
+

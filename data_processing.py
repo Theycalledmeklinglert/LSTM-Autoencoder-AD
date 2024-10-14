@@ -35,7 +35,7 @@ def get_normalized_data_and_labels(file_pair, scaler, factor, remove_timestamps)
 
         print("here3: " + str(data))
 
-        plot_data_integrated(data, "Unscaled" + single_file, not remove_timestamps)
+        #plot_data_integrated(data, "Unscaled" + single_file, not remove_timestamps)
         print("unnormalized_data_with_time_diffs: \n" + str(data))
         normalized_data = normalize_data(data, scaler)
         #plot_data_integrated(normalized_data, "Scaled" + single_file, not remove_timestamps)
@@ -311,7 +311,7 @@ def csv_file_to_nparr(file_path, remove_timestamps, factor):
     print(samples.shape)
     true_labels = np.zeros((df.shape[0], 1))
     for row_index, row in df.iterrows():
-        print("going through row: " + str(row_index))
+        #print("going through row: " + str(row_index))
         for col_index, column in enumerate(df.columns):
             if column == "Anomaly":
                 true_labels[row_index] = row[column].astype('int')  # 0 or 1; 1=anomaly

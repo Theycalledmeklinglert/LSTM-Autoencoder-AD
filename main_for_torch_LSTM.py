@@ -41,18 +41,19 @@ size_window = 50
 single_sensor_name = "can_interface-current_steering_angle.csv"
 #single_sensor_name = "control-acceleration.csv"
 
+#not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/autocross_valid2_17_23_44", "./aufnahmen/csv/autocross_cone_mitgenommen", "./aufnahmen/csv/anomalous data/anom_data_ac", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
 
-#not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
+not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data/anom_data_skpd", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
 # not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(
 #     size_window, True, window_step=step_window, scaler=scaler,
 #     directories=["./aufnahmen/csv/autocross_valid2_17_23_44", "./aufnahmen/csv/autocross_valid_run",
 #                  "./aufnahmen/csv/anomalous data", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
 
-not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(
-    size_window, True, window_step=step_window, scaler=scaler,
-    directories=["./aufnahmen/csv/encoder damage detection combined csvs/train", "./aufnahmen/csv/encoder damage detection combined csvs/valid",
-                 "./aufnahmen/csv/encoder damage detection combined csvs/valid anom", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
-
+# not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(
+#     size_window, True, window_step=step_window, scaler=scaler,
+#     directories=["./aufnahmen/csv/encoder damage detection combined csvs/train", "./aufnahmen/csv/encoder damage detection combined csvs/valid",
+#                  "./aufnahmen/csv/encoder damage detection combined csvs/valid anom", "./injectedAnomalyData"], single_sensor_name=single_sensor_name)
+#
 
 #not_shifted_data_winds, shifted_data_winds, not_shifted_true_winds, shifted_true_winds = get_data_as_shifted_batches_seqs(size_window, True, window_step=step_window, scaler=scaler, directories=["./aufnahmen/csv/skidpad_valid_fast2_17_47_28", "./aufnahmen/csv/skidpad_valid_fast3_17_58_41", "./aufnahmen/csv/anomalous data", "./aufnahmen/csv/test data/skidpad_falscher_lenkungsoffset"], single_sensor_name=single_sensor_name)
 
@@ -101,7 +102,7 @@ size_data, nb_feature = not_shifted_data_winds[0][0].shape
 # seq_length, size_data, nb_feature = train_seq.data.shape
 # print('train_seq shape:', train_seq.shape)
 
-batch_size = 2  #todo: batch_size 4 worked fairly well; batch_size 8 actually quite well + MinMaxScaler for steering angle
+batch_size = 2
 
 train_loader = DataLoader(train_seq, batch_size=batch_size, shuffle=False)  # shuffle needs to be off;
 true_train_loader = DataLoader(train_true_seq, batch_size=batch_size, shuffle=False)
@@ -127,13 +128,6 @@ earlyStopping = EarlyStopping(patience=10)
 
 train_losses, valid_losses = [], []
 times = []
-
-
-#criterion = torch.nn.MSELoss()
-
-#def sum_squared_error(y_pred, y_true):
-# def criterion(y_pred, y_true):          #todo: CHANGGEEEEEEEEEDDDDDDD
-#     return torch.sum((y_pred - y_true) ** 2)
 
 
 pdist = torch.nn.PairwiseDistance(p=2)
@@ -242,8 +236,6 @@ def predict(loader, true_loader, input_data):  #, model)
 
 def plot_train_time(times):
     epochs = range(1, len(train_losses) + 1)
-
-    # Plot Training Time
     plt.figure(figsize=(10, 6))
     plt.plot(epochs, times, label='Training Time per Epoch', color='green')
     plt.xlabel('Epoch')
@@ -254,7 +246,7 @@ def plot_train_time(times):
 
 
 if __name__ == '__main__':
-    # for epoch in range(1, 70):  #todo: changed from 100 to 20 to test
+    # for epoch in range(1, 70):
     #     train(epoch)
     #     if evaluate(valid_loader, true_valid_loader, validation=True, epoch=epoch):
     #         break
@@ -262,20 +254,23 @@ if __name__ == '__main__':
     #     if earlyStopping.patience_count == 7:
     #         print('lr on plateau ', optimizer.param_groups[0]['lr'], ' -> ', optimizer.param_groups[0]['lr'] / 10)
     #         optimizer.param_groups[0]['lr'] = optimizer.param_groups[0]['lr'] / 10
-    # torch.save(model.state_dict(),
-    #            "./models/torch_LSTM_" + "windSz" + str(size_window) + "_windStp" + str(step_window) + "_numlay" + str(
+    # torch.save(model.state_dict(), "./models/torch_LSTM_" + "windSz" + str(size_window) + "_windStp" + str(step_window) + "_numlay" + str(
     #                num_layers) + "_hidSize" + str(hidden_size) + "_nbFeat" + str(nb_feature) + "_batchSz" + str(
     #                batch_size) + "_" + single_sensor_name + ".pth")
     # plot_loss_over_epochs(train_losses, valid_losses)
     # plot_train_time(times)
+
+
     #Load
     model = LSTMAutoEncoder(num_layers=num_layers, hidden_size=hidden_size, nb_feature=nb_feature, batch_size=batch_size, device=device)
-    model.load_state_dict(torch.load('./models/encoder damage trained torch_LSTM_windSz50_windStp3_numlay1_hidSize128_nbFeat2_batchSz2_can_interface-current_steering_angle.csv.pth'))
+    #model.load_state_dict(torch.load('./models/AC torch_LSTM_windSz50_windStp3_numlay1_hidSize128_nbFeat1_batchSz2_can_interface-current_steering_angle.csv.pth'))
+    model.load_state_dict(torch.load('./models/SK torch_LSTM_windSz50_windStp3_numlay1_hidSize128_nbFeat1_batchSz2_can_interface-current_steering_angle.csv.pth'))
     model = model.to(device)
+
+
+
+
     model.eval()
-
-    #todo: changes train all "xxxx_seq" to "xxxx_true_seq
-
     predictions_train = predict(train_loader, true_train_loader, train_true_seq)  #, model)
     print('shape of predictions: ', predictions_train.shape)
     #print('predictions: \n' + str(predictions_train))
@@ -289,15 +284,11 @@ if __name__ == '__main__':
     print('numpy shape of predictions: ', predictions_train_numpy.shape)
     print('Reverse scaled numpy predictions: \n' + str(predictions_train_numpy))
 
-    plot_time_series(predictions_train_numpy, "Predicted time series for training data")
-
     predictions_anom = predict(anomaly_loader, true_anomaly_loader, anomaly_true_seq)  #, model)
     predictions_anom_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_anom, scaler)
-    plot_time_series(predictions_anom_numpy, "Predicted time series for X_VA")
 
     predictions_val = predict(valid_loader, true_valid_loader, valid_true_seq)  # , model)
     predictions_val_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_val, scaler)
-    plot_time_series(predictions_val_numpy, "Predicted time series for validation data")
 
     print('Original shape of predictions before reshape: ', predictions_anom.shape)
     print('numpy shape of predictions after reshape: ', predictions_anom_numpy.shape)
@@ -342,14 +333,6 @@ if __name__ == '__main__':
     valid_true_seq_true_labels_numpy = batched_tensor_to_numpy_and_invert_scaling(valid_true_seq_true_labels, None)
     val_anomaly_scores = compute_anomaly_score(error_vecs_val, mu, sigma)
 
-    plot_anomaly_scores_over_threshold(val_anomaly_scores, valid_true_seq_true_labels_numpy, best_anomaly_threshold,
-                                       "Anom scores X_VN")
-
-    plot_anomaly_scores_over_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, best_anomaly_threshold,
-                                       "Anom scores X_VA")
-
-    plot_detection_results(anomaly_true_seq_numpy, anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, step_window, best_anomaly_threshold, "Steering angle")
-
     predictions_test = predict(test_loader, true_test_loader, x_T_true_seq)
     predictions_test_numpy = batched_tensor_to_numpy_and_invert_scaling(predictions_test, scaler)
     plot_time_series(predictions_test_numpy, "Predicted time Series for: X_tN")
@@ -359,18 +342,30 @@ if __name__ == '__main__':
     test_anomaly_scores = compute_anomaly_score(test_error_vecs_anom, mu, sigma)
     test_true_seq_true_labels_numpy = batched_tensor_to_numpy_and_invert_scaling(x_T_true_seq_true_labels, None)
 
+    #plot_time_series(predictions_train_numpy, "Predicted time series for training data")
+    #plot_time_series(predictions_anom_numpy, "Predicted time series for X_VA")
+    #plot_time_series(predictions_val_numpy, "Predicted time series for validation data")
 
-    plot_anomaly_scores_over_threshold(test_anomaly_scores, test_true_seq_true_labels_numpy, best_anomaly_threshold,
-                                       "Anomaly scores X_tN")
+
+    #plot_anomaly_scores_over_threshold(val_anomaly_scores, valid_true_seq_true_labels_numpy, best_anomaly_threshold,"Anom scores X_VN")
+
+    #plot_anomaly_scores_over_threshold(anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, best_anomaly_threshold,"Anom scores X_VA")
+
+    #plot_detection_results(anomaly_true_seq_numpy, anom_anomaly_scores, anomaly_true_seq_true_labels_numpy, step_window, best_anomaly_threshold, "Steering angle")
+
+    #plot_anomaly_scores_over_threshold(test_anomaly_scores, test_true_seq_true_labels_numpy, best_anomaly_threshold,"Anomaly scores X_tN")
 
 
-    plot_time_series(error_vecs_train, "Prediction error for Training data")
+    #plot_time_series(error_vecs_train, "Prediction error for Training data")
 
-    plot_time_series(error_vecs_anom, "Prediction error for Normal data")
+    #plot_time_series(error_vecs_anom, "Prediction error for Normal data")
 
-    plot_time_series(error_vecs_val, "Prediction error for Normal data")
+    #plot_time_series(error_vecs_val, "Prediction error for Normal data")
 
-    plot_time_series(test_error_vecs_anom, "Prediction error for Encoder damage")
+    #plot_time_series(test_error_vecs_anom, "Prediction error for Encoder damage")
+
+    plot_detection_results(valid_true_seq_numpy, val_anomaly_scores, valid_true_seq_true_labels_numpy, step_window,
+                           best_anomaly_threshold, "")
 
     plot_detection_results(test_true_seq_numpy, test_anomaly_scores, test_true_seq_true_labels_numpy, step_window,
                            best_anomaly_threshold, "")
