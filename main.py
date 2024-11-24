@@ -39,7 +39,7 @@ if __name__ == '__main__':
     #plot_data_standalone(["./aufnahmen/csv/skidpad_valid_fast3_17_58_41/", "./aufnahmen/csv/autocross_valid_run/"], "control-acceleration.csv", sameSensorInOneFolder=False)
     #plot_data_standalone(["./aufnahmen/csv/autocross_valid_16_05_23/", "./aufnahmen/csv/skidpad_valid_run/"], "control-acceleration.csv", sameSensorInOneFolder=False)
 
-    #plot_data_standalone(["./aufnahmen/csv/nur steering angle skidpad/"], "can_interface-current_steering_angle.csv", sameSensorInOneFolder=True)
+    plot_data_standalone(["./aufnahmen/csv/nur steering angle skidpad/"], "can_interface-current_steering_angle.csv", sameSensorInOneFolder=True)
     #plot_data_standalone(["./aufnahmen/csv/nur steering angle autocross/"], "can_interface-current_steering_angle.csv", sameSensorInOneFolder=True)
 
 
@@ -84,7 +84,7 @@ if __name__ == '__main__':
 
     #print_unique_values(df, "status")
 
-    read_file_from_bagpy_to_csv("./aufnahmen/tmp/autocross_cone_mitgenommen.bag")
+    #read_file_from_bagpy_to_csv("./aufnahmen/tmp/autocross_cone_mitgenommen.bag")
     #read_file_from_bagpy_to_csv("./aufnahmen/error_zusammenstellung/error_zusammenstellung/autocross_unbekannter_kommunikationsfehler.bag")
 
 
